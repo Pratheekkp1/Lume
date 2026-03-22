@@ -1,14 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Topbar from './components/layout/Topbar'
 import Sidebar from './components/layout/Sidebar'
+import Dashboard from './pages/Dashboard'
+import Events from './pages/Events'
+import EventView from './pages/EventView'
 import PhotoCollections from './pages/PhotoCollections'
-
-// Placeholder pages for now
-const Placeholder = ({ title }) => (
-  <div className="min-h-screen bg-amber-50 flex items-center justify-center">
-    <h1 className="text-3xl font-serif text-amber-900">{title} — coming soon</h1>
-  </div>
-)
+import CollectionView from './pages/CollectionView'
+import Posts from './pages/Posts'
+import PostView from './pages/PostView'
+import AllAudio from './pages/AllAudio'
+import AudioProjectView from './pages/AudioProjectView'
+import Settings from './pages/Settings'
 
 export default function App() {
   return (
@@ -19,12 +21,17 @@ export default function App() {
           <Sidebar />
           <main className="flex-1 overflow-y-auto">
             <Routes>
-              <Route path="/" element={<Navigate to="/photos" />} />
-              <Route path="/dashboard" element={<Placeholder title="Dashboard" />} />
+              <Route path="/" element={<Navigate to="/dashboard" />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/events" element={<Events />} />
+              <Route path="/events/:eventId" element={<EventView />} />
               <Route path="/photos" element={<PhotoCollections />} />
-              <Route path="/photos/:collectionId" element={<Placeholder title="Collection" />} />
-              <Route path="/video" element={<Placeholder title="Video Projects" />} />
-              <Route path="/audio" element={<Placeholder title="Music / Audio" />} />
+              <Route path="/photos/:collectionId" element={<CollectionView />} />
+              <Route path="/posts" element={<Posts />} />
+              <Route path="/posts/:postId" element={<PostView />} />
+              <Route path="/audio" element={<AllAudio />} />
+              <Route path="/audio/:projectId" element={<AudioProjectView />} />
+              <Route path="/settings" element={<Settings />} />
             </Routes>
           </main>
         </div>

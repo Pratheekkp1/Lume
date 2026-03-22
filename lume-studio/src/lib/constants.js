@@ -6,9 +6,19 @@ export const STATUSES = {
   delivered:  { label: 'Delivered',  color: '#8aaa8a' },
 }
 
-export const NAV_ITEMS = [
-  { label: 'Dashboard',       path: '/dashboard', icon: '⌂' },
-  { label: 'Photos',          path: '/photos',    icon: '◻' },
-  { label: 'Video Projects',  path: '/video',     icon: '▷' },
-  { label: 'Music / Audio',   path: '/audio',     icon: '♩' },
-]
+export const POST_STATUSES = {
+  idea:        { label: 'Idea',        color: '#b0a090' },
+  in_progress: { label: 'In Progress', color: '#c8a06a' },
+  ready:       { label: 'Ready',       color: '#7a9aaa' },
+  published:   { label: 'Published',   color: '#8aaa8a' },
+}
+
+export const AUDIO_STATUSES = {
+  idea:        { label: 'Idea',        color: '#b0a090' },
+  in_progress: { label: 'In Progress', color: '#c8a06a' },
+  done:        { label: 'Done',        color: '#8aaa8a' },
+}
+
+export const POST_TYPES = ['Montage', 'Edit', 'Photo Dump', 'Reel', 'Story']
+
+export const PLATFORMS = ['Instagram', 'TikTok', 'YouTube', 'Twitter/X', 'Facebook']
