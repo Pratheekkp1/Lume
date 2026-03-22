@@ -66,6 +66,7 @@ export default function CollectionView() {
   // Categories
   const [allCategories, setAllCategories] = useState([]);
   const [showCategoryPanel, setShowCategoryPanel] = useState(false);
+  const [linkedPosts, setLinkedPosts] = useState([]);
 
   useEffect(() => {
     recordOpen('collection', collectionId);
@@ -134,18 +135,28 @@ export default function CollectionView() {
     }
   }
 
+  async function fetchLinkedPosts(photoId) {
+    const { data } = await supabase
+      .from("post_linked_photos")
+      .select("post:posts(id, title)")
+      .eq("photo_id", photoId);
+    setLinkedPosts((data || []).map(d => d.post).filter(Boolean));
+  }
+
   function openPhoto(photo) {
     setSelectedPhoto(photo);
     setNotes(photo.notes || "");
     setConfirmDelete(false);
     setRenaming(false);
     setCoverError(false);
+    fetchLinkedPosts(photo.id);
   }
 
   function closeDetail() {
     setSelectedPhoto(null);
     setNotes("");
     setRenaming(false);
+    setLinkedPosts([]);
   }
 
   async function saveNotes() {
@@ -265,10 +276,10 @@ export default function CollectionView() {
       <div className="flex items-end justify-between mb-5">
         <div>
           <button
-            onClick={() => navigate("/photos")}
+            onClick={() => navigate("/collections")}
             className="text-xs text-stone-400 hover:text-stone-600 mb-2 flex items-center gap-1 transition-colors"
           >
-            ← Photo Collections
+            ← All Collections
           </button>
           <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Collection</p>
           <h1 className="font-serif text-3xl text-stone-800">{collection?.name || "..."}</h1>
@@ -616,6 +627,25 @@ export default function CollectionView() {
                   </div>
                 )}
               </div>
+
+              {/* Used in Posts */}
+              {linkedPosts.length > 0 && (
+                <div>
+                  <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Used in Posts</label>
+                  <div className="flex flex-col gap-1">
+                    {linkedPosts.map(post => (
+                      <button
+                        key={post.id}
+                        onClick={() => navigate(`/posts/${post.id}`)}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-stone-600 hover:bg-stone-50 transition-colors text-left"
+                      >
+                        <span className="w-4 text-center text-stone-300">▷</span>
+                        <span className="truncate">{post.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
             </div>
           </div>

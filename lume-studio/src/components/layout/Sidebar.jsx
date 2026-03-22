@@ -4,22 +4,21 @@ import { supabase } from '../../lib/supabase'
 
 export default function Sidebar() {
   const navigate = useNavigate()
-  const [events, setEvents] = useState([])
+  const [collections, setCollections] = useState([])
 
   useEffect(() => {
-    fetchEvents()
-    // Re-fetch when an event is created/renamed elsewhere
-    window.addEventListener('lume-events-updated', fetchEvents)
-    return () => window.removeEventListener('lume-events-updated', fetchEvents)
+    fetchCollections()
+    window.addEventListener('lume-collections-updated', fetchCollections)
+    return () => window.removeEventListener('lume-collections-updated', fetchCollections)
   }, [])
 
-  async function fetchEvents() {
+  async function fetchCollections() {
     const { data } = await supabase
-      .from('events')
+      .from('collections')
       .select('id, name')
       .order('created_at', { ascending: false })
       .limit(20)
-    setEvents(data || [])
+    setCollections(data || [])
   }
 
   return (
@@ -41,26 +40,26 @@ export default function Sidebar() {
         </NavLink>
       </div>
 
-      {/* Events */}
+      {/* Collections */}
       <div className="mb-4">
         <div className="flex items-center justify-between px-4 mb-1">
-          <p className="text-[10px] tracking-widest uppercase text-stone-400">Events</p>
+          <p className="text-[10px] tracking-widest uppercase text-stone-400">Collections</p>
           <button
-            onClick={() => navigate('/events')}
+            onClick={() => navigate('/collections')}
             className="text-[10px] tracking-widest uppercase text-stone-400 hover:text-amber-700 transition-colors"
-            title="All events"
+            title="All collections"
           >
             All
           </button>
         </div>
 
-        {events.length === 0 ? (
-          <p className="text-xs text-stone-400 px-4 py-1 italic">No events yet</p>
+        {collections.length === 0 ? (
+          <p className="text-xs text-stone-400 px-4 py-1 italic">No collections yet</p>
         ) : (
-          events.map(ev => (
+          collections.map(col => (
             <NavLink
-              key={ev.id}
-              to={`/events/${ev.id}`}
+              key={col.id}
+              to={`/collections/${col.id}`}
               className={({ isActive }) =>
                 `flex items-center gap-2 px-4 py-1.5 text-sm border-l-2 transition-all truncate
                 ${isActive
@@ -69,18 +68,18 @@ export default function Sidebar() {
                 }`
               }
             >
-              <span className="w-3 h-3 rounded-sm bg-stone-300 flex-shrink-0 text-[7px] flex items-center justify-center text-white">◈</span>
-              <span className="truncate">{ev.name}</span>
+              <span className="w-3 h-3 rounded-sm bg-stone-300 flex-shrink-0 text-[7px] flex items-center justify-center text-white">◻</span>
+              <span className="truncate">{col.name}</span>
             </NavLink>
           ))
         )}
 
         <button
-          onClick={() => navigate('/events')}
+          onClick={() => navigate('/collections')}
           className="flex items-center gap-2 px-4 py-1.5 text-xs text-stone-400 hover:text-amber-700 transition-colors w-full text-left"
         >
           <span className="w-3 text-center">+</span>
-          New event
+          New collection
         </button>
       </div>
 
@@ -89,7 +88,6 @@ export default function Sidebar() {
         <p className="text-[10px] tracking-widest uppercase text-stone-400 px-4 mb-1">Library</p>
 
         {[
-          { label: 'All Photos', path: '/photos',    icon: '◻' },
           { label: 'All Posts',  path: '/posts',     icon: '▷' },
           { label: 'All Audio',  path: '/audio',     icon: '♩' },
         ].map(item => (

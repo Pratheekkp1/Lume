@@ -2,8 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Topbar from './components/layout/Topbar'
 import Sidebar from './components/layout/Sidebar'
 import Dashboard from './pages/Dashboard'
-import Events from './pages/Events'
-import EventView from './pages/EventView'
 import PhotoCollections from './pages/PhotoCollections'
 import CollectionView from './pages/CollectionView'
 import Posts from './pages/Posts'
@@ -23,10 +21,8 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" />} />
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/events" element={<Events />} />
-              <Route path="/events/:eventId" element={<EventView />} />
-              <Route path="/photos" element={<PhotoCollections />} />
-              <Route path="/photos/:collectionId" element={<CollectionView />} />
+              <Route path="/collections" element={<PhotoCollections />} />
+              <Route path="/collections/:collectionId" element={<CollectionView />} />
               <Route path="/posts" element={<Posts />} />
               <Route path="/posts/:postId" element={<PostView />} />
               <Route path="/audio" element={<AllAudio />} />

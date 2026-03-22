@@ -16,14 +16,14 @@ export default function Posts() {
   async function fetchPosts() {
     const { data } = await supabase
       .from('posts')
-      .select('id, title, type, status, platform, created_at, event_id, events(name), post_categories(category:categories(id,name,color))')
+      .select('id, title, type, status, platform, created_at, post_categories(category:categories(id,name,color))')
       .order('created_at', { ascending: false })
     setPosts(data || [])
     setLoading(false)
   }
 
   async function handleCreate(fields) {
-    const { data, error } = await supabase.from('posts').insert(fields).select('id, title, type, status, platform, created_at, event_id').single()
+    const { data, error } = await supabase.from('posts').insert(fields).select('id, title, type, status, platform, created_at').single()
     if (!error && data) {
       setPosts(prev => [data, ...prev])
       setShowCreate(false)
@@ -140,15 +140,9 @@ function PostCard({ post, onClick, onDelete }) {
 
       <p className="text-sm font-medium text-stone-700 truncate mb-0.5">{post.title}</p>
 
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {post.type && <span className="text-xs text-stone-400">{post.type}</span>}
-        {post.events?.name && (
-          <>
-            {post.type && <span className="text-stone-200 text-xs">·</span>}
-            <span className="text-xs text-stone-400 truncate">{post.events.name}</span>
-          </>
-        )}
-      </div>
+      {post.type && (
+        <p className="text-xs text-stone-400">{post.type}</p>
+      )}
 
       {cats.length > 0 && (
         <div className="flex gap-1 mt-2">

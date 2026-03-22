@@ -14,13 +14,11 @@ export default function Dashboard() {
 
   async function fetchAll() {
     const recentOpens = getRecentOpens().slice(0, 10)
-    const eventIds      = recentOpens.filter(r => r.type === 'event').map(r => r.id)
     const collectionIds = recentOpens.filter(r => r.type === 'collection').map(r => r.id)
     const postIds       = recentOpens.filter(r => r.type === 'post').map(r => r.id)
     const audioIds      = recentOpens.filter(r => r.type === 'audio').map(r => r.id)
 
     const queries = [
-      supabase.from('events').select('*', { count: 'exact', head: true }),
       supabase.from('collections').select('*', { count: 'exact', head: true }),
       supabase.from('photos').select('*', { count: 'exact', head: true }),
       supabase.from('posts').select('*', { count: 'exact', head: true }),
@@ -32,9 +30,6 @@ export default function Dashboard() {
 
     if (recentOpens.length > 0) {
       queries.push(
-        eventIds.length > 0
-          ? supabase.from('events').select('id, name, created_at').in('id', eventIds)
-          : Promise.resolve({ data: [] }),
         collectionIds.length > 0
           ? supabase.from('collections').select('id, name, created_at, status, photos!collection_id(file_size)').in('id', collectionIds)
           : Promise.resolve({ data: [] }),
@@ -47,7 +42,6 @@ export default function Dashboard() {
       )
     } else {
       queries.push(
-        supabase.from('events').select('id, name, created_at').order('created_at', { ascending: false }).limit(3),
         supabase.from('collections').select('id, name, created_at, status, photos!collection_id(file_size)').order('created_at', { ascending: false }).limit(3),
         supabase.from('posts').select('id, title, status, created_at').order('created_at', { ascending: false }).limit(3),
         supabase.from('audio_projects').select('id, name, created_at, status, audio_tracks(file_size)').order('created_at', { ascending: false }).limit(3),
@@ -55,7 +49,6 @@ export default function Dashboard() {
     }
 
     const [
-      { count: eventCount },
       { count: collectionCount },
       { count: photoCount },
       { count: postCount },
@@ -63,14 +56,12 @@ export default function Dashboard() {
       { count: trackCount },
       { data: photoSizes },
       { data: trackSizes },
-      { data: fetchedEvents },
       { data: fetchedCollections },
       { data: fetchedPosts },
       { data: fetchedAudio },
     ] = await Promise.all(queries)
 
     setStats({
-      events: eventCount || 0,
       collections: collectionCount || 0,
       photos: photoCount || 0,
       posts: postCount || 0,
@@ -86,11 +77,8 @@ export default function Dashboard() {
     const sumSizes = (rows) => (rows || []).reduce((s, r) => s + (r.file_size || 0), 0)
     const byId = {}
 
-    ;(fetchedEvents || []).forEach(r => {
-      byId[`event-${r.id}`] = { ...r, type: 'event', name: r.name, path: `/events/${r.id}` }
-    })
     ;(fetchedCollections || []).forEach(r => {
-      byId[`collection-${r.id}`] = { ...r, type: 'collection', path: `/photos/${r.id}`, totalSize: sumSizes(r.photos) }
+      byId[`collection-${r.id}`] = { ...r, type: 'collection', path: `/collections/${r.id}`, totalSize: sumSizes(r.photos) }
     })
     ;(fetchedPosts || []).forEach(r => {
       byId[`post-${r.id}`] = { ...r, type: 'post', name: r.title, path: `/posts/${r.id}` }
@@ -116,10 +104,9 @@ export default function Dashboard() {
   }
 
   const TYPE_META = {
-    event:      { label: 'Event',            icon: '◈', color: '#a8a29e' },
-    collection: { label: 'Photo Collection', icon: '◻', color: '#a8a29e' },
-    post:       { label: 'Post',             icon: '▷', color: '#a8a29e' },
-    audio:      { label: 'Audio Project',    icon: '♩', color: '#a8a29e' },
+    collection: { label: 'Collection',    icon: '◻', color: '#a8a29e' },
+    post:       { label: 'Post',           icon: '▷', color: '#a8a29e' },
+    audio:      { label: 'Audio Project',  icon: '♩', color: '#a8a29e' },
   }
 
   const totalStorage = storageBytes.photos + storageBytes.audio
@@ -139,13 +126,13 @@ export default function Dashboard() {
           {/* Stat cards */}
           <div className="grid grid-cols-3 gap-4 mb-8">
             <StatCard
-              label="Events"
-              icon="◈"
-              primary={stats.events}
-              primaryWord="event"
-              secondary={stats.collections}
-              secondaryWord="collection"
-              onClick={() => navigate('/events')}
+              label="Collections"
+              icon="◻"
+              primary={stats.collections}
+              primaryWord="collection"
+              secondary={stats.photos}
+              secondaryWord="photo"
+              onClick={() => navigate('/collections')}
             />
             <StatCard
               label="Posts"
@@ -199,9 +186,9 @@ export default function Dashboard() {
           <div className="mb-8">
             <p className="text-xs tracking-widest uppercase text-stone-400 mb-4">Quick Access</p>
             <div className="grid grid-cols-3 gap-3">
-              <ShortcutCard icon="◈" label="Events"      sub="Browse all events"       onClick={() => navigate('/events')} />
-              <ShortcutCard icon="◻" label="All Photos"  sub="Browse collections"      onClick={() => navigate('/photos')} />
+              <ShortcutCard icon="◻" label="Collections" sub="Browse all collections" onClick={() => navigate('/collections')} />
               <ShortcutCard icon="▷" label="All Posts"   sub="Browse & manage content" onClick={() => navigate('/posts')} />
+              <ShortcutCard icon="♩" label="All Audio"   sub="Browse audio projects"   onClick={() => navigate('/audio')} />
             </div>
           </div>
 
@@ -209,11 +196,12 @@ export default function Dashboard() {
           <div>
             <p className="text-xs tracking-widest uppercase text-stone-400 mb-4">Recently Opened</p>
             {recent.length === 0 ? (
-              <p className="text-stone-400 text-sm">Nothing yet — open an event or project to see it here.</p>
+              <p className="text-stone-400 text-sm">Nothing yet — open a collection or project to see it here.</p>
             ) : (
               <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
                 {recent.map((item, i) => {
                   const meta = TYPE_META[item.type]
+                  if (!meta) return null
                   return (
                     <button
                       key={`${item.type}-${item.id}`}
