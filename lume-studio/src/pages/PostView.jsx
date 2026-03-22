@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { POST_STATUSES, POST_TYPES, PLATFORMS } from '../lib/constants'
 import { recordOpen } from '../lib/recentOpens'
 
-const BUCKET = 'Photos' // reuse the Photos bucket for post assets
+const BUCKET = 'Photos'
 
 export default function PostView() {
   const { postId } = useParams()
@@ -14,16 +14,21 @@ export default function PostView() {
   const [assets, setAssets] = useState([])
   const [categories, setCategories] = useState([])
   const [allCategories, setAllCategories] = useState([])
+  const [linkedPhotos, setLinkedPhotos] = useState([])
+  const [linkedTracks, setLinkedTracks] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [showCategoryPanel, setShowCategoryPanel] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
   const [deleteAssetTarget, setDeleteAssetTarget] = useState(null)
-  const [lightboxIdx, setLightboxIdx] = useState(null)
-  const [linkedPhotos, setLinkedPhotos] = useState([])
-  const [linkedTracks, setLinkedTracks] = useState([])
+
+  // Tabs & selection
+  const [activeTab, setActiveTab] = useState('photos')
+  const [selectedItem, setSelectedItem] = useState(null) // { kind: 'asset'|'linked_photo'|'linked_track', data }
   const [showLibraryLinker, setShowLibraryLinker] = useState(false)
+  const [libraryLinkerTab, setLibraryLinkerTab] = useState('photos')
+
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -50,7 +55,7 @@ export default function PostView() {
     setLoading(false)
   }
 
-  // ── Metadata updates ──────────────────────────────────────────────────────
+  // ── Metadata ────────────────────────────────────────────────────────────────
 
   async function saveTitle() {
     const t = titleDraft.trim()
@@ -65,7 +70,7 @@ export default function PostView() {
     setPost(prev => ({ ...prev, [field]: value }))
   }
 
-  // ── Category management ───────────────────────────────────────────────────
+  // ── Categories ──────────────────────────────────────────────────────────────
 
   async function toggleCategory(cat) {
     const has = categories.some(c => c.id === cat.id)
@@ -93,7 +98,7 @@ export default function PostView() {
     setCategories(prev => prev.filter(c => c.id !== catId))
   }
 
-  // ── Library linking ──────────────────────────────────────────────────────
+  // ── Library linking ─────────────────────────────────────────────────────────
 
   async function linkPhoto(photo) {
     await supabase.from('post_linked_photos').insert({ post_id: postId, photo_id: photo.id })
@@ -103,6 +108,7 @@ export default function PostView() {
   async function unlinkPhoto(photoId) {
     await supabase.from('post_linked_photos').delete().eq('post_id', postId).eq('photo_id', photoId)
     setLinkedPhotos(prev => prev.filter(p => p.id !== photoId))
+    if (selectedItem?.kind === 'linked_photo' && selectedItem.data.id === photoId) setSelectedItem(null)
   }
 
   async function linkTrack(track) {
@@ -113,9 +119,10 @@ export default function PostView() {
   async function unlinkTrack(trackId) {
     await supabase.from('post_linked_tracks').delete().eq('post_id', postId).eq('track_id', trackId)
     setLinkedTracks(prev => prev.filter(t => t.id !== trackId))
+    if (selectedItem?.kind === 'linked_track' && selectedItem.data.id === trackId) setSelectedItem(null)
   }
 
-  // ── Asset upload ──────────────────────────────────────────────────────────
+  // ── Asset upload / delete ───────────────────────────────────────────────────
 
   async function handleFiles(files) {
     if (!files || files.length === 0) return
@@ -126,7 +133,10 @@ export default function PostView() {
       const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file)
       if (upErr) continue
       const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path)
-      const fileType = file.type.startsWith('video') ? 'video' : file.type.startsWith('image') ? 'image' : 'other'
+      const fileType = file.type.startsWith('video') ? 'video'
+        : file.type.startsWith('audio') ? 'audio'
+        : file.type.startsWith('image') ? 'image'
+        : 'other'
       const { data: asset } = await supabase
         .from('post_assets')
         .insert({ post_id: postId, file_path: urlData.publicUrl, file_type: fileType, order_index: assets.length })
@@ -139,7 +149,6 @@ export default function PostView() {
 
   async function handleDeleteAsset() {
     const asset = deleteAssetTarget
-    // Extract storage path from URL
     const url = asset.file_path
     const bucketMarker = `/object/public/${BUCKET}/`
     const idx = url.indexOf(bucketMarker)
@@ -149,11 +158,7 @@ export default function PostView() {
     }
     await supabase.from('post_assets').delete().eq('id', asset.id)
     setAssets(prev => prev.filter(a => a.id !== asset.id))
-    if (lightboxIdx !== null) {
-      const newAssets = assets.filter(a => a.id !== asset.id)
-      if (newAssets.length === 0) setLightboxIdx(null)
-      else setLightboxIdx(prev => Math.min(prev, newAssets.length - 1))
-    }
+    if (selectedItem?.kind === 'asset' && selectedItem.data.id === asset.id) setSelectedItem(null)
     setDeleteAssetTarget(null)
   }
 
@@ -162,11 +167,36 @@ export default function PostView() {
     handleFiles(e.dataTransfer.files)
   }
 
+  function triggerUpload() {
+    const input = fileInputRef.current
+    if (!input) return
+    if (activeTab === 'photos') input.accept = 'image/*'
+    else if (activeTab === 'videos') input.accept = 'video/*'
+    else input.accept = 'audio/*'
+    input.click()
+  }
+
+  // ── Selection ───────────────────────────────────────────────────────────────
+
+  function selectItem(kind, data) {
+    setSelectedItem({ kind, data })
+  }
+
   if (loading) return <div className="p-7 text-stone-400 text-sm">Loading…</div>
   if (!post) return <div className="p-7 text-stone-400 text-sm">Post not found.</div>
 
-  const status = POST_STATUSES[post.status]
-  const imageAssets = assets.filter(a => a.file_type === 'image' || a.file_type === 'video')
+  // Split by type
+  const photoAssets = assets.filter(a => a.file_type === 'image')
+  const videoAssets = assets.filter(a => a.file_type === 'video')
+  const audioAssets = assets.filter(a => a.file_type === 'audio')
+
+  const photosCount = photoAssets.length + linkedPhotos.length
+  const videosCount = videoAssets.length
+  const audioCount = audioAssets.length + linkedTracks.length
+
+  // Sources
+  const photoSources = [...new Map(linkedPhotos.filter(p => p.collections).map(p => [p.collections.id, p.collections])).values()]
+  const audioSources = [...new Map(linkedTracks.filter(t => t.audio_projects).map(t => [t.audio_projects.id, t.audio_projects])).values()]
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -191,13 +221,12 @@ export default function PostView() {
                 className="font-serif text-3xl text-stone-800 outline-none border-b border-amber-600 bg-transparent flex-1"
               />
             ) : (
-              <h1
-                className="font-serif text-3xl text-stone-800 cursor-pointer hover:text-stone-600 transition-colors flex-1"
-                onClick={() => setEditingTitle(true)}
-                title="Click to rename"
-              >
-                {post.title}
-              </h1>
+              <div className="flex-1" onClick={() => setEditingTitle(true)}>
+                <h1 className="font-serif text-3xl text-stone-800 cursor-pointer hover:text-stone-600 transition-colors">
+                  {post.title}
+                </h1>
+                <p className="text-[10px] text-stone-300 mt-0.5">Click to edit title</p>
+              </div>
             )}
           </div>
           {categories.length > 0 && (
@@ -216,51 +245,212 @@ export default function PostView() {
           )}
         </div>
 
-        {/* Asset grid */}
+        {/* Tabs */}
+        <div className="px-7 bg-white border-b border-stone-200 flex-shrink-0">
+          <div className="flex gap-6">
+            {[
+              { key: 'photos', label: 'Photos', count: photosCount },
+              { key: 'videos', label: 'Videos', count: videosCount },
+              { key: 'audio', label: 'Audio', count: audioCount },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => { setActiveTab(tab.key); setSelectedItem(null) }}
+                className={`pb-2.5 pt-3 text-xs font-medium border-b-2 transition-colors ${
+                  activeTab === tab.key
+                    ? 'border-stone-800 text-stone-800'
+                    : 'border-transparent text-stone-400 hover:text-stone-600'
+                }`}
+              >
+                {tab.label}
+                {tab.count > 0 && <span className="ml-1 text-stone-300">{tab.count}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tab content */}
         <div
           className="flex-1 overflow-y-auto p-7"
           onDragOver={e => e.preventDefault()}
           onDrop={onDrop}
         >
-          {assets.length === 0 && !uploading ? (
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-stone-200 rounded-2xl flex flex-col items-center justify-center py-20 cursor-pointer hover:border-stone-300 transition-colors text-stone-400"
-            >
-              <p className="text-3xl mb-3">+</p>
-              <p className="text-sm font-medium">Drop files or click to upload</p>
-              <p className="text-xs mt-1">Photos and videos</p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 mb-4">
-                {assets.map((asset, i) => (
-                  <AssetTile
-                    key={asset.id}
-                    asset={asset}
-                    onClick={() => setLightboxIdx(i)}
-                    onDelete={(e) => { e.stopPropagation(); setDeleteAssetTarget(asset) }}
-                  />
-                ))}
-                {uploading && (
-                  <div className="aspect-square bg-stone-100 rounded-xl flex items-center justify-center">
-                    <span className="text-stone-400 text-xs">Uploading…</span>
-                  </div>
-                )}
+          {/* ── Photos tab ── */}
+          {activeTab === 'photos' && (
+            photosCount === 0 && !uploading ? (
+              <EmptyTab
+                icon="◻"
+                title="No photos yet"
+                subtitle="Upload photos or link from your collections"
+                onUpload={triggerUpload}
+                onLink={() => { setLibraryLinkerTab('photos'); setShowLibraryLinker(true) }}
+                linkLabel="Link from Collection"
+              />
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                  {photoAssets.map(asset => (
+                    <MediaCard
+                      key={`a-${asset.id}`}
+                      selected={selectedItem?.kind === 'asset' && selectedItem.data.id === asset.id}
+                      onClick={() => selectItem('asset', asset)}
+                      onRemove={() => setDeleteAssetTarget(asset)}
+                    >
+                      <img src={asset.file_path} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    </MediaCard>
+                  ))}
+                  {linkedPhotos.map(photo => (
+                    <MediaCard
+                      key={`l-${photo.id}`}
+                      selected={selectedItem?.kind === 'linked_photo' && selectedItem.data.id === photo.id}
+                      onClick={() => selectItem('linked_photo', photo)}
+                      onRemove={() => unlinkPhoto(photo.id)}
+                      badge={photo.collections?.name}
+                    >
+                      <img
+                        src={supabase.storage.from('Photos').getPublicUrl(photo.file_path).data.publicUrl}
+                        alt={photo.name}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </MediaCard>
+                  ))}
+                  {uploading && <UploadingPlaceholder />}
+                  <AddButton onClick={triggerUpload} />
+                </div>
                 <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="aspect-square border-2 border-dashed border-stone-200 rounded-xl flex items-center justify-center text-stone-300 hover:border-stone-400 hover:text-stone-400 transition-colors text-2xl"
+                  onClick={() => { setLibraryLinkerTab('photos'); setShowLibraryLinker(true) }}
+                  className="mt-3 text-xs text-stone-400 hover:text-amber-700 transition-colors"
                 >
-                  +
+                  + Link from Collection
                 </button>
-              </div>
-            </>
+              </>
+            )
           )}
+
+          {/* ── Videos tab ── */}
+          {activeTab === 'videos' && (
+            videosCount === 0 && !uploading ? (
+              <EmptyTab
+                icon="▷"
+                title="No videos yet"
+                subtitle="Upload videos to include in this post"
+                onUpload={triggerUpload}
+              />
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                  {videoAssets.map(asset => (
+                    <MediaCard
+                      key={`a-${asset.id}`}
+                      selected={selectedItem?.kind === 'asset' && selectedItem.data.id === asset.id}
+                      onClick={() => selectItem('asset', asset)}
+                      onRemove={() => setDeleteAssetTarget(asset)}
+                    >
+                      <video src={asset.file_path} className="w-full h-full object-cover" muted />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                        <span className="text-white text-xl drop-shadow">▷</span>
+                      </div>
+                    </MediaCard>
+                  ))}
+                  {uploading && <UploadingPlaceholder />}
+                  <AddButton onClick={triggerUpload} />
+                </div>
+              </>
+            )
+          )}
+
+          {/* ── Audio tab ── */}
+          {activeTab === 'audio' && (
+            audioCount === 0 && !uploading ? (
+              <EmptyTab
+                icon="♩"
+                title="No audio yet"
+                subtitle="Upload audio or link from your audio library"
+                onUpload={triggerUpload}
+                onLink={() => { setLibraryLinkerTab('audio'); setShowLibraryLinker(true) }}
+                linkLabel="Link from Audio"
+              />
+            ) : (
+              <>
+                <div className="flex flex-col gap-2">
+                  {audioAssets.map(asset => {
+                    const isSelected = selectedItem?.kind === 'asset' && selectedItem.data.id === asset.id
+                    const ext = asset.file_path?.split('.').pop()?.split('?')[0] || ''
+                    return (
+                      <button
+                        key={`a-${asset.id}`}
+                        onClick={() => selectItem('asset', asset)}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all group ${
+                          isSelected ? 'border-amber-500 bg-amber-50' : 'border-stone-200 hover:border-stone-300'
+                        }`}
+                      >
+                        <span className="w-8 h-8 rounded-lg bg-stone-100 flex items-center justify-center text-stone-400 text-xs flex-shrink-0">♩</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-stone-700 truncate">Audio{ext ? `.${ext}` : ''}</p>
+                          <p className="text-[10px] text-stone-400">Uploaded</p>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDeleteAssetTarget(asset) }}
+                          className="text-stone-200 hover:text-red-400 text-xs transition-colors hidden group-hover:block flex-shrink-0"
+                        >
+                          ✕
+                        </button>
+                      </button>
+                    )
+                  })}
+                  {linkedTracks.map(track => {
+                    const isSelected = selectedItem?.kind === 'linked_track' && selectedItem.data.id === track.id
+                    return (
+                      <button
+                        key={`l-${track.id}`}
+                        onClick={() => selectItem('linked_track', track)}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all group ${
+                          isSelected ? 'border-amber-500 bg-amber-50' : 'border-stone-200 hover:border-stone-300'
+                        }`}
+                      >
+                        <span className="w-8 h-8 rounded-lg bg-stone-100 flex items-center justify-center text-stone-400 text-xs flex-shrink-0">♩</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-stone-700 truncate">{track.name}</p>
+                          {track.audio_projects?.name && (
+                            <p className="text-[10px] text-stone-400">from {track.audio_projects.name}</p>
+                          )}
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); unlinkTrack(track.id) }}
+                          className="text-stone-200 hover:text-red-400 text-xs transition-colors hidden group-hover:block flex-shrink-0"
+                        >
+                          ✕
+                        </button>
+                      </button>
+                    )
+                  })}
+                  {uploading && (
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-stone-200">
+                      <span className="w-8 h-8 rounded-lg bg-stone-100 flex items-center justify-center text-stone-400 text-xs">…</span>
+                      <span className="text-xs text-stone-400">Uploading…</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-3">
+                  <button onClick={triggerUpload} className="text-xs text-stone-400 hover:text-amber-700 transition-colors">
+                    + Upload Audio
+                  </button>
+                  <button
+                    onClick={() => { setLibraryLinkerTab('audio'); setShowLibraryLinker(true) }}
+                    className="text-xs text-stone-400 hover:text-amber-700 transition-colors"
+                  >
+                    + Link from Audio
+                  </button>
+                </div>
+              </>
+            )
+          )}
+
           <input
             ref={fileInputRef}
             type="file"
             multiple
-            accept="image/*,video/*"
             className="hidden"
             onChange={e => handleFiles(e.target.files)}
           />
@@ -269,6 +459,68 @@ export default function PostView() {
 
       {/* Side panel */}
       <div className="w-64 border-l border-stone-200 bg-white flex flex-col overflow-y-auto flex-shrink-0">
+        {/* Selected item detail */}
+        {selectedItem && (
+          <div className="p-5 border-b border-stone-100">
+            <div className="flex items-start justify-between mb-1">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-stone-700 truncate">
+                  {selectedItem.kind === 'asset'
+                    ? (selectedItem.data.file_type === 'image' ? 'Photo' : selectedItem.data.file_type === 'video' ? 'Video' : 'Audio')
+                    : selectedItem.data.name
+                  }
+                </p>
+                <p className="text-[10px] text-stone-400 mt-0.5">
+                  {selectedItem.kind === 'asset' ? 'Uploaded to post' : 'Linked from library'}
+                </p>
+              </div>
+              <button onClick={() => setSelectedItem(null)} className="text-stone-300 hover:text-stone-500 text-xs flex-shrink-0 ml-2 transition-colors">✕</button>
+            </div>
+
+            {/* Source collection / project */}
+            {selectedItem.kind === 'linked_photo' && selectedItem.data.collections && (
+              <button
+                onClick={() => navigate(`/collections/${selectedItem.data.collections.id}`)}
+                className="flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-800 transition-colors mt-2"
+              >
+                <span className="text-stone-300">◻</span>
+                From: {selectedItem.data.collections.name} →
+              </button>
+            )}
+            {selectedItem.kind === 'linked_track' && selectedItem.data.audio_projects && (
+              <button
+                onClick={() => navigate(`/audio/${selectedItem.data.audio_projects.id}`)}
+                className="flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-800 transition-colors mt-2"
+              >
+                <span className="text-stone-300">♩</span>
+                From: {selectedItem.data.audio_projects.name} →
+              </button>
+            )}
+
+            {/* Actions */}
+            <div className="mt-3">
+              {selectedItem.kind === 'asset' ? (
+                <button
+                  onClick={() => setDeleteAssetTarget(selectedItem.data)}
+                  className="text-xs text-red-400 hover:text-red-500 transition-colors"
+                >
+                  Delete
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (selectedItem.kind === 'linked_photo') unlinkPhoto(selectedItem.data.id)
+                    else unlinkTrack(selectedItem.data.id)
+                  }}
+                  className="text-xs text-red-400 hover:text-red-500 transition-colors"
+                >
+                  Unlink
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="p-5 flex flex-col gap-5">
 
           {/* Status */}
@@ -375,82 +627,34 @@ export default function PostView() {
             )}
           </div>
 
-          {/* Linked Media */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] uppercase tracking-widest text-stone-400">Linked Media</p>
-              <button
-                onClick={() => setShowLibraryLinker(true)}
-                className="text-[10px] text-stone-400 hover:text-amber-700 transition-colors"
-              >
-                + Link
-              </button>
-            </div>
-            {linkedPhotos.length === 0 && linkedTracks.length === 0 ? (
-              <p className="text-xs text-stone-300 italic">Link photos or audio from your library</p>
-            ) : (
-              <div className="flex flex-col gap-1">
-                {linkedPhotos.map(photo => (
-                  <div key={photo.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-stone-50 group">
-                    <span className="w-4 text-center text-stone-300">◻</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-stone-600 truncate">{photo.name}</p>
-                      {photo.collections?.name && (
-                        <p className="text-[10px] text-stone-300 truncate">from {photo.collections.name}</p>
-                      )}
-                    </div>
-                    <button onClick={() => unlinkPhoto(photo.id)} className="text-stone-200 hover:text-red-400 text-xs transition-colors hidden group-hover:block flex-shrink-0">✕</button>
-                  </div>
-                ))}
-                {linkedTracks.map(track => (
-                  <div key={track.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-stone-50 group">
-                    <span className="w-4 text-center text-stone-300">♩</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-stone-600 truncate">{track.name}</p>
-                      {track.audio_projects?.name && (
-                        <p className="text-[10px] text-stone-300 truncate">from {track.audio_projects.name}</p>
-                      )}
-                    </div>
-                    <button onClick={() => unlinkTrack(track.id)} className="text-stone-200 hover:text-red-400 text-xs transition-colors hidden group-hover:block flex-shrink-0">✕</button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Sources */}
-          {(linkedPhotos.length > 0 || linkedTracks.length > 0) && (() => {
-            const photoSources = [...new Map(linkedPhotos.filter(p => p.collections).map(p => [p.collections.id, p.collections])).values()]
-            const audioSources = [...new Map(linkedTracks.filter(t => t.audio_projects).map(t => [t.audio_projects.id, t.audio_projects])).values()]
-            if (photoSources.length === 0 && audioSources.length === 0) return null
-            return (
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">Sources</p>
-                <div className="flex flex-col gap-1">
-                  {photoSources.map(col => (
-                    <button
-                      key={col.id}
-                      onClick={() => navigate(`/collections/${col.id}`)}
-                      className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-stone-600 hover:bg-stone-50 transition-colors text-left"
-                    >
-                      <span className="w-4 text-center text-stone-300">◻</span>
-                      <span className="truncate">{col.name}</span>
-                    </button>
-                  ))}
-                  {audioSources.map(proj => (
-                    <button
-                      key={proj.id}
-                      onClick={() => navigate(`/audio/${proj.id}`)}
-                      className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-stone-600 hover:bg-stone-50 transition-colors text-left"
-                    >
-                      <span className="w-4 text-center text-stone-300">♩</span>
-                      <span className="truncate">{proj.name}</span>
-                    </button>
-                  ))}
-                </div>
+          {(photoSources.length > 0 || audioSources.length > 0) && (
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">Sources</p>
+              <div className="flex flex-col gap-1">
+                {photoSources.map(col => (
+                  <button
+                    key={col.id}
+                    onClick={() => navigate(`/collections/${col.id}`)}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-stone-600 hover:bg-stone-50 transition-colors text-left"
+                  >
+                    <span className="w-4 text-center text-stone-300">◻</span>
+                    <span className="truncate">{col.name}</span>
+                  </button>
+                ))}
+                {audioSources.map(proj => (
+                  <button
+                    key={proj.id}
+                    onClick={() => navigate(`/audio/${proj.id}`)}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-stone-600 hover:bg-stone-50 transition-colors text-left"
+                  >
+                    <span className="w-4 text-center text-stone-300">♩</span>
+                    <span className="truncate">{proj.name}</span>
+                  </button>
+                ))}
               </div>
-            )
-          })()}
+            </div>
+          )}
 
           {/* Dates */}
           <div className="text-xs text-stone-300 pt-2 border-t border-stone-100">
@@ -473,6 +677,7 @@ export default function PostView() {
       {/* Library linker */}
       {showLibraryLinker && (
         <LibraryLinker
+          initialTab={libraryLinkerTab}
           linkedPhotos={linkedPhotos}
           linkedTracks={linkedTracks}
           onLinkPhoto={linkPhoto}
@@ -480,17 +685,6 @@ export default function PostView() {
           onLinkTrack={linkTrack}
           onUnlinkTrack={unlinkTrack}
           onClose={() => setShowLibraryLinker(false)}
-        />
-      )}
-
-      {/* Asset lightbox */}
-      {lightboxIdx !== null && imageAssets.length > 0 && (
-        <Lightbox
-          assets={imageAssets}
-          idx={lightboxIdx}
-          setIdx={setLightboxIdx}
-          onClose={() => setLightboxIdx(null)}
-          onDelete={(asset) => setDeleteAssetTarget(asset)}
         />
       )}
 
@@ -511,76 +705,82 @@ export default function PostView() {
   )
 }
 
-// ── Asset tile ─────────────────────────────────────────────────────────────────
+// ── Media card (grid item) ──────────────────────────────────────────────────────
 
-function AssetTile({ asset, onClick, onDelete }) {
-  const isVideo = asset.file_type === 'video'
+function MediaCard({ selected, onClick, onRemove, badge, children }) {
   return (
-    <button
+    <div
       onClick={onClick}
-      className="group relative aspect-square rounded-xl overflow-hidden bg-stone-100"
+      className={`group relative aspect-square rounded-xl overflow-hidden bg-stone-100 cursor-pointer ring-2 transition-all ${
+        selected ? 'ring-amber-500' : 'ring-transparent hover:ring-stone-300'
+      }`}
     >
-      {isVideo ? (
-        <video src={asset.file_path} className="w-full h-full object-cover" muted />
-      ) : (
-        <img src={asset.file_path} alt="" className="w-full h-full object-cover" loading="lazy" />
-      )}
-      {isVideo && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-          <span className="text-white text-xl drop-shadow">▷</span>
+      {children}
+      {badge && (
+        <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 bg-gradient-to-t from-black/50 to-transparent">
+          <p className="text-[10px] text-white/80 truncate">{badge}</p>
         </div>
       )}
       <button
-        onClick={onDelete}
+        onClick={(e) => { e.stopPropagation(); onRemove() }}
         className="absolute top-1.5 right-1.5 w-5 h-5 rounded bg-black/50 text-white items-center justify-center text-[10px] hidden group-hover:flex hover:bg-black/70 transition-colors"
       >
         ✕
-      </button>
-    </button>
-  )
-}
-
-// ── Lightbox ───────────────────────────────────────────────────────────────────
-
-function Lightbox({ assets, idx, setIdx, onClose, onDelete }) {
-  const asset = assets[idx]
-  useEffect(() => {
-    function onKey(e) {
-      if (e.key === 'Escape') onClose()
-      if (e.key === 'ArrowLeft') setIdx(i => Math.max(0, i - 1))
-      if (e.key === 'ArrowRight') setIdx(i => Math.min(assets.length - 1, i + 1))
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [assets.length])
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/80 backdrop-blur-sm">
-      <button onClick={onClose} className="absolute top-4 right-4 text-white/60 hover:text-white text-lg transition-colors z-10">✕</button>
-      {idx > 0 && (
-        <button onClick={() => setIdx(i => i - 1)} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/60 hover:text-white text-2xl transition-colors z-10">‹</button>
-      )}
-      {idx < assets.length - 1 && (
-        <button onClick={() => setIdx(i => i + 1)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/60 hover:text-white text-2xl transition-colors z-10">›</button>
-      )}
-      <div className="max-w-4xl max-h-[90vh] flex items-center justify-center p-4">
-        {asset.file_type === 'video' ? (
-          <video src={asset.file_path} controls className="max-w-full max-h-[85vh] rounded-xl" />
-        ) : (
-          <img src={asset.file_path} alt="" className="max-w-full max-h-[85vh] rounded-xl object-contain" />
-        )}
-      </div>
-      <button
-        onClick={() => onDelete(asset)}
-        className="absolute bottom-4 right-4 text-xs text-white/50 hover:text-red-400 transition-colors"
-      >
-        Delete
       </button>
     </div>
   )
 }
 
-// ── Description editor ─────────────────────────────────────────────────────────
+// ── Empty tab placeholder ───────────────────────────────────────────────────────
+
+function EmptyTab({ icon, title, subtitle, onUpload, onLink, linkLabel }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-64 text-center">
+      <p className="text-3xl text-stone-200 mb-3">{icon}</p>
+      <p className="text-sm font-medium text-stone-500 mb-1">{title}</p>
+      <p className="text-xs text-stone-400 mb-4">{subtitle}</p>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onUpload}
+          className="bg-stone-800 text-white text-xs px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
+        >
+          Upload
+        </button>
+        {onLink && (
+          <button
+            onClick={onLink}
+            className="border border-stone-200 text-stone-500 text-xs px-4 py-2 rounded-md hover:border-stone-400 transition-colors"
+          >
+            {linkLabel}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Small helpers ───────────────────────────────────────────────────────────────
+
+function UploadingPlaceholder() {
+  return (
+    <div className="aspect-square bg-stone-100 rounded-xl flex items-center justify-center">
+      <span className="text-stone-400 text-xs">Uploading…</span>
+    </div>
+  )
+}
+
+function AddButton({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="aspect-square border-2 border-dashed border-stone-200 rounded-xl flex items-center justify-center text-stone-300 hover:border-stone-400 hover:text-stone-400 transition-colors text-2xl"
+    >
+      +
+    </button>
+  )
+}
+
+// ── Description editor ──────────────────────────────────────────────────────────
 
 function DescriptionEditor({ value, onSave }) {
   const [draft, setDraft] = useState(value)
@@ -608,7 +808,7 @@ function DescriptionEditor({ value, onSave }) {
   )
 }
 
-// ── Category panel ─────────────────────────────────────────────────────────────
+// ── Category panel ──────────────────────────────────────────────────────────────
 
 const PRESET_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899','#78716c']
 
@@ -634,7 +834,6 @@ function CategoryPanel({ categories, type, onClose, onCreate, onDelete }) {
           <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-sm transition-colors">✕</button>
         </div>
 
-        {/* Existing */}
         <div className="flex flex-col gap-1 mb-5 max-h-48 overflow-y-auto">
           {categories.length === 0 ? (
             <p className="text-xs text-stone-300 italic text-center py-3">No categories yet</p>
@@ -652,7 +851,6 @@ function CategoryPanel({ categories, type, onClose, onCreate, onDelete }) {
           ))}
         </div>
 
-        {/* Create new */}
         <form onSubmit={handleCreate} className="border-t border-stone-100 pt-4">
           <p className="text-xs uppercase tracking-widest text-stone-400 mb-3">New Category</p>
           <div className="flex gap-2 mb-3">
@@ -689,8 +887,8 @@ function CategoryPanel({ categories, type, onClose, onCreate, onDelete }) {
 
 // ── Library linker ──────────────────────────────────────────────────────────────
 
-function LibraryLinker({ linkedPhotos, linkedTracks, onLinkPhoto, onUnlinkPhoto, onLinkTrack, onUnlinkTrack, onClose }) {
-  const [tab, setTab] = useState('photos')
+function LibraryLinker({ initialTab = 'photos', linkedPhotos, linkedTracks, onLinkPhoto, onUnlinkPhoto, onLinkTrack, onUnlinkTrack, onClose }) {
+  const [tab, setTab] = useState(initialTab)
   const [collections, setCollections] = useState([])
   const [audioProjects, setAudioProjects] = useState([])
   const [expandedId, setExpandedId] = useState(null)
@@ -729,7 +927,6 @@ function LibraryLinker({ linkedPhotos, linkedTracks, onLinkPhoto, onUnlinkPhoto,
           <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-sm transition-colors">✕</button>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 px-5 mb-3">
           <button
             onClick={() => { setTab('photos'); setExpandedId(null) }}
@@ -745,7 +942,6 @@ function LibraryLinker({ linkedPhotos, linkedTracks, onLinkPhoto, onUnlinkPhoto,
           </button>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto px-5 pb-5">
           {tab === 'photos' ? (
             collections.length === 0 ? (
