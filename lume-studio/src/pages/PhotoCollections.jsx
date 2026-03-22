@@ -118,7 +118,7 @@ export default function PhotoCollections() {
       <div className="flex items-end justify-between mb-5">
         <div>
           <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Library</p>
-          <h1 className="font-serif text-3xl text-stone-800">Photo Collections</h1>
+          <h1 className="font-serif text-3xl text-stone-800">Collections</h1>
           <p className="text-xs text-stone-400 mt-1">
             {collections.length} collection{collections.length !== 1 ? 's' : ''}
           </p>
@@ -145,7 +145,7 @@ export default function PhotoCollections() {
             <CollectionCard
               key={c.id}
               collection={c}
-              onClick={() => navigate(`/photos/${c.id}`)}
+              onClick={() => navigate(`/collections/${c.id}`)}
               onEdit={(e) => openEdit(e, c)}
             />
           ))}

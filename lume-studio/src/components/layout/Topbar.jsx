@@ -4,9 +4,8 @@ import { supabase } from '../../lib/supabase'
 import { getProfile, deriveInitials } from '../../lib/profile'
 
 const TYPE_META = {
-  event:      { label: 'Event',      icon: '◈', pathFn: (id) => `/events/${id}` },
-  collection: { label: 'Collection', icon: '◻', pathFn: (id) => `/photos/${id}` },
-  photo:      { label: 'Photo',      icon: '◻', pathFn: (_id, extra) => `/photos/${extra}` },
+  collection: { label: 'Collection', icon: '◻', pathFn: (id) => `/collections/${id}` },
+  photo:      { label: 'Photo',      icon: '◻', pathFn: (_id, extra) => `/collections/${extra}` },
   post:       { label: 'Post',       icon: '▷', pathFn: (id) => `/posts/${id}` },
   audio:      { label: 'Audio',      icon: '♩', pathFn: (id) => `/audio/${id}` },
 }
@@ -49,13 +48,11 @@ export default function Topbar() {
     setSearching(true)
     const like = `%${q}%`
     const [
-      { data: events },
       { data: collections },
       { data: photos },
       { data: posts },
       { data: audioProjects },
     ] = await Promise.all([
-      supabase.from('events').select('id, name').ilike('name', like).limit(4),
       supabase.from('collections').select('id, name').ilike('name', like).limit(4),
       supabase.from('photos').select('id, name, collection_id').ilike('name', like).limit(4),
       supabase.from('posts').select('id, title').ilike('title', like).limit(4),
@@ -64,11 +61,8 @@ export default function Topbar() {
 
     const grouped = []
 
-    if (events?.length) {
-      grouped.push({ groupLabel: 'Events', items: events.map(r => ({ type: 'event', id: r.id, name: r.name, extra: null })) })
-    }
     if (collections?.length) {
-      grouped.push({ groupLabel: 'Photo Collections', items: collections.map(r => ({ type: 'collection', id: r.id, name: r.name, extra: null })) })
+      grouped.push({ groupLabel: 'Collections', items: collections.map(r => ({ type: 'collection', id: r.id, name: r.name, extra: null })) })
     }
     if (photos?.length) {
       grouped.push({ groupLabel: 'Photos', items: photos.map(r => ({ type: 'photo', id: r.id, name: r.name, extra: r.collection_id })) })

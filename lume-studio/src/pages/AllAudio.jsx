@@ -16,7 +16,7 @@ export default function AllAudio() {
   async function fetchProjects() {
     const { data } = await supabase
       .from('audio_projects')
-      .select('id, name, status, created_at, event_id, events(name), audio_categories(category:categories(id,name,color))')
+      .select('id, name, status, created_at, audio_categories(category:categories(id,name,color))')
       .order('created_at', { ascending: false })
     setProjects(data || [])
     setLoading(false)
@@ -130,18 +130,13 @@ function AudioCard({ project, onClick, onDelete }) {
       <span className="w-9 h-9 rounded-lg bg-stone-100 flex items-center justify-center text-sm text-stone-400 flex-shrink-0 group-hover:bg-stone-200 transition-colors">♩</span>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-stone-700 truncate">{project.name}</p>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          {project.events?.name && (
-            <span className="text-xs text-stone-400 truncate">{project.events.name}</span>
-          )}
-          {cats.length > 0 && (
-            <div className="flex gap-1 ml-1">
-              {cats.slice(0, 5).map(cat => (
-                <span key={cat.id} className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-              ))}
-            </div>
-          )}
-        </div>
+        {cats.length > 0 && (
+          <div className="flex gap-1 mt-0.5">
+            {cats.slice(0, 5).map(cat => (
+              <span key={cat.id} className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+            ))}
+          </div>
+        )}
       </div>
       {status && (
         <span

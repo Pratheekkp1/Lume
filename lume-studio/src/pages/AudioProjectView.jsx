@@ -30,6 +30,7 @@ export default function AudioProjectView() {
   const [categories, setCategories] = useState([]);
   const [showNewCat, setShowNewCat] = useState(false);
   const [newCatName, setNewCatName] = useState("");
+  const [linkedPosts, setLinkedPosts] = useState([]);
 
   // Playback
   const audioRef = useRef(null);
@@ -193,12 +194,21 @@ export default function AudioProjectView() {
     if (playingTrack?.id === selectedTrack.id) setPlayingTrack((p) => ({ ...p, category_id: newVal }));
   }
 
+  async function fetchLinkedPosts(trackId) {
+    const { data } = await supabase
+      .from("post_linked_tracks")
+      .select("post:posts(id, title)")
+      .eq("track_id", trackId);
+    setLinkedPosts((data || []).map(d => d.post).filter(Boolean));
+  }
+
   function loadTrack(track) {
     selectedTrackRef.current = track;
     setPlayingTrack(track);
     setSelectedTrack(track);
     setNotes(track.notes || "");
     setConfirmDelete(false);
+    fetchLinkedPosts(track.id);
   }
 
   function switchTrack(track) {
@@ -208,6 +218,7 @@ export default function AudioProjectView() {
       if (!prev) return null;
       setNotes(track.notes || "");
       setConfirmDelete(false);
+      fetchLinkedPosts(track.id);
       return track;
     });
   }
@@ -215,6 +226,7 @@ export default function AudioProjectView() {
   function closeDetail() {
     setSelectedTrack(null);
     setNotes("");
+    setLinkedPosts([]);
   }
 
   async function toggleFavorite(track, e) {
@@ -543,6 +555,25 @@ export default function AudioProjectView() {
                   {savingNotes ? "Saving..." : "Save Notes"}
                 </button>
               </div>
+
+              {/* Used in Posts */}
+              {linkedPosts.length > 0 && (
+                <div>
+                  <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Used in Posts</label>
+                  <div className="flex flex-col gap-1">
+                    {linkedPosts.map(post => (
+                      <button
+                        key={post.id}
+                        onClick={() => navigate(`/posts/${post.id}`)}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-stone-600 hover:bg-stone-50 transition-colors text-left"
+                      >
+                        <span className="w-4 text-center text-stone-300">▷</span>
+                        <span className="truncate">{post.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
