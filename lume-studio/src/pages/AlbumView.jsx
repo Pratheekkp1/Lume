@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { STATUSES } from "../lib/constants";
+import { STATUSES, POST_TYPES, PLATFORMS } from "../lib/constants";
 import PhotoUploader from "../components/ui/PhotoUploader";
 import { recordOpen } from "../lib/recentOpens";
 
@@ -42,7 +42,7 @@ function isVideo(item) {
   return item?.media_type === 'video';
 }
 
-export default function CollectionView() {
+export default function AlbumView() {
   const { collectionId } = useParams();
   const navigate = useNavigate();
   const [collection, setCollection] = useState(null);
@@ -67,13 +67,19 @@ export default function CollectionView() {
   // Sort
   const [sort, setSort] = useState('newest');
 
+  // Creator features
+  const [showCreatePost, setShowCreatePost] = useState(false);
+  const [showAddToPost, setShowAddToPost] = useState(false);
+  const [recentPostsList, setRecentPostsList] = useState([]);
+  const [addedMessage, setAddedMessage] = useState('');
+
   // Categories
   const [allCategories, setAllCategories] = useState([]);
   const [showCategoryPanel, setShowCategoryPanel] = useState(false);
   const [linkedPosts, setLinkedPosts] = useState([]);
 
   useEffect(() => {
-    recordOpen('collection', collectionId);
+    recordOpen('album', collectionId);
     fetchCollection();
     fetchPhotos();
     fetchAllCategories();
@@ -280,12 +286,12 @@ export default function CollectionView() {
       <div className="flex items-end justify-between mb-5">
         <div>
           <button
-            onClick={() => navigate("/collections")}
+            onClick={() => navigate("/media")}
             className="text-xs text-stone-400 hover:text-stone-600 mb-2 flex items-center gap-1 transition-colors"
           >
-            ← All Collections
+            ← Media
           </button>
-          <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Collection</p>
+          <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Album</p>
           <h1 className="font-serif text-3xl text-stone-800">{collection?.name || "..."}</h1>
           <p className="text-xs text-stone-400 mt-1">
             {photos.filter(p => !isVideo(p)).length} photo{photos.filter(p => !isVideo(p)).length !== 1 ? "s" : ""}
@@ -354,6 +360,22 @@ export default function CollectionView() {
                     <option key={key} value={key}>{val.label}</option>
                   ))}
                 </select>
+                <button
+                  onClick={() => setShowCreatePost(true)}
+                  className="border border-amber-200 text-amber-700 px-3 py-1 rounded hover:bg-amber-50 transition-colors"
+                >
+                  Create Post
+                </button>
+                <button
+                  onClick={async () => {
+                    const { data } = await supabase.from('posts').select('id, title, status').order('updated_at', { ascending: false }).limit(10);
+                    setRecentPostsList(data || []);
+                    setShowAddToPost(true);
+                  }}
+                  className="border border-stone-200 text-stone-600 px-3 py-1 rounded hover:bg-stone-50 transition-colors"
+                >
+                  Add to Post
+                </button>
                 <button
                   onClick={() => setConfirmBulkDelete(true)}
                   className="border border-red-200 text-red-400 px-3 py-1 rounded hover:bg-red-50 hover:text-red-500 transition-colors"
@@ -679,6 +701,157 @@ export default function CollectionView() {
         />
       )}
 
+      {/* Create Post from selection */}
+      {showCreatePost && (
+        <CreatePostModal
+          photoIds={Array.from(selectedIds)}
+          onClose={() => setShowCreatePost(false)}
+          onCreated={(postId) => {
+            setShowCreatePost(false);
+            setSelectedIds(new Set());
+            window.dispatchEvent(new CustomEvent('lume-posts-updated'));
+            navigate(`/posts/${postId}`);
+          }}
+        />
+      )}
+
+      {/* Add to existing post */}
+      {showAddToPost && (
+        <AddToPostModal
+          posts={recentPostsList}
+          photoIds={Array.from(selectedIds)}
+          onClose={() => { setShowAddToPost(false); setAddedMessage(''); }}
+          onAdded={(msg) => {
+            setAddedMessage(msg);
+            setSelectedIds(new Set());
+            setTimeout(() => { setShowAddToPost(false); setAddedMessage(''); }, 1500);
+          }}
+        />
+      )}
+
+      {/* Added confirmation toast */}
+      {addedMessage && !showAddToPost && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-xs px-4 py-2.5 rounded-lg shadow-lg z-50">
+          {addedMessage}
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+function CreatePostModal({ photoIds, onClose, onCreated }) {
+  const [title, setTitle] = useState('');
+  const [type, setType] = useState('');
+  const [platform, setPlatform] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setSaving(true);
+    const { data, error } = await supabase
+      .from('posts')
+      .insert({ title: title.trim(), type: type || null, platform: platform || null, status: 'idea' })
+      .select('id')
+      .single();
+    if (!error && data) {
+      await supabase.from('post_linked_photos').insert(photoIds.map(id => ({ post_id: data.id, photo_id: id })));
+      onCreated(data.id);
+    }
+    setSaving(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <h2 className="font-serif text-xl text-stone-800 mb-1">Create Post</h2>
+        <p className="text-xs text-stone-400 mb-5">{photoIds.length} photo{photoIds.length !== 1 ? 's' : ''} will be linked</p>
+        <form onSubmit={handleCreate} className="flex flex-col gap-4">
+          <div>
+            <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Title</label>
+            <input
+              autoFocus
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="e.g. Beach sunset reel"
+              className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 transition-colors"
+            />
+          </div>
+          <div>
+            <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Type</label>
+            <div className="flex flex-wrap gap-1.5">
+              {POST_TYPES.map(t => (
+                <button key={t} type="button" onClick={() => setType(type === t ? '' : t)}
+                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${type === t ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Platform</label>
+            <div className="flex flex-wrap gap-1.5">
+              {PLATFORMS.map(p => (
+                <button key={p} type="button" onClick={() => setPlatform(platform === p ? '' : p)}
+                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${platform === p ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
+            <button type="submit" disabled={!title.trim() || saving} className="flex-1 bg-stone-800 text-white text-sm py-2 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity">
+              {saving ? 'Creating…' : 'Create'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function AddToPostModal({ posts, photoIds, onClose, onAdded }) {
+  const [linking, setLinking] = useState(false);
+
+  async function linkToPost(post) {
+    setLinking(true);
+    await supabase.from('post_linked_photos').insert(photoIds.map(id => ({ post_id: post.id, photo_id: id })));
+    onAdded(`${photoIds.length} photo${photoIds.length !== 1 ? 's' : ''} added to "${post.title}"`);
+    setLinking(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 max-h-[60vh] flex flex-col">
+        <div className="flex items-center justify-between p-5 pb-3">
+          <div>
+            <h2 className="font-serif text-xl text-stone-800">Add to Post</h2>
+            <p className="text-xs text-stone-400 mt-0.5">{photoIds.length} photo{photoIds.length !== 1 ? 's' : ''} selected</p>
+          </div>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-sm transition-colors">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 pb-5">
+          {posts.length === 0 ? (
+            <p className="text-xs text-stone-400 text-center py-6">No posts yet. Create one first.</p>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {posts.map(post => (
+                <button
+                  key={post.id}
+                  onClick={() => !linking && linkToPost(post)}
+                  disabled={linking}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-left hover:bg-stone-50 transition-colors disabled:opacity-40"
+                >
+                  <span className="w-6 h-6 rounded bg-stone-100 flex items-center justify-center text-xs text-stone-400 flex-shrink-0">▷</span>
+                  <span className="flex-1 text-sm text-stone-700 truncate">{post.title}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
