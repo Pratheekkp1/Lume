@@ -60,7 +60,7 @@ export default function Events() {
     <div className="p-7 max-w-4xl">
       <div className="flex items-end justify-between mb-8">
         <div>
-          <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Studio</p>
+          <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Organize</p>
           <h1 className="font-serif text-3xl text-stone-800">Events</h1>
         </div>
         <button

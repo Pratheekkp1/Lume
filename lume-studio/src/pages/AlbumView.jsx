@@ -38,6 +38,10 @@ function isPdf(filePath) {
   return filePath?.toLowerCase().endsWith('.pdf');
 }
 
+function isVideo(item) {
+  return item?.media_type === 'video';
+}
+
 export default function CollectionView() {
   const { collectionId } = useParams();
   const navigate = useNavigate();
@@ -284,7 +288,8 @@ export default function CollectionView() {
           <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Collection</p>
           <h1 className="font-serif text-3xl text-stone-800">{collection?.name || "..."}</h1>
           <p className="text-xs text-stone-400 mt-1">
-            {photos.length} photo{photos.length !== 1 ? "s" : ""}
+            {photos.filter(p => !isVideo(p)).length} photo{photos.filter(p => !isVideo(p)).length !== 1 ? "s" : ""}
+            {photos.some(p => isVideo(p)) && ` · ${photos.filter(p => isVideo(p)).length} video${photos.filter(p => isVideo(p)).length !== 1 ? "s" : ""}`}
             {collection?.event_date && ` · ${new Date(collection.event_date).toLocaleDateString("en-US", { month: "long", year: "numeric" })}`}
             {collection?.location && ` · ${collection.location}`}
           </p>
@@ -293,7 +298,7 @@ export default function CollectionView() {
           onClick={() => setShowUploader(true)}
           className="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
         >
-          + Add Photos
+          + Add Media
         </button>
       </div>
 
@@ -326,12 +331,12 @@ export default function CollectionView() {
       {/* Bulk action bar */}
       {anySelected && (
         <div className="flex items-center gap-3 mb-4 px-3 py-2 bg-stone-100 border border-stone-200 rounded-lg text-xs">
-          <span className="text-stone-600 font-medium">{selectedIds.size} photo{selectedIds.size !== 1 ? "s" : ""} selected</span>
+          <span className="text-stone-600 font-medium">{selectedIds.size} item{selectedIds.size !== 1 ? "s" : ""} selected</span>
           <button onClick={deselectAll} className="text-stone-400 hover:text-stone-600 transition-colors">Deselect all</button>
           <div className="ml-auto flex items-center gap-2">
             {confirmBulkDelete ? (
               <>
-                <span className="text-stone-500">Delete {selectedIds.size} photo{selectedIds.size !== 1 ? "s" : ""}?</span>
+                <span className="text-stone-500">Delete {selectedIds.size} item{selectedIds.size !== 1 ? "s" : ""}?</span>
                 <button onClick={() => setConfirmBulkDelete(false)} className="text-stone-400 hover:text-stone-600 px-2 py-1 border border-stone-200 rounded transition-colors">Cancel</button>
                 <button onClick={bulkDelete} disabled={bulkProcessing} className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 disabled:opacity-40 transition-colors">
                   {bulkProcessing ? "Deleting…" : "Confirm Delete"}
@@ -367,7 +372,7 @@ export default function CollectionView() {
       ) : sorted.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 text-center">
           <p className="text-stone-400 text-sm">
-            {photos.length === 0 ? "No photos yet — add some to get started" : "No photos match this filter"}
+            {photos.length === 0 ? "No media yet — add photos or videos to get started" : "No items match this filter"}
           </p>
         </div>
       ) : (
@@ -394,7 +399,7 @@ export default function CollectionView() {
         >
           <div className="bg-white rounded-xl w-[480px] shadow-xl overflow-hidden">
             <div className="flex items-center justify-between px-6 pt-5 pb-0">
-              <h2 className="text-base font-medium text-stone-800">Add Photos</h2>
+              <h2 className="text-base font-medium text-stone-800">Add Media</h2>
               <button onClick={() => setShowUploader(false)} className="text-stone-400 hover:text-stone-600 text-sm">✕</button>
             </div>
             <PhotoUploader
@@ -457,7 +462,15 @@ export default function CollectionView() {
 
             {/* Content */}
             {selectedPhoto.file_path ? (
-              isPdf(selectedPhoto.file_path) ? (
+              isVideo(selectedPhoto) ? (
+                <video
+                  key={selectedPhoto.id}
+                  src={supabase.storage.from("Photos").getPublicUrl(selectedPhoto.file_path).data.publicUrl}
+                  controls
+                  className="max-w-full max-h-full"
+                  style={{ maxHeight: '100vh', animation: "lb-img 0.22s ease-out" }}
+                />
+              ) : isPdf(selectedPhoto.file_path) ? (
                 <iframe
                   key={selectedPhoto.id}
                   src={supabase.storage.from("Photos").getPublicUrl(selectedPhoto.file_path).data.publicUrl}
@@ -526,24 +539,28 @@ export default function CollectionView() {
                 >
                   Rename
                 </button>
-                <button
-                  onClick={() => {
-                    if (isPdf(selectedPhoto.file_path)) { setCoverError(true); setTimeout(() => setCoverError(false), 3000); return; }
-                    setCoverPhoto();
-                  }}
-                  className={`w-full border text-xs font-medium py-1.5 rounded-md transition-colors ${
-                    collection?.cover_photo_id === selectedPhoto.id
-                      ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                      : "border-stone-200 text-stone-500 hover:bg-stone-100"
-                  }`}
-                >
-                  {collection?.cover_photo_id === selectedPhoto.id ? "✓ Cover Photo" : "Set as Cover"}
-                </button>
-                {coverError && (
-                  <div className="flex items-start gap-1.5 text-xs text-red-500">
-                    <span className="flex-shrink-0 mt-px">✕</span>
-                    <span>PDFs can't be used as collection covers — use an image instead.</span>
-                  </div>
+                {!isVideo(selectedPhoto) && (
+                  <>
+                    <button
+                      onClick={() => {
+                        if (isPdf(selectedPhoto.file_path)) { setCoverError(true); setTimeout(() => setCoverError(false), 3000); return; }
+                        setCoverPhoto();
+                      }}
+                      className={`w-full border text-xs font-medium py-1.5 rounded-md transition-colors ${
+                        collection?.cover_photo_id === selectedPhoto.id
+                          ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                          : "border-stone-200 text-stone-500 hover:bg-stone-100"
+                      }`}
+                    >
+                      {collection?.cover_photo_id === selectedPhoto.id ? "✓ Cover Photo" : "Set as Cover"}
+                    </button>
+                    {coverError && (
+                      <div className="flex items-start gap-1.5 text-xs text-red-500">
+                        <span className="flex-shrink-0 mt-px">✕</span>
+                        <span>PDFs can't be used as collection covers — use an image instead.</span>
+                      </div>
+                    )}
+                  </>
                 )}
                 {confirmDelete ? (
                   <div className="flex gap-1.5">
@@ -557,7 +574,7 @@ export default function CollectionView() {
                     onClick={() => setConfirmDelete(true)}
                     className="w-full border border-red-200 text-red-400 text-xs font-medium py-1.5 rounded-md hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition-colors"
                   >
-                    Delete Photo
+                    Delete {isVideo(selectedPhoto) ? "Video" : "Photo"}
                   </button>
                 )}
               </div>
@@ -683,7 +700,12 @@ function PhotoCard({ photo, selected, checked, anySelected, onCheck, onClick }) 
     >
       <div className="aspect-[4/3] bg-stone-100 flex items-center justify-center relative">
         {photo.file_path ? (
-          isPdf(photo.file_path) ? (
+          isVideo(photo) ? (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-stone-800 gap-1.5">
+              <span className="text-3xl text-white/40">▶</span>
+              <span className="text-[10px] text-white/30 uppercase tracking-wider">Video</span>
+            </div>
+          ) : isPdf(photo.file_path) ? (
             <div className="w-full h-full flex flex-col items-center justify-center bg-stone-50 gap-1.5 px-3 text-center">
               <span className="text-3xl font-bold text-stone-300 tracking-wider">PDF</span>
               <span className="text-[10px] text-stone-400 leading-snug">Can't preview in card view — click to open</span>
