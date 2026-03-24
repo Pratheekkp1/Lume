@@ -251,7 +251,7 @@ export default function PostView() {
             {[
               { key: 'photos', label: 'Photos', count: photosCount },
               { key: 'videos', label: 'Videos', count: videosCount },
-              { key: 'audio', label: 'Audio', count: audioCount },
+              { key: 'audio', label: 'Sounds', count: audioCount },
             ].map(tab => (
               <button
                 key={tab.key}
@@ -281,10 +281,10 @@ export default function PostView() {
               <EmptyTab
                 icon="◻"
                 title="No photos yet"
-                subtitle="Upload photos or link from your collections"
+                subtitle="Upload photos or link from your albums"
                 onUpload={triggerUpload}
                 onLink={() => { setLibraryLinkerTab('photos'); setShowLibraryLinker(true) }}
-                linkLabel="Link from Collection"
+                linkLabel="Link from Album"
               />
             ) : (
               <>
@@ -322,7 +322,7 @@ export default function PostView() {
                   onClick={() => { setLibraryLinkerTab('photos'); setShowLibraryLinker(true) }}
                   className="mt-3 text-xs text-stone-400 hover:text-amber-700 transition-colors"
                 >
-                  + Link from Collection
+                  + Link from Album
                 </button>
               </>
             )
@@ -365,11 +365,11 @@ export default function PostView() {
             audioCount === 0 && !uploading ? (
               <EmptyTab
                 icon="♩"
-                title="No audio yet"
-                subtitle="Upload audio or link from your audio library"
+                title="No sounds yet"
+                subtitle="Upload audio or link from your sounds library"
                 onUpload={triggerUpload}
                 onLink={() => { setLibraryLinkerTab('audio'); setShowLibraryLinker(true) }}
-                linkLabel="Link from Audio"
+                linkLabel="Link from Sounds"
               />
             ) : (
               <>
@@ -440,7 +440,7 @@ export default function PostView() {
                     onClick={() => { setLibraryLinkerTab('audio'); setShowLibraryLinker(true) }}
                     className="text-xs text-stone-400 hover:text-amber-700 transition-colors"
                   >
-                    + Link from Audio
+                    + Link from Sounds
                   </button>
                 </div>
               </>
@@ -480,7 +480,7 @@ export default function PostView() {
             {/* Source collection / project */}
             {selectedItem.kind === 'linked_photo' && selectedItem.data.collections && (
               <button
-                onClick={() => navigate(`/collections/${selectedItem.data.collections.id}`)}
+                onClick={() => navigate(`/media/${selectedItem.data.collections.id}`)}
                 className="flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-800 transition-colors mt-2"
               >
                 <span className="text-stone-300">◻</span>
@@ -489,7 +489,7 @@ export default function PostView() {
             )}
             {selectedItem.kind === 'linked_track' && selectedItem.data.audio_projects && (
               <button
-                onClick={() => navigate(`/audio/${selectedItem.data.audio_projects.id}`)}
+                onClick={() => navigate(`/sounds/${selectedItem.data.audio_projects.id}`)}
                 className="flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-800 transition-colors mt-2"
               >
                 <span className="text-stone-300">♩</span>
@@ -635,7 +635,7 @@ export default function PostView() {
                 {photoSources.map(col => (
                   <button
                     key={col.id}
-                    onClick={() => navigate(`/collections/${col.id}`)}
+                    onClick={() => navigate(`/media/${col.id}`)}
                     className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-stone-600 hover:bg-stone-50 transition-colors text-left"
                   >
                     <span className="w-4 text-center text-stone-300">◻</span>
@@ -645,7 +645,7 @@ export default function PostView() {
                 {audioSources.map(proj => (
                   <button
                     key={proj.id}
-                    onClick={() => navigate(`/audio/${proj.id}`)}
+                    onClick={() => navigate(`/sounds/${proj.id}`)}
                     className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-stone-600 hover:bg-stone-50 transition-colors text-left"
                   >
                     <span className="w-4 text-center text-stone-300">♩</span>
@@ -932,20 +932,20 @@ function LibraryLinker({ initialTab = 'photos', linkedPhotos, linkedTracks, onLi
             onClick={() => { setTab('photos'); setExpandedId(null) }}
             className={`text-xs px-3 py-1.5 rounded-full transition-colors ${tab === 'photos' ? 'bg-stone-800 text-white' : 'text-stone-400 hover:text-stone-600'}`}
           >
-            Photos
+            Albums
           </button>
           <button
             onClick={() => { setTab('audio'); setExpandedId(null) }}
             className={`text-xs px-3 py-1.5 rounded-full transition-colors ${tab === 'audio' ? 'bg-stone-800 text-white' : 'text-stone-400 hover:text-stone-600'}`}
           >
-            Audio
+            Sounds
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 pb-5">
           {tab === 'photos' ? (
             collections.length === 0 ? (
-              <p className="text-xs text-stone-300 italic text-center py-6">No collections</p>
+              <p className="text-xs text-stone-300 italic text-center py-6">No albums</p>
             ) : (
               <div className="flex flex-col gap-0.5">
                 {collections.map(col => (
@@ -985,7 +985,7 @@ function LibraryLinker({ initialTab = 'photos', linkedPhotos, linkedTracks, onLi
             )
           ) : (
             audioProjects.length === 0 ? (
-              <p className="text-xs text-stone-300 italic text-center py-6">No audio projects</p>
+              <p className="text-xs text-stone-300 italic text-center py-6">No sound projects</p>
             ) : (
               <div className="flex flex-col gap-0.5">
                 {audioProjects.map(proj => (

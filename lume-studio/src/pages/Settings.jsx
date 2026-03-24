@@ -206,9 +206,10 @@ function AboutSection() {
 
         <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
           {[
-            { label: 'Photo Collections', desc: 'Organize, filter, and manage photo shoots' },
-            { label: 'Video Projects', desc: 'Track clips, status, and edit notes' },
-            { label: 'Music / Audio', desc: 'Manage tracks, assign to projects, mark favorites' },
+            { label: 'Photo Collections', desc: 'Organize, filter, and manage photos & videos' },
+            { label: 'Events', desc: 'Group collections, posts, and audio by occasion' },
+            { label: 'Posts', desc: 'Create reels, montages, edits, and photo dumps' },
+            { label: 'Music / Audio', desc: 'Manage tracks, assign to projects, and organize music' },
           ].map((f, i) => (
             <div key={i} className={`px-5 py-3.5 ${i !== 0 ? 'border-t border-stone-100' : ''}`}>
               <p className="text-sm font-medium text-stone-700">{f.label}</p>

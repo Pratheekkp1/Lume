@@ -10,6 +10,7 @@ export default function PhotoUploader({ collectionId, onUploadComplete }) {
   async function doUpload(file) {
     const ext = file.name.split(".").pop();
     const path = `${collectionId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const media_type = file.type.startsWith("video/") ? "video" : "photo";
 
     const { error: uploadError } = await supabase.storage.from("Photos").upload(path, file);
     if (uploadError) return "error";
@@ -20,6 +21,7 @@ export default function PhotoUploader({ collectionId, onUploadComplete }) {
       file_path: path,
       file_size: file.size,
       status: "unedited",
+      media_type,
     });
     return dbError ? "error" : "done";
   }
@@ -107,6 +109,7 @@ export default function PhotoUploader({ collectionId, onUploadComplete }) {
     onDrop,
     accept: {
       "image/*": [".jpg", ".jpeg", ".png", ".webp", ".tiff", ".raw", ".cr2", ".nef", ".arw"],
+      "video/*": [".mp4", ".mov", ".avi", ".webm", ".mkv", ".m4v"],
       "application/pdf": [".pdf"],
     },
     disabled: dropDisabled,
@@ -162,8 +165,8 @@ export default function PhotoUploader({ collectionId, onUploadComplete }) {
           <p className="text-sm text-stone-600">Drop photos here...</p>
         ) : (
           <>
-            <p className="text-sm font-medium text-stone-600 mb-1">Drag & drop photos here</p>
-            <p className="text-xs text-stone-400">or click to browse · JPG, PNG, WEBP, RAW, CR2, NEF, ARW, PDF</p>
+            <p className="text-sm font-medium text-stone-600 mb-1">Drag & drop photos or videos here</p>
+            <p className="text-xs text-stone-400">or click to browse · JPG, PNG, WEBP, RAW · MP4, MOV, WEBM · PDF</p>
           </>
         )}
       </div>

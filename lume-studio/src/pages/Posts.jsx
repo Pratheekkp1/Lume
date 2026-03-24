@@ -1,17 +1,29 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { POST_STATUSES, POST_TYPES, PLATFORMS } from '../lib/constants'
 
 export default function Posts() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
-  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterStatus, setFilterStatus] = useState(searchParams.get('status') || 'all')
 
-  useEffect(() => { fetchPosts() }, [])
+  useEffect(() => {
+    fetchPosts()
+    if (searchParams.get('create') === 'true') {
+      setShowCreate(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, [])
+
+  useEffect(() => {
+    const s = searchParams.get('status')
+    if (s && s !== filterStatus) setFilterStatus(s)
+  }, [searchParams])
 
   async function fetchPosts() {
     const { data } = await supabase
@@ -27,6 +39,7 @@ export default function Posts() {
     if (!error && data) {
       setPosts(prev => [data, ...prev])
       setShowCreate(false)
+      window.dispatchEvent(new CustomEvent('lume-posts-updated'))
       navigate(`/posts/${data.id}`)
     }
   }
@@ -35,6 +48,7 @@ export default function Posts() {
     await supabase.from('posts').delete().eq('id', deleteTarget.id)
     setPosts(prev => prev.filter(p => p.id !== deleteTarget.id))
     setDeleteTarget(null)
+    window.dispatchEvent(new CustomEvent('lume-posts-updated'))
   }
 
   const filtered = filterStatus === 'all' ? posts : posts.filter(p => p.status === filterStatus)
@@ -43,8 +57,7 @@ export default function Posts() {
     <div className="p-7 max-w-4xl">
       <div className="flex items-end justify-between mb-6">
         <div>
-          <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Library</p>
-          <h1 className="font-serif text-3xl text-stone-800">All Posts</h1>
+          <h1 className="font-serif text-3xl text-stone-800">Posts</h1>
         </div>
         <button
           onClick={() => setShowCreate(true)}

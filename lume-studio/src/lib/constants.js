@@ -13,7 +13,7 @@ export const POST_STATUSES = {
   published:   { label: 'Published',   color: '#8aaa8a' },
 }
 
-export const AUDIO_STATUSES = {
+export const SOUND_STATUSES = {
   idea:        { label: 'Idea',        color: '#b0a090' },
   in_progress: { label: 'In Progress', color: '#c8a06a' },
   done:        { label: 'Done',        color: '#8aaa8a' },

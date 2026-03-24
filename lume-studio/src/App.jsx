@@ -1,14 +1,24 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import Topbar from './components/layout/Topbar'
 import Sidebar from './components/layout/Sidebar'
 import Dashboard from './pages/Dashboard'
-import PhotoCollections from './pages/PhotoCollections'
-import CollectionView from './pages/CollectionView'
+import Media from './pages/Media'
+import AlbumView from './pages/AlbumView'
 import Posts from './pages/Posts'
 import PostView from './pages/PostView'
-import AllAudio from './pages/AllAudio'
-import AudioProjectView from './pages/AudioProjectView'
+import Sounds from './pages/Sounds'
+import SoundView from './pages/SoundView'
 import Settings from './pages/Settings'
+
+function AlbumRedirect() {
+  const { collectionId } = useParams()
+  return <Navigate to={`/media/${collectionId}`} replace />
+}
+
+function SoundRedirect() {
+  const { projectId } = useParams()
+  return <Navigate to={`/sounds/${projectId}`} replace />
+}
 
 export default function App() {
   return (
@@ -19,15 +29,23 @@ export default function App() {
           <Sidebar />
           <main className="flex-1 overflow-y-auto">
             <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" />} />
+              <Route path="/" element={<Navigate to="/posts" />} />
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/collections" element={<PhotoCollections />} />
-              <Route path="/collections/:collectionId" element={<CollectionView />} />
+              <Route path="/media" element={<Media />} />
+              <Route path="/media/:albumId" element={<AlbumView />} />
               <Route path="/posts" element={<Posts />} />
               <Route path="/posts/:postId" element={<PostView />} />
-              <Route path="/audio" element={<AllAudio />} />
-              <Route path="/audio/:projectId" element={<AudioProjectView />} />
+              <Route path="/sounds" element={<Sounds />} />
+              <Route path="/sounds/:projectId" element={<SoundView />} />
               <Route path="/settings" element={<Settings />} />
+
+              {/* Redirects from old routes */}
+              <Route path="/collections" element={<Navigate to="/media" replace />} />
+              <Route path="/collections/:collectionId" element={<AlbumRedirect />} />
+              <Route path="/audio" element={<Navigate to="/sounds" replace />} />
+              <Route path="/audio/:projectId" element={<SoundRedirect />} />
+              <Route path="/events" element={<Navigate to="/media" replace />} />
+              <Route path="/events/:eventId" element={<Navigate to="/media" replace />} />
             </Routes>
           </main>
         </div>

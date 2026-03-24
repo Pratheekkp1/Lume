@@ -63,6 +63,7 @@ export default function PhotoCollections() {
       setNewDate('')
       setNewLocation('')
       fetchCollections()
+      window.dispatchEvent(new CustomEvent('lume-collections-updated'))
     }
     setSaving(false)
   }
@@ -91,6 +92,7 @@ export default function PhotoCollections() {
     if (!error) {
       setEditTarget(null)
       fetchCollections()
+      window.dispatchEvent(new CustomEvent('lume-collections-updated'))
     }
     setSaving(false)
   }
@@ -108,6 +110,7 @@ export default function PhotoCollections() {
     if (!error) {
       setEditTarget(null)
       fetchCollections()
+      window.dispatchEvent(new CustomEvent('lume-collections-updated'))
     }
     setDeleting(false)
   }

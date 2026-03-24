@@ -210,7 +210,7 @@ function PhotosTab({ collections, eventId, showAddCollection, setShowAddCollecti
           return (
             <button
               key={col.id}
-              onClick={() => onNavigate(`/photos/${col.id}`)}
+              onClick={() => onNavigate(`/collections/${col.id}`)}
               className="group text-left bg-white border border-stone-200 rounded-xl overflow-hidden hover:border-stone-300 hover:shadow-sm transition-all"
             >
               <div className="aspect-video bg-stone-100 flex items-center justify-center">

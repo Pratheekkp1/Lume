@@ -1,112 +1,55 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { getRecentOpens } from '../lib/recentOpens'
+import { POST_STATUSES } from '../lib/constants'
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const [stats, setStats] = useState(null)
-  const [recent, setRecent] = useState([])
+  const [pipeline, setPipeline] = useState({})
+  const [recentPosts, setRecentPosts] = useState([])
+  const [libraryCounts, setLibraryCounts] = useState({ collections: 0, photos: 0, audioProjects: 0 })
   const [storageBytes, setStorageBytes] = useState({ photos: 0, audio: 0 })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => { fetchAll() }, [])
 
   async function fetchAll() {
-    const recentOpens = getRecentOpens().slice(0, 10)
-    const collectionIds = recentOpens.filter(r => r.type === 'collection').map(r => r.id)
-    const postIds       = recentOpens.filter(r => r.type === 'post').map(r => r.id)
-    const audioIds      = recentOpens.filter(r => r.type === 'audio').map(r => r.id)
-
-    const queries = [
-      supabase.from('collections').select('*', { count: 'exact', head: true }),
-      supabase.from('photos').select('*', { count: 'exact', head: true }),
-      supabase.from('posts').select('*', { count: 'exact', head: true }),
-      supabase.from('audio_projects').select('*', { count: 'exact', head: true }),
-      supabase.from('audio_tracks').select('*', { count: 'exact', head: true }),
-      supabase.from('photos').select('file_size'),
-      supabase.from('audio_tracks').select('file_size'),
-    ]
-
-    if (recentOpens.length > 0) {
-      queries.push(
-        collectionIds.length > 0
-          ? supabase.from('collections').select('id, name, created_at, status, photos!collection_id(file_size)').in('id', collectionIds)
-          : Promise.resolve({ data: [] }),
-        postIds.length > 0
-          ? supabase.from('posts').select('id, title, status, created_at').in('id', postIds)
-          : Promise.resolve({ data: [] }),
-        audioIds.length > 0
-          ? supabase.from('audio_projects').select('id, name, created_at, status, audio_tracks(file_size)').in('id', audioIds)
-          : Promise.resolve({ data: [] }),
-      )
-    } else {
-      queries.push(
-        supabase.from('collections').select('id, name, created_at, status, photos!collection_id(file_size)').order('created_at', { ascending: false }).limit(3),
-        supabase.from('posts').select('id, title, status, created_at').order('created_at', { ascending: false }).limit(3),
-        supabase.from('audio_projects').select('id, name, created_at, status, audio_tracks(file_size)').order('created_at', { ascending: false }).limit(3),
-      )
-    }
-
     const [
+      { data: posts },
       { count: collectionCount },
       { count: photoCount },
-      { count: postCount },
       { count: audioCount },
-      { count: trackCount },
       { data: photoSizes },
       { data: trackSizes },
-      { data: fetchedCollections },
-      { data: fetchedPosts },
-      { data: fetchedAudio },
-    ] = await Promise.all(queries)
+    ] = await Promise.all([
+      supabase.from('posts').select('id, title, type, status, platform, created_at').order('created_at', { ascending: false }),
+      supabase.from('collections').select('*', { count: 'exact', head: true }),
+      supabase.from('photos').select('*', { count: 'exact', head: true }),
+      supabase.from('audio_projects').select('*', { count: 'exact', head: true }),
+      supabase.from('photos').select('file_size'),
+      supabase.from('audio_tracks').select('file_size'),
+    ])
 
-    setStats({
+    // Pipeline counts
+    const counts = {}
+    for (const key of Object.keys(POST_STATUSES)) counts[key] = 0
+    ;(posts || []).forEach(p => { if (counts[p.status] !== undefined) counts[p.status]++ })
+    setPipeline(counts)
+
+    setRecentPosts((posts || []).slice(0, 8))
+
+    setLibraryCounts({
       collections: collectionCount || 0,
       photos: photoCount || 0,
-      posts: postCount || 0,
       audioProjects: audioCount || 0,
-      tracks: trackCount || 0,
     })
 
     setStorageBytes({
       photos: (photoSizes || []).reduce((sum, r) => sum + (r.file_size || 0), 0),
-      audio:  (trackSizes  || []).reduce((sum, r) => sum + (r.file_size || 0), 0),
+      audio:  (trackSizes || []).reduce((sum, r) => sum + (r.file_size || 0), 0),
     })
 
-    const sumSizes = (rows) => (rows || []).reduce((s, r) => s + (r.file_size || 0), 0)
-    const byId = {}
-
-    ;(fetchedCollections || []).forEach(r => {
-      byId[`collection-${r.id}`] = { ...r, type: 'collection', path: `/collections/${r.id}`, totalSize: sumSizes(r.photos) }
-    })
-    ;(fetchedPosts || []).forEach(r => {
-      byId[`post-${r.id}`] = { ...r, type: 'post', name: r.title, path: `/posts/${r.id}` }
-    })
-    ;(fetchedAudio || []).forEach(r => {
-      byId[`audio-${r.id}`] = { ...r, type: 'audio', path: `/audio/${r.id}`, totalSize: sumSizes(r.audio_tracks) }
-    })
-
-    let merged
-    if (recentOpens.length > 0) {
-      merged = recentOpens
-        .map(o => byId[`${o.type}-${o.id}`])
-        .filter(Boolean)
-        .slice(0, 10)
-    } else {
-      merged = Object.values(byId)
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 10)
-    }
-
-    setRecent(merged)
     setLoading(false)
-  }
-
-  const TYPE_META = {
-    collection: { label: 'Collection',    icon: '◻', color: '#a8a29e' },
-    post:       { label: 'Post',           icon: '▷', color: '#a8a29e' },
-    audio:      { label: 'Audio Project',  icon: '♩', color: '#a8a29e' },
   }
 
   const totalStorage = storageBytes.photos + storageBytes.audio
@@ -123,106 +66,137 @@ export default function Dashboard() {
         <p className="text-stone-400 text-sm">Loading...</p>
       ) : (
         <>
-          {/* Stat cards */}
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            <StatCard
-              label="Collections"
-              icon="◻"
-              primary={stats.collections}
-              primaryWord="collection"
-              secondary={stats.photos}
-              secondaryWord="photo"
-              onClick={() => navigate('/collections')}
-            />
-            <StatCard
-              label="Posts"
-              icon="▷"
-              primary={stats.posts}
-              primaryWord="post"
-              secondary={stats.photos}
-              secondaryWord="photo"
-              onClick={() => navigate('/posts')}
-            />
-            <StatCard
-              label="Music / Audio"
-              icon="♩"
-              primary={stats.audioProjects}
-              primaryWord="project"
-              secondary={stats.tracks}
-              secondaryWord="track"
-              onClick={() => navigate('/audio')}
-            />
-          </div>
-
-          {/* Storage usage */}
-          {totalStorage > 0 && (
-            <div className="mb-8 bg-white border border-stone-200 rounded-xl p-5">
-              <p className="text-xs tracking-widest uppercase text-stone-400 mb-4">Storage Used</p>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="flex-1 h-2 bg-stone-100 rounded-full overflow-hidden flex">
-                  {storageBytes.photos > 0 && (
-                    <div
-                      className="h-full bg-stone-400 transition-all"
-                      style={{ width: `${(storageBytes.photos / totalStorage) * 100}%` }}
-                    />
-                  )}
-                  {storageBytes.audio > 0 && (
-                    <div
-                      className="h-full bg-stone-300 transition-all"
-                      style={{ width: `${(storageBytes.audio / totalStorage) * 100}%` }}
-                    />
-                  )}
-                </div>
-                <span className="text-xs text-stone-500 font-medium flex-shrink-0">{fmtBytes(totalStorage)}</span>
-              </div>
-              <div className="flex gap-5">
-                <StorageLegend color="bg-stone-400" label="Photos" bytes={storageBytes.photos} />
-                <StorageLegend color="bg-stone-300" label="Audio" bytes={storageBytes.audio} />
-              </div>
-            </div>
-          )}
-
-          {/* Quick shortcuts */}
+          {/* Content Pipeline */}
           <div className="mb-8">
-            <p className="text-xs tracking-widest uppercase text-stone-400 mb-4">Quick Access</p>
-            <div className="grid grid-cols-3 gap-3">
-              <ShortcutCard icon="◻" label="Collections" sub="Browse all collections" onClick={() => navigate('/collections')} />
-              <ShortcutCard icon="▷" label="All Posts"   sub="Browse & manage content" onClick={() => navigate('/posts')} />
-              <ShortcutCard icon="♩" label="All Audio"   sub="Browse audio projects"   onClick={() => navigate('/audio')} />
+            <p className="text-xs tracking-widest uppercase text-stone-400 mb-4">Content Pipeline</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {Object.entries(POST_STATUSES).map(([key, s]) => (
+                <button
+                  key={key}
+                  onClick={() => navigate(`/posts?status=${key}`)}
+                  className="text-left bg-white border border-stone-200 rounded-xl p-5 hover:border-stone-300 hover:shadow-sm transition-all group"
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                    <span className="text-xs text-stone-400">{s.label}</span>
+                  </div>
+                  <span className="text-3xl font-light text-stone-800">{pipeline[key] || 0}</span>
+                  <p className="text-xs text-stone-300 mt-1">{pipeline[key] === 1 ? 'post' : 'posts'}</p>
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Recent activity */}
-          <div>
-            <p className="text-xs tracking-widest uppercase text-stone-400 mb-4">Recently Opened</p>
-            {recent.length === 0 ? (
-              <p className="text-stone-400 text-sm">Nothing yet — open a collection or project to see it here.</p>
+          {/* Quick Actions */}
+          <div className="mb-8">
+            <p className="text-xs tracking-widest uppercase text-stone-400 mb-4">Quick Actions</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={() => navigate('/posts?create=true')}
+                className="bg-stone-800 text-white text-xs font-medium px-5 py-2.5 rounded-md hover:opacity-90 transition-opacity"
+              >
+                + New Post
+              </button>
+              <button
+                onClick={() => navigate('/media')}
+                className="border border-stone-200 text-stone-500 text-xs font-medium px-4 py-2.5 rounded-md hover:border-stone-300 hover:text-stone-700 transition-all"
+              >
+                Browse Media
+              </button>
+              <button
+                onClick={() => navigate('/sounds')}
+                className="border border-stone-200 text-stone-500 text-xs font-medium px-4 py-2.5 rounded-md hover:border-stone-300 hover:text-stone-700 transition-all"
+              >
+                Sounds
+              </button>
+            </div>
+          </div>
+
+          {/* Recent Posts */}
+          <div className="mb-8">
+            <p className="text-xs tracking-widest uppercase text-stone-400 mb-4">Recent Posts</p>
+            {recentPosts.length === 0 ? (
+              <p className="text-stone-400 text-sm">No posts yet — create one to get started.</p>
             ) : (
               <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
-                {recent.map((item, i) => {
-                  const meta = TYPE_META[item.type]
-                  if (!meta) return null
+                {recentPosts.map((post, i) => {
+                  const status = POST_STATUSES[post.status]
                   return (
                     <button
-                      key={`${item.type}-${item.id}`}
-                      onClick={() => navigate(item.path)}
+                      key={post.id}
+                      onClick={() => navigate(`/posts/${post.id}`)}
                       className={`w-full flex items-center gap-4 py-3 px-4 text-left hover:bg-stone-50 transition-colors group ${i !== 0 ? 'border-t border-stone-100' : ''}`}
                     >
                       <span className="w-7 h-7 rounded-md bg-stone-100 flex items-center justify-center text-xs text-stone-400 flex-shrink-0 group-hover:bg-stone-200 transition-colors">
-                        {meta.icon}
+                        ▷
                       </span>
-                      <span className="flex-1 text-sm text-stone-700 truncate">{item.name || item.title}</span>
-                      {item.totalSize > 0 && (
-                        <span className="text-xs text-stone-300 flex-shrink-0 hidden sm:block">{fmtBytes(item.totalSize)}</span>
+                      <span className="flex-1 text-sm text-stone-700 truncate">{post.title}</span>
+                      {post.type && (
+                        <span className="text-xs text-stone-300 flex-shrink-0 hidden sm:block">{post.type}</span>
                       )}
-                      <span className="text-xs text-stone-300 flex-shrink-0 hidden sm:block">{meta.label}</span>
-                      <span className="text-xs text-stone-300 flex-shrink-0 w-24 text-right">
-                        {new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </span>
+                      {post.platform && (
+                        <span className="text-xs text-stone-300 flex-shrink-0 hidden sm:block">{post.platform}</span>
+                      )}
+                      {status && (
+                        <span
+                          className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: status.color + '30', color: status.color }}
+                        >
+                          {status.label}
+                        </span>
+                      )}
                     </button>
                   )
                 })}
               </div>
+            )}
+          </div>
+
+          {/* Library Summary */}
+          <div className="bg-white border border-stone-200 rounded-xl p-5">
+            <p className="text-xs tracking-widest uppercase text-stone-400 mb-4">Library</p>
+            <div className="flex items-center gap-6 mb-4">
+              <LibraryStat
+                label="Albums"
+                count={libraryCounts.collections}
+                onClick={() => navigate('/media')}
+              />
+              <LibraryStat
+                label="Photos"
+                count={libraryCounts.photos}
+                onClick={() => navigate('/media')}
+              />
+              <LibraryStat
+                label="Sounds"
+                count={libraryCounts.audioProjects}
+                onClick={() => navigate('/sounds')}
+              />
+            </div>
+
+            {totalStorage > 0 && (
+              <>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="flex-1 h-1.5 bg-stone-100 rounded-full overflow-hidden flex">
+                    {storageBytes.photos > 0 && (
+                      <div
+                        className="h-full bg-stone-400 transition-all"
+                        style={{ width: `${(storageBytes.photos / totalStorage) * 100}%` }}
+                      />
+                    )}
+                    {storageBytes.audio > 0 && (
+                      <div
+                        className="h-full bg-stone-300 transition-all"
+                        style={{ width: `${(storageBytes.audio / totalStorage) * 100}%` }}
+                      />
+                    )}
+                  </div>
+                  <span className="text-xs text-stone-400 flex-shrink-0">{fmtBytes(totalStorage)}</span>
+                </div>
+                <div className="flex gap-4">
+                  <StorageLegend color="bg-stone-400" label="Photos" bytes={storageBytes.photos} />
+                  <StorageLegend color="bg-stone-300" label="Sounds" bytes={storageBytes.audio} />
+                </div>
+              </>
             )}
           </div>
         </>
@@ -249,38 +223,11 @@ function StorageLegend({ color, label, bytes }) {
   )
 }
 
-function ShortcutCard({ icon, label, sub, onClick }) {
+function LibraryStat({ label, count, onClick }) {
   return (
-    <button
-      onClick={onClick}
-      className="text-left bg-white border border-stone-200 rounded-xl p-4 hover:border-stone-300 hover:shadow-sm transition-all group flex items-center gap-3"
-    >
-      <span className="w-9 h-9 rounded-lg bg-stone-100 flex items-center justify-center text-sm text-stone-400 flex-shrink-0 group-hover:bg-stone-200 transition-colors">
-        {icon}
-      </span>
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-stone-700 truncate">{label}</p>
-        <p className="text-xs text-stone-400 truncate">{sub}</p>
-      </div>
-    </button>
-  )
-}
-
-function StatCard({ label, icon, primary, primaryWord, secondary, secondaryWord, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="text-left bg-white border border-stone-200 rounded-xl p-5 hover:border-stone-300 hover:shadow-sm transition-all group"
-    >
-      <div className="flex items-start justify-between mb-4">
-        <span className="text-xs text-stone-400">{label}</span>
-        <span className="text-base text-stone-200 group-hover:text-stone-300 transition-colors">{icon}</span>
-      </div>
-      <div className="flex items-baseline gap-1.5 mb-1">
-        <span className="text-3xl font-light text-stone-800">{primary}</span>
-        <span className="text-xs text-stone-400">{primary === 1 ? primaryWord : `${primaryWord}s`}</span>
-      </div>
-      <p className="text-xs text-stone-300">{secondary} {secondary === 1 ? secondaryWord : `${secondaryWord}s`}</p>
+    <button onClick={onClick} className="group">
+      <span className="text-xl font-light text-stone-700 group-hover:text-stone-900 transition-colors">{count}</span>
+      <p className="text-xs text-stone-400">{label}</p>
     </button>
   )
 }

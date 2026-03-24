@@ -4,10 +4,10 @@ import { supabase } from '../../lib/supabase'
 import { getProfile, deriveInitials } from '../../lib/profile'
 
 const TYPE_META = {
-  collection: { label: 'Collection', icon: '◻', pathFn: (id) => `/collections/${id}` },
-  photo:      { label: 'Photo',      icon: '◻', pathFn: (_id, extra) => `/collections/${extra}` },
-  post:       { label: 'Post',       icon: '▷', pathFn: (id) => `/posts/${id}` },
-  audio:      { label: 'Audio',      icon: '♩', pathFn: (id) => `/audio/${id}` },
+  collection: { label: 'Album', icon: '◻', pathFn: (id) => `/media/${id}` },
+  photo:      { label: 'Photo', icon: '◻', pathFn: (_id, extra) => `/media/${extra}` },
+  post:       { label: 'Post',  icon: '▷', pathFn: (id) => `/posts/${id}` },
+  audio:      { label: 'Sound', icon: '♩', pathFn: (id) => `/sounds/${id}` },
 }
 
 export default function Topbar() {
@@ -48,30 +48,30 @@ export default function Topbar() {
     setSearching(true)
     const like = `%${q}%`
     const [
+      { data: posts },
       { data: collections },
       { data: photos },
-      { data: posts },
       { data: audioProjects },
     ] = await Promise.all([
+      supabase.from('posts').select('id, title').ilike('title', like).limit(4),
       supabase.from('collections').select('id, name').ilike('name', like).limit(4),
       supabase.from('photos').select('id, name, collection_id').ilike('name', like).limit(4),
-      supabase.from('posts').select('id, title').ilike('title', like).limit(4),
       supabase.from('audio_projects').select('id, name').ilike('name', like).limit(4),
     ])
 
     const grouped = []
 
+    if (posts?.length) {
+      grouped.push({ groupLabel: 'Posts', items: posts.map(r => ({ type: 'post', id: r.id, name: r.title, extra: null })) })
+    }
     if (collections?.length) {
-      grouped.push({ groupLabel: 'Collections', items: collections.map(r => ({ type: 'collection', id: r.id, name: r.name, extra: null })) })
+      grouped.push({ groupLabel: 'Albums', items: collections.map(r => ({ type: 'collection', id: r.id, name: r.name, extra: null })) })
     }
     if (photos?.length) {
       grouped.push({ groupLabel: 'Photos', items: photos.map(r => ({ type: 'photo', id: r.id, name: r.name, extra: r.collection_id })) })
     }
-    if (posts?.length) {
-      grouped.push({ groupLabel: 'Posts', items: posts.map(r => ({ type: 'post', id: r.id, name: r.title, extra: null })) })
-    }
     if (audioProjects?.length) {
-      grouped.push({ groupLabel: 'Audio Projects', items: audioProjects.map(r => ({ type: 'audio', id: r.id, name: r.name, extra: null })) })
+      grouped.push({ groupLabel: 'Sounds', items: audioProjects.map(r => ({ type: 'audio', id: r.id, name: r.name, extra: null })) })
     }
 
     setResults(grouped)
