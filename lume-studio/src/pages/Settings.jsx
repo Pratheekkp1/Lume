@@ -157,7 +157,7 @@ function ShortcutsSection() {
   const shortcuts = [
     { keys: ['Esc'], description: 'Close detail panel or modal' },
     { keys: ['←', '→'], description: 'Navigate to previous / next item' },
-    { keys: ['Space'], description: 'Play / pause audio (Audio projects)' },
+    { keys: ['Space'], description: 'Play / pause audio (Sound projects)' },
     { keys: ['Click name'], description: 'Rename a track, clip, or photo' },
   ]
 
@@ -200,16 +200,15 @@ function AboutSection() {
           <span className="font-serif italic text-amber-700 text-3xl">lume.</span>
           <div>
             <p className="text-sm font-medium text-stone-700">Lume Studio</p>
-            <p className="text-xs text-stone-400 mt-0.5">Creative asset management for photographers & filmmakers</p>
+            <p className="text-xs text-stone-400 mt-0.5">Your creative hub for planning and organizing content</p>
           </div>
         </div>
 
         <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
           {[
-            { label: 'Photo Collections', desc: 'Organize, filter, and manage photos & videos' },
-            { label: 'Events', desc: 'Group collections, posts, and audio by occasion' },
-            { label: 'Posts', desc: 'Create reels, montages, edits, and photo dumps' },
-            { label: 'Music / Audio', desc: 'Manage tracks, assign to projects, and organize music' },
+            { label: 'Posts', desc: 'Plan and create reels, montages, edits, and photo dumps' },
+            { label: 'Media & Albums', desc: 'Organize photos and videos into albums, grouped by event' },
+            { label: 'Sounds', desc: 'Manage music, recordings, and audio tracks' },
           ].map((f, i) => (
             <div key={i} className={`px-5 py-3.5 ${i !== 0 ? 'border-t border-stone-100' : ''}`}>
               <p className="text-sm font-medium text-stone-700">{f.label}</p>

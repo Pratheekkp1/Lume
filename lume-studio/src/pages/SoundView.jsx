@@ -11,7 +11,7 @@ function fmtTime(s) {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
-export default function AudioProjectView() {
+export default function SoundView() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState(null);
@@ -292,12 +292,12 @@ export default function AudioProjectView() {
           <div className="flex items-end justify-between mb-5">
             <div>
               <button
-                onClick={() => navigate("/audio")}
+                onClick={() => navigate("/sounds")}
                 className="text-xs text-stone-400 hover:text-stone-600 mb-2 flex items-center gap-1 transition-colors"
               >
-                ← Music / Audio
+                ← Sounds
               </button>
-              <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Project</p>
+              <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Sound Project</p>
               <h1 className="font-serif text-3xl text-stone-800">{project?.name || "..."}</h1>
               <p className="text-xs text-stone-400 mt-1">
                 {tracks.length} track{tracks.length !== 1 ? "s" : ""}

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { AUDIO_STATUSES } from '../lib/constants'
+import { SOUND_STATUSES } from '../lib/constants'
 
-export default function AllAudio() {
+export default function Sounds() {
   const navigate = useNavigate()
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
@@ -31,7 +31,7 @@ export default function AllAudio() {
     if (!error && data) {
       setProjects(prev => [data, ...prev])
       setShowCreate(false)
-      navigate(`/audio/${data.id}`)
+      navigate(`/sounds/${data.id}`)
     }
   }
 
@@ -47,14 +47,13 @@ export default function AllAudio() {
     <div className="p-7 max-w-4xl">
       <div className="flex items-end justify-between mb-6">
         <div>
-          <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Library</p>
-          <h1 className="font-serif text-3xl text-stone-800">All Audio</h1>
+          <h1 className="font-serif text-3xl text-stone-800">Sounds</h1>
         </div>
         <button
           onClick={() => setShowCreate(true)}
           className="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
         >
-          + New Audio
+          + New Sound Project
         </button>
       </div>
 
@@ -68,7 +67,7 @@ export default function AllAudio() {
         >
           All
         </button>
-        {Object.entries(AUDIO_STATUSES).map(([key, s]) => (
+        {Object.entries(SOUND_STATUSES).map(([key, s]) => (
           <button
             key={key}
             onClick={() => setFilterStatus(key)}
@@ -88,8 +87,8 @@ export default function AllAudio() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-stone-400">
           <p className="text-4xl mb-4">♩</p>
-          <p className="text-sm font-medium mb-1">No audio projects</p>
-          <p className="text-xs">Track music, ambient recordings, or any audio you're working with.</p>
+          <p className="text-sm font-medium mb-1">No sound projects yet</p>
+          <p className="text-xs">Start organizing your music and audio.</p>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
@@ -97,7 +96,7 @@ export default function AllAudio() {
             <AudioCard
               key={project.id}
               project={project}
-              onClick={() => navigate(`/audio/${project.id}`)}
+              onClick={() => navigate(`/sounds/${project.id}`)}
               onDelete={(e) => { e.stopPropagation(); setDeleteTarget(project) }}
             />
           ))}
@@ -119,7 +118,7 @@ export default function AllAudio() {
 }
 
 function AudioCard({ project, onClick, onDelete }) {
-  const status = AUDIO_STATUSES[project.status]
+  const status = SOUND_STATUSES[project.status]
   const cats = (project.audio_categories || []).map(ac => ac.category).filter(Boolean)
 
   return (
@@ -175,7 +174,7 @@ function CreateModal({ onSave, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
-        <h2 className="font-serif text-xl text-stone-800 mb-5">New Audio Project</h2>
+        <h2 className="font-serif text-xl text-stone-800 mb-5">New Sound Project</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <input
             autoFocus
@@ -200,7 +199,7 @@ function ConfirmDelete({ name, onConfirm, onCancel }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
-        <h2 className="font-serif text-xl text-stone-800 mb-2">Delete audio project?</h2>
+        <h2 className="font-serif text-xl text-stone-800 mb-2">Delete sound project?</h2>
         <p className="text-sm text-stone-500 mb-6">
           "<span className="font-medium text-stone-700">{name}</span>" will be permanently deleted.
         </p>
