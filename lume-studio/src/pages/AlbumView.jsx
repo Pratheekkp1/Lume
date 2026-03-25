@@ -91,6 +91,11 @@ export default function AlbumView() {
     if (data) setCollection(data);
   }
 
+  async function updateCollectionStatus(status) {
+    await supabase.from("collections").update({ status }).eq("id", collectionId);
+    setCollection(prev => ({ ...prev, status }));
+  }
+
   async function fetchPhotos() {
     const { data } = await supabase
       .from("photos")
@@ -303,6 +308,23 @@ export default function AlbumView() {
             {collection?.event_date && ` · ${new Date(collection.event_date).toLocaleDateString("en-US", { month: "long", year: "numeric" })}`}
             {collection?.location && ` · ${collection.location}`}
           </p>
+          {collection && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {Object.entries(STATUSES).map(([key, s]) => (
+                <button
+                  key={key}
+                  onClick={() => updateCollectionStatus(key)}
+                  className="px-2.5 py-1 rounded-full text-xs border transition-colors"
+                  style={collection.status === key
+                    ? { backgroundColor: s.color, color: '#fff', borderColor: s.color }
+                    : { borderColor: '#e7e5e4', color: '#78716c' }
+                  }
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <button
           onClick={() => setShowUploader(true)}

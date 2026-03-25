@@ -12,6 +12,7 @@ export default function Posts() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [filterStatus, setFilterStatus] = useState(searchParams.get('status') || 'all')
+  const [viewMode, setViewMode] = useState('grid')
 
   useEffect(() => {
     fetchPosts()
@@ -68,6 +69,18 @@ export default function Posts() {
     window.dispatchEvent(new CustomEvent('lume-posts-updated'))
   }
 
+  async function handleStatusChange(postId, newStatus) {
+    const post = posts.find(p => p.id === postId)
+    if (!post || post.status === newStatus) return
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, status: newStatus } : p))
+    const { error } = await supabase.from('posts').update({ status: newStatus }).eq('id', postId)
+    if (error) {
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, status: post.status } : p))
+    } else {
+      window.dispatchEvent(new CustomEvent('lume-posts-updated'))
+    }
+  }
+
   const filtered = filterStatus === 'all' ? posts : posts.filter(p => p.status === filterStatus)
 
   return (
@@ -79,44 +92,70 @@ export default function Posts() {
             {posts.length} post{posts.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
-        >
-          + New Post
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex border border-stone-200 rounded-md overflow-hidden">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'grid' ? 'bg-stone-800 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
+            >
+              Grid
+            </button>
+            <button
+              onClick={() => setViewMode('board')}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'board' ? 'bg-stone-800 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
+            >
+              Board
+            </button>
+          </div>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
+          >
+            + New Post
+          </button>
+        </div>
       </div>
 
-      {/* Status filter */}
-      <div className="flex items-center gap-2 mb-6 flex-wrap">
-        <button
-          onClick={() => setFilterStatus('all')}
-          className={`px-3 py-1 rounded-full text-xs border transition-colors ${
-            filterStatus === 'all'
-              ? 'bg-stone-800 text-white border-stone-800'
-              : 'border-stone-200 text-stone-500 hover:border-stone-400'
-          }`}
-        >
-          All
-        </button>
-        {Object.entries(POST_STATUSES).map(([key, s]) => (
+      {/* Status filter — only in grid view */}
+      {viewMode === 'grid' && (
+        <div className="flex items-center gap-2 mb-6 flex-wrap">
           <button
-            key={key}
-            onClick={() => setFilterStatus(key)}
+            onClick={() => setFilterStatus('all')}
             className={`px-3 py-1 rounded-full text-xs border transition-colors ${
-              filterStatus === key
-                ? 'text-white border-transparent'
+              filterStatus === 'all'
+                ? 'bg-stone-800 text-white border-stone-800'
                 : 'border-stone-200 text-stone-500 hover:border-stone-400'
             }`}
-            style={filterStatus === key ? { backgroundColor: s.color } : {}}
           >
-            {s.label}
+            All
           </button>
-        ))}
-      </div>
+          {Object.entries(POST_STATUSES).map(([key, s]) => (
+            <button
+              key={key}
+              onClick={() => setFilterStatus(key)}
+              className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+                filterStatus === key
+                  ? 'text-white border-transparent'
+                  : 'border-stone-200 text-stone-500 hover:border-stone-400'
+              }`}
+              style={filterStatus === key ? { backgroundColor: s.color } : {}}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <p className="text-stone-400 text-sm">Loading…</p>
+      ) : viewMode === 'board' ? (
+        <KanbanBoard
+          posts={posts}
+          onNavigate={(id) => navigate(`/posts/${id}`)}
+          onEdit={(post) => setEditTarget(post)}
+          onDelete={(post) => setDeleteTarget(post)}
+          onStatusChange={handleStatusChange}
+        />
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-stone-400">
           <p className="text-4xl mb-4">▷</p>
@@ -154,6 +193,132 @@ export default function Posts() {
           onDelete={handleDeleteFromEdit}
           onClose={() => setEditTarget(null)}
         />
+      )}
+    </div>
+  )
+}
+
+function KanbanBoard({ posts, onNavigate, onEdit, onDelete, onStatusChange }) {
+  const [dragOverCol, setDragOverCol] = useState(null)
+
+  function handleDragStart(e, postId) {
+    e.dataTransfer.setData('text/plain', postId)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function handleDragOver(e, statusKey) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragOverCol !== statusKey) setDragOverCol(statusKey)
+  }
+
+  function handleDragLeave(e, statusKey) {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverCol(null)
+    }
+  }
+
+  function handleDrop(e, statusKey) {
+    e.preventDefault()
+    setDragOverCol(null)
+    const postId = e.dataTransfer.getData('text/plain')
+    if (postId) onStatusChange(postId, statusKey)
+  }
+
+  return (
+    <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: '60vh' }}>
+      {Object.entries(POST_STATUSES).map(([key, status]) => {
+        const columnPosts = posts.filter(p => p.status === key)
+        return (
+          <div
+            key={key}
+            className={`flex-1 min-w-[220px] max-w-[320px] rounded-xl p-3 transition-colors ${
+              dragOverCol === key ? 'bg-stone-100 ring-2 ring-stone-300' : 'bg-stone-50'
+            }`}
+            onDragOver={(e) => handleDragOver(e, key)}
+            onDragLeave={(e) => handleDragLeave(e, key)}
+            onDrop={(e) => handleDrop(e, key)}
+          >
+            <div className="flex items-center gap-2 mb-3 px-1">
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />
+              <span className="text-xs font-semibold text-stone-600 uppercase tracking-wide">{status.label}</span>
+              <span className="text-[10px] text-stone-400 ml-auto">{columnPosts.length}</span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {columnPosts.map(post => (
+                <KanbanCard
+                  key={post.id}
+                  post={post}
+                  onDragStart={handleDragStart}
+                  onClick={() => onNavigate(post.id)}
+                  onEdit={() => onEdit(post)}
+                  onDelete={() => onDelete(post)}
+                />
+              ))}
+              {columnPosts.length === 0 && (
+                <p className="text-xs text-stone-300 text-center py-8">Drop posts here</p>
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function KanbanCard({ post, onDragStart, onClick, onEdit, onDelete }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const cats = (post.post_categories || []).map(pc => pc.category).filter(Boolean)
+
+  return (
+    <div
+      draggable
+      onDragStart={(e) => onDragStart(e, post.id)}
+      onClick={onClick}
+      className="bg-white border border-stone-200 rounded-lg p-3 cursor-pointer hover:border-stone-300 hover:shadow-sm transition-all"
+    >
+      <div className="flex items-start justify-between mb-1.5">
+        <p className="text-sm font-medium text-stone-700 truncate flex-1 mr-2">{post.title}</p>
+        <div className="relative flex-shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
+            className="w-5 h-5 rounded text-stone-300 hover:text-stone-600 flex items-center justify-center text-sm transition-colors"
+          >
+            ⋮
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false) }} />
+              <div className="absolute top-6 right-0 z-20 bg-white border border-stone-200 rounded-lg shadow-lg py-1 min-w-[120px]">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onEdit() }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50 transition-colors"
+                >
+                  Edit Post
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete() }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  Delete Post
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+      {post.type?.length > 0 && (
+        <p className="text-[11px] text-stone-400 mb-1">{post.type.join(', ')}</p>
+      )}
+      {post.platform?.length > 0 && (
+        <p className="text-[10px] text-stone-400">{post.platform.join(' · ')}</p>
+      )}
+      {cats.length > 0 && (
+        <div className="flex gap-1 mt-2">
+          {cats.slice(0, 6).map(cat => (
+            <span key={cat.id} className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+          ))}
+        </div>
       )}
     </div>
   )
