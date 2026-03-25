@@ -1,7 +1,7 @@
 # Lume Studio — Project State
 
-**Last updated**: 2026-03-24
-**Current phase**: Phase 1 — Usability Fixes (see roadmap.md for full plan)
+**Last updated**: 2026-03-25
+**Current phase**: Phase 1 COMPLETE — moving to Phase 2 (see roadmap.md)
 
 ---
 
@@ -16,28 +16,26 @@
 - [x] Favorites system across all media types
 - [x] Cross-linking (photos & tracks linked to posts, "used in" references)
 
-## What Was Done This Session
-- [x] Task 1.4: Caption field on Posts — auto-saving caption textarea in PostView between header and tabs
-- [x] Task 1.6: Consistent create modals — all three modals now offer Name + Status + Notes, plus section-specific fields (type/platform for Posts, event/date/location for Albums, date for Sounds). Normalized modal styling.
-- [x] AirPod audio desync fix — added onPlay/onPause handlers to AudioPlayer <audio> element
-- [x] Layout consistency — Posts/Sounds headers match Media (button placement, item count)
-- [x] Task 1.2: Multi-select Type & Platform (DB migrated to text[] arrays)
-
-## What's In Progress
-- [ ] Uncommitted changes in: AlbumView, Settings, SoundView, Sounds, Posts, PostView, Media, AudioPlayer, roadmap
+## Phase 1 — Completed (2026-03-24 to 2026-03-25)
+- [x] 1.1 Auto-save notes (debounced save on PostView, AlbumView, SoundView)
+- [x] 1.2 Multi-select Type & Platform (text[] arrays in DB, toggle UI)
+- [x] 1.3 Visible UI actions (three-dot menus, always-visible controls)
+- [x] 1.4 Caption field on Posts (auto-saving textarea between header and tabs)
+- [x] 1.5 Consistent delete confirmations (category delete dialogs)
+- [x] 1.6 Consistent create modals (Name + Status + Notes on all three, plus section-specific fields)
+- [x] 1.7 Auto-save status/metadata (inline status pills on AlbumView & SoundView headers)
 
 ## What's Next
-See `.claude/state/roadmap.md` for the full phased plan.
-Current: **Phase 1 — Usability Fixes** (6 of 7 tasks done)
-Next task: 1.7 Auto-save status/metadata (last task in Phase 1)
+**Phase 2 — Restructure Around Content** (6 tasks)
+Next task: 2.1 Kanban board view for Posts
 
-## DB Migrations Applied This Session
+## DB Migrations Applied
 - `ALTER TABLE posts ADD COLUMN caption text`
-- `ALTER TABLE posts ALTER COLUMN type TYPE text[]` (for multi-select)
-- `ALTER TABLE posts ALTER COLUMN platform TYPE text[]` (for multi-select)
+- `ALTER TABLE posts ALTER COLUMN type TYPE text[]`
+- `ALTER TABLE posts ALTER COLUMN platform TYPE text[]`
 - `ALTER TABLE audio_projects ADD COLUMN description text`
 - `ALTER TABLE audio_projects ADD COLUMN project_date date`
-- Note: `collections.description` already existed
+- `collections.description` already existed
 
 ## Decisions Made
 | Decision | Rationale | Date |

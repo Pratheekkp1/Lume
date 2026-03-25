@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { STATUSES } from "../lib/constants";
+import { STATUSES, SOUND_STATUSES } from "../lib/constants";
 import AudioUploader from "../components/ui/AudioUploader";
 import useDebouncedSave from "../hooks/useDebouncedSave";
 
@@ -159,6 +159,11 @@ export default function SoundView() {
     setLoading(false);
   }
 
+  async function updateProjectStatus(status) {
+    await supabase.from("audio_projects").update({ status }).eq("id", projectId);
+    setProject(prev => ({ ...prev, status }));
+  }
+
   async function fetchCategories() {
     const { data } = await supabase
       .from("categories")
@@ -308,6 +313,23 @@ export default function SoundView() {
                 {project?.event_date && ` · ${new Date(project.event_date).toLocaleDateString("en-US", { month: "long", year: "numeric" })}`}
                 {project?.location && ` · ${project.location}`}
               </p>
+              {project && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {Object.entries(SOUND_STATUSES).map(([key, s]) => (
+                    <button
+                      key={key}
+                      onClick={() => updateProjectStatus(key)}
+                      className="px-2.5 py-1 rounded-full text-xs border transition-colors"
+                      style={project.status === key
+                        ? { backgroundColor: s.color, color: '#fff', borderColor: s.color }
+                        : { borderColor: '#e7e5e4', color: '#78716c' }
+                      }
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <button
               onClick={() => setShowUploader(true)}

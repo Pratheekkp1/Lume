@@ -36,7 +36,7 @@ Fix the friction in what already exists. Every change here is an improvement to 
 | 1.4 | Caption field on Posts | Add a prominent text area for the actual post copy/caption. This is the most important field for a creator and it's currently missing. Place it prominently in PostView (above or alongside the media tabs). | done (2026-03-24) |
 | 1.5 | Consistent delete confirmations | Add confirmation dialog to category delete (currently instant). Ensure all delete flows use the same confirmation pattern. | done (2026-03-24) |
 | 1.6 | Consistent create modals | Normalize create modals: all should offer Name + optional Notes + optional Status. Posts: keep type/platform. Albums: keep event/date/location. Sounds: add date field. | done (2026-03-24) |
-| 1.7 | Auto-save status/metadata | Status, type, platform changes should auto-save immediately on click (verify this is already the case everywhere, fix where it's not). | not started |
+| 1.7 | Auto-save status/metadata | Status, type, platform changes should auto-save immediately on click (verify this is already the case everywhere, fix where it's not). | done (2026-03-25) |
 
 **Phase 1 complete when:** All 7 tasks done. App feels consistent — no manual save buttons for notes, no hover-only features, no missing confirmations.
 
