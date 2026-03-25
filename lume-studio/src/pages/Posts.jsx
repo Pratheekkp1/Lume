@@ -10,17 +10,18 @@ export default function Posts() {
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [editTarget, setEditTarget] = useState(null)
   const [filterStatus, setFilterStatus] = useState(searchParams.get('status') || 'all')
 
   useEffect(() => {
     fetchPosts()
+  }, [])
+
+  useEffect(() => {
     if (searchParams.get('create') === 'true') {
       setShowCreate(true)
       setSearchParams({}, { replace: true })
     }
-  }, [])
-
-  useEffect(() => {
     const s = searchParams.get('status')
     if (s && s !== filterStatus) setFilterStatus(s)
   }, [searchParams])
@@ -51,13 +52,32 @@ export default function Posts() {
     window.dispatchEvent(new CustomEvent('lume-posts-updated'))
   }
 
+  async function handleEdit(fields) {
+    const { error } = await supabase.from('posts').update(fields).eq('id', editTarget.id)
+    if (!error) {
+      setPosts(prev => prev.map(p => p.id === editTarget.id ? { ...p, ...fields } : p))
+      setEditTarget(null)
+      window.dispatchEvent(new CustomEvent('lume-posts-updated'))
+    }
+  }
+
+  async function handleDeleteFromEdit() {
+    await supabase.from('posts').delete().eq('id', editTarget.id)
+    setPosts(prev => prev.filter(p => p.id !== editTarget.id))
+    setEditTarget(null)
+    window.dispatchEvent(new CustomEvent('lume-posts-updated'))
+  }
+
   const filtered = filterStatus === 'all' ? posts : posts.filter(p => p.status === filterStatus)
 
   return (
-    <div className="p-7 max-w-4xl">
-      <div className="flex items-end justify-between mb-6">
+    <div className="p-7">
+      <div className="flex items-end justify-between mb-5">
         <div>
           <h1 className="font-serif text-3xl text-stone-800">Posts</h1>
+          <p className="text-xs text-stone-400 mt-1">
+            {posts.length} post{posts.length !== 1 ? 's' : ''}
+          </p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
@@ -110,6 +130,7 @@ export default function Posts() {
               key={post.id}
               post={post}
               onClick={() => navigate(`/posts/${post.id}`)}
+              onEdit={(e) => { e.stopPropagation(); setEditTarget(post) }}
               onDelete={(e) => { e.stopPropagation(); setDeleteTarget(post) }}
             />
           ))}
@@ -126,18 +147,27 @@ export default function Posts() {
           onCancel={() => setDeleteTarget(null)}
         />
       )}
+      {editTarget && (
+        <EditPostModal
+          post={editTarget}
+          onSave={handleEdit}
+          onDelete={handleDeleteFromEdit}
+          onClose={() => setEditTarget(null)}
+        />
+      )}
     </div>
   )
 }
 
-function PostCard({ post, onClick, onDelete }) {
+function PostCard({ post, onClick, onEdit, onDelete }) {
+  const [menuOpen, setMenuOpen] = useState(false)
   const status = POST_STATUSES[post.status]
   const cats = (post.post_categories || []).map(pc => pc.category).filter(Boolean)
 
   return (
     <button
       onClick={onClick}
-      className="group relative text-left bg-white border border-stone-200 rounded-xl p-4 hover:border-stone-300 hover:shadow-sm transition-all"
+      className="relative text-left bg-white border border-stone-200 rounded-xl p-4 hover:border-stone-300 hover:shadow-sm transition-all"
     >
       <div className="flex items-start justify-between mb-2">
         <span
@@ -146,15 +176,44 @@ function PostCard({ post, onClick, onDelete }) {
         >
           {status?.label || post.status}
         </span>
-        {post.platform && (
-          <span className="text-[10px] text-stone-400">{post.platform}</span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {post.platform?.length > 0 && (
+            <span className="text-[10px] text-stone-400 text-right">{post.platform.join(', ')}</span>
+          )}
+          <div className="relative">
+            <button
+              onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
+              className="w-5 h-5 rounded text-stone-300 hover:text-stone-600 flex items-center justify-center text-sm transition-colors"
+            >
+              ⋮
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false) }} />
+                <div className="absolute top-6 right-0 z-20 bg-white border border-stone-200 rounded-lg shadow-lg py-1 min-w-[120px]">
+                  <button
+                    onClick={(e) => { setMenuOpen(false); onEdit(e) }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50 transition-colors"
+                  >
+                    Edit Post
+                  </button>
+                  <button
+                    onClick={(e) => { setMenuOpen(false); onDelete(e) }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    Delete Post
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       <p className="text-sm font-medium text-stone-700 truncate mb-0.5">{post.title}</p>
 
-      {post.type && (
-        <p className="text-xs text-stone-400">{post.type}</p>
+      {post.type?.length > 0 && (
+        <p className="text-xs text-stone-400">{post.type.join(', ')}</p>
       )}
 
       {cats.length > 0 && (
@@ -164,30 +223,33 @@ function PostCard({ post, onClick, onDelete }) {
           ))}
         </div>
       )}
-
-      {/* Hover delete */}
-      <button
-        onClick={onDelete}
-        className="absolute top-2 right-2 w-5 h-5 rounded bg-white/90 text-stone-300 hover:text-red-500 items-center justify-center text-xs shadow-sm transition-colors hidden group-hover:flex"
-        title="Delete"
-      >
-        ✕
-      </button>
     </button>
   )
 }
 
 function PostModal({ initial = {}, onSave, onClose }) {
   const [title, setTitle] = useState(initial.title || '')
-  const [type, setType] = useState(initial.type || '')
-  const [platform, setPlatform] = useState(initial.platform || '')
+  const [types, setTypes] = useState(initial.type || [])
+  const [platforms, setPlatforms] = useState(initial.platform || [])
+  const [status, setStatus] = useState(initial.status || 'idea')
+  const [description, setDescription] = useState(initial.description || '')
   const [saving, setSaving] = useState(false)
+
+  function toggleItem(arr, setArr, item) {
+    setArr(arr.includes(item) ? arr.filter(v => v !== item) : [...arr, item])
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
     if (!title.trim()) return
     setSaving(true)
-    await onSave({ title: title.trim(), type: type || null, platform: platform || null, status: initial.status || 'idea' })
+    await onSave({
+      title: title.trim(),
+      type: types.length > 0 ? types : null,
+      platform: platforms.length > 0 ? platforms : null,
+      status,
+      description: description.trim() || null,
+    })
     setSaving(false)
   }
 
@@ -205,11 +267,29 @@ function PostModal({ initial = {}, onSave, onClose }) {
               className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 transition-colors"
             />
           </Field>
+          <Field label="Status">
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(POST_STATUSES).map(([key, s]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setStatus(key)}
+                  className="px-2.5 py-1 rounded-full text-xs border transition-colors"
+                  style={status === key
+                    ? { backgroundColor: s.color, color: '#fff', borderColor: s.color }
+                    : { borderColor: '#e7e5e4', color: '#78716c' }
+                  }
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </Field>
           <Field label="Type">
             <div className="flex flex-wrap gap-1.5">
               {POST_TYPES.map(t => (
-                <button key={t} type="button" onClick={() => setType(type === t ? '' : t)}
-                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${type === t ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
+                <button key={t} type="button" onClick={() => toggleItem(types, setTypes, t)}
+                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${types.includes(t) ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
                   {t}
                 </button>
               ))}
@@ -218,12 +298,21 @@ function PostModal({ initial = {}, onSave, onClose }) {
           <Field label="Platform">
             <div className="flex flex-wrap gap-1.5">
               {PLATFORMS.map(p => (
-                <button key={p} type="button" onClick={() => setPlatform(platform === p ? '' : p)}
-                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${platform === p ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
+                <button key={p} type="button" onClick={() => toggleItem(platforms, setPlatforms, p)}
+                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${platforms.includes(p) ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
                   {p}
                 </button>
               ))}
             </div>
+          </Field>
+          <Field label="Notes">
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Quick notes or context…"
+              rows={2}
+              className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 resize-none transition-colors"
+            />
           </Field>
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
@@ -248,6 +337,101 @@ function ConfirmDelete({ name, onConfirm, onCancel }) {
         <div className="flex gap-2">
           <button onClick={onCancel} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
           <button onClick={onConfirm} className="flex-1 bg-red-500 text-white text-sm py-2 rounded-md hover:bg-red-600 transition-colors">Delete</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EditPostModal({ post, onSave, onDelete, onClose }) {
+  const [title, setTitle] = useState(post.title || '')
+  const [types, setTypes] = useState(post.type || [])
+  const [platforms, setPlatforms] = useState(post.platform || [])
+  const [status, setStatus] = useState(post.status || 'idea')
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  function toggleItem(arr, setArr, item) {
+    setArr(arr.includes(item) ? arr.filter(v => v !== item) : [...arr, item])
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!title.trim()) return
+    setSaving(true)
+    await onSave({ title: title.trim(), type: types.length > 0 ? types : null, platform: platforms.length > 0 ? platforms : null, status })
+    setSaving(false)
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    await onDelete()
+    setDeleting(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 overflow-hidden">
+        <div className="p-6">
+          <h2 className="font-serif text-xl text-stone-800 mb-1">Edit Post</h2>
+          <p className="text-xs text-stone-400 mb-5">{post.title}</p>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <Field label="Title">
+              <input
+                autoFocus
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 transition-colors"
+              />
+            </Field>
+            <Field label="Type">
+              <div className="flex flex-wrap gap-1.5">
+                {POST_TYPES.map(t => (
+                  <button key={t} type="button" onClick={() => toggleItem(types, setTypes, t)}
+                    className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${types.includes(t) ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            <Field label="Platform">
+              <div className="flex flex-wrap gap-1.5">
+                {PLATFORMS.map(p => (
+                  <button key={p} type="button" onClick={() => toggleItem(platforms, setPlatforms, p)}
+                    className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${platforms.includes(p) ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            <Field label="Status">
+              <select
+                value={status}
+                onChange={e => setStatus(e.target.value)}
+                className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 outline-none bg-white focus:border-stone-400 transition-colors"
+              >
+                {Object.entries(POST_STATUSES).map(([key, val]) => (
+                  <option key={key} value={key}>{val.label}</option>
+                ))}
+              </select>
+            </Field>
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={onClose} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
+              <button type="submit" disabled={!title.trim() || saving} className="flex-1 bg-stone-800 text-white text-sm py-2 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity">
+                {saving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+        <div className="px-6 pb-6 pt-2 border-t border-stone-100">
+          <p className="text-xs text-stone-400 mb-2">Danger zone</p>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="w-full border border-red-200 text-red-400 text-xs font-medium py-2 rounded-md hover:bg-red-50 hover:border-red-300 hover:text-red-500 disabled:opacity-40 transition-colors"
+          >
+            {deleting ? 'Deleting…' : 'Delete Post'}
+          </button>
         </div>
       </div>
     </div>

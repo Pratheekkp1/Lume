@@ -16,6 +16,8 @@ export default function Media() {
   const [newDate, setNewDate] = useState('')
   const [newLocation, setNewLocation] = useState('')
   const [newEventId, setNewEventId] = useState('')
+  const [newStatus, setNewStatus] = useState('unedited')
+  const [newDescription, setNewDescription] = useState('')
   const [saving, setSaving] = useState(false)
 
   // Edit album state
@@ -83,11 +85,13 @@ export default function Media() {
       event_date: newDate || null,
       location: newLocation || null,
       event_id: newEventId || null,
-      status: 'unedited',
+      status: newStatus,
+      description: newDescription.trim() || null,
     })
     if (!error) {
       setShowNew(false)
       setNewName(''); setNewDate(''); setNewLocation(''); setNewEventId('')
+      setNewStatus('unedited'); setNewDescription('')
       fetchAll()
       notifyUpdated()
     }
@@ -237,82 +241,95 @@ export default function Media() {
 
       {/* New Album Modal */}
       {showNew && (
-        <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center"
-          onClick={e => e.target === e.currentTarget && setShowNew(false)}
-        >
-          <div className="bg-white border border-stone-200 rounded-xl w-96 shadow-xl overflow-hidden">
-            <div className="px-6 pt-6 pb-4">
-              <h2 className="text-lg font-medium text-stone-800 mb-1">New Album</h2>
-              <p className="text-xs text-stone-400 mb-5">Give your album a name to get started</p>
-              <div className="flex flex-col gap-4">
-                <div>
-                  <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Name *</label>
-                  <input
-                    autoFocus
-                    type="text"
-                    value={newName}
-                    onChange={e => setNewName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && createAlbum()}
-                    placeholder="e.g. Beach Shoot — Sunset"
-                    className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 transition-colors"
-                  />
-                  {newName.trim() && albums.some(a => a.name.toLowerCase() === newName.trim().toLowerCase()) && (
-                    <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-600">
-                      <span className="w-3.5 h-3.5 rounded-full bg-amber-400 text-white flex items-center justify-center text-[9px] flex-shrink-0 mt-px">!</span>
-                      An album with this name already exists — are you sure?
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Event</label>
-                  <select
-                    value={newEventId}
-                    onChange={e => setNewEventId(e.target.value)}
-                    className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 outline-none bg-white focus:border-stone-400 transition-colors"
-                  >
-                    <option value="">None</option>
-                    {events.map(ev => (
-                      <option key={ev.id} value={ev.id}>{ev.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Date</label>
-                  <input
-                    type="date"
-                    value={newDate}
-                    onChange={e => setNewDate(e.target.value)}
-                    className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 outline-none focus:border-stone-400 transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Location</label>
-                  <input
-                    type="text"
-                    value={newLocation}
-                    onChange={e => setNewLocation(e.target.value)}
-                    placeholder="e.g. Tokyo, Japan"
-                    className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 transition-colors"
-                  />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <h2 className="font-serif text-xl text-stone-800 mb-5">New Album</h2>
+            <form onSubmit={e => { e.preventDefault(); createAlbum() }} className="flex flex-col gap-4">
+              <div>
+                <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Name</label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  placeholder="e.g. Beach Shoot — Sunset"
+                  className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 transition-colors"
+                />
+                {newName.trim() && albums.some(a => a.name.toLowerCase() === newName.trim().toLowerCase()) && (
+                  <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-600">
+                    <span className="w-3.5 h-3.5 rounded-full bg-amber-400 text-white flex items-center justify-center text-[9px] flex-shrink-0 mt-px">!</span>
+                    An album with this name already exists — are you sure?
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Status</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(STATUSES).map(([key, s]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setNewStatus(key)}
+                      className="px-2.5 py-1 rounded-full text-xs border transition-colors"
+                      style={newStatus === key
+                        ? { backgroundColor: s.color, color: '#fff', borderColor: s.color }
+                        : { borderColor: '#e7e5e4', color: '#78716c' }
+                      }
+                    >
+                      {s.label}
+                    </button>
+                  ))}
                 </div>
               </div>
-            </div>
-            <div className="flex gap-2 px-6 pb-6">
-              <button
-                onClick={() => setShowNew(false)}
-                className="flex-1 border border-stone-200 text-stone-500 text-xs font-medium py-2 rounded-md hover:bg-stone-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={createAlbum}
-                disabled={!newName.trim() || saving}
-                className="flex-1 bg-stone-800 text-white text-xs font-medium py-2 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity"
-              >
-                {saving ? 'Creating...' : 'Create Album'}
-              </button>
-            </div>
+              <div>
+                <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Event</label>
+                <select
+                  value={newEventId}
+                  onChange={e => setNewEventId(e.target.value)}
+                  className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 outline-none bg-white focus:border-stone-400 transition-colors"
+                >
+                  <option value="">None</option>
+                  {events.map(ev => (
+                    <option key={ev.id} value={ev.id}>{ev.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Date</label>
+                <input
+                  type="date"
+                  value={newDate}
+                  onChange={e => setNewDate(e.target.value)}
+                  className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 outline-none focus:border-stone-400 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Location</label>
+                <input
+                  type="text"
+                  value={newLocation}
+                  onChange={e => setNewLocation(e.target.value)}
+                  placeholder="e.g. Tokyo, Japan"
+                  className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Notes</label>
+                <textarea
+                  value={newDescription}
+                  onChange={e => setNewDescription(e.target.value)}
+                  placeholder="Quick notes or context…"
+                  rows={2}
+                  className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 resize-none transition-colors"
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setShowNew(false)} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
+                <button type="submit" disabled={!newName.trim() || saving} className="flex-1 bg-stone-800 text-white text-sm py-2 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity">
+                  {saving ? 'Creating…' : 'Create'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -614,6 +631,7 @@ function ManageEventsModal({ events, onClose, onUpdated }) {
 // ── Album Card ────────────────────────────────────────────────────────────────
 
 function AlbumCard({ album, onClick, onEdit }) {
+  const [menuOpen, setMenuOpen] = useState(false)
   const status = STATUSES[album.status] || STATUSES.unedited
   const photoCount = album.photos?.length || 0
   const totalSize = (album.photos || []).reduce((sum, p) => sum + (p.file_size || 0), 0)
@@ -621,13 +639,28 @@ function AlbumCard({ album, onClick, onEdit }) {
 
   return (
     <div className="cursor-pointer group relative" onClick={onClick}>
-      {/* Edit button */}
-      <button
-        onClick={onEdit}
-        className="absolute top-2 left-2 z-10 w-6 h-6 bg-black/20 hover:bg-black/50 text-white rounded flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
-      >
-        ✎
-      </button>
+      {/* Three-dot menu */}
+      <div className="absolute top-2 left-2 z-10">
+        <button
+          onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
+          className="w-6 h-6 bg-black/25 hover:bg-black/50 text-white rounded flex items-center justify-center text-xs backdrop-blur-sm transition-colors"
+        >
+          ⋮
+        </button>
+        {menuOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false) }} />
+            <div className="absolute top-7 left-0 z-20 bg-white border border-stone-200 rounded-lg shadow-lg py-1 min-w-[120px]">
+              <button
+                onClick={(e) => { setMenuOpen(false); onEdit(e) }}
+                className="w-full text-left px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50 transition-colors"
+              >
+                Edit Album
+              </button>
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Stacked card effect */}
       <div className="relative w-full aspect-[4/3] mb-3">

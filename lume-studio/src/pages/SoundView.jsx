@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { STATUSES } from "../lib/constants";
 import AudioUploader from "../components/ui/AudioUploader";
+import useDebouncedSave from "../hooks/useDebouncedSave";
 
 function fmtTime(s) {
   if (!s || isNaN(s)) return "0:00";
@@ -20,7 +21,6 @@ export default function SoundView() {
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [playingTrack, setPlayingTrack] = useState(null);
   const [notes, setNotes] = useState("");
-  const [savingNotes, setSavingNotes] = useState(false);
   const [filter, setFilter] = useState("all");
   const [showUploader, setShowUploader] = useState(false);
   const [deletingTrack, setDeletingTrack] = useState(false);
@@ -30,6 +30,7 @@ export default function SoundView() {
   const [categories, setCategories] = useState([]);
   const [showNewCat, setShowNewCat] = useState(false);
   const [newCatName, setNewCatName] = useState("");
+  const [deleteCatTarget, setDeleteCatTarget] = useState(null);
   const [linkedPosts, setLinkedPosts] = useState([]);
 
   // Playback
@@ -203,6 +204,7 @@ export default function SoundView() {
   }
 
   function loadTrack(track) {
+    flushNotes();
     selectedTrackRef.current = track;
     setPlayingTrack(track);
     setSelectedTrack(track);
@@ -212,6 +214,7 @@ export default function SoundView() {
   }
 
   function switchTrack(track) {
+    flushNotes();
     selectedTrackRef.current = track;
     setPlayingTrack(track);
     setSelectedTrack((prev) => {
@@ -224,6 +227,7 @@ export default function SoundView() {
   }
 
   function closeDetail() {
+    flushNotes();
     setSelectedTrack(null);
     setNotes("");
     setLinkedPosts([]);
@@ -238,13 +242,13 @@ export default function SoundView() {
     if (playingTrack?.id === track.id) setPlayingTrack((prev) => ({ ...prev, is_favorite: newVal }));
   }
 
-  async function saveNotes() {
+  const notesSaveFn = useCallback(async (val) => {
     if (!selectedTrack) return;
-    setSavingNotes(true);
-    await supabase.from("audio_tracks").update({ notes }).eq("id", selectedTrack.id);
-    setTracks((prev) => prev.map((t) => t.id === selectedTrack.id ? { ...t, notes } : t));
-    setSavingNotes(false);
-  }
+    await supabase.from("audio_tracks").update({ notes: val }).eq("id", selectedTrack.id);
+    setTracks((prev) => prev.map((t) => t.id === selectedTrack.id ? { ...t, notes: val } : t));
+  }, [selectedTrack?.id]);
+
+  const { saved: notesSaved, triggerSave: triggerNotesSave, flush: flushNotes } = useDebouncedSave(notesSaveFn);
 
   async function updateStatus(status) {
     await supabase.from("audio_tracks").update({ status }).eq("id", selectedTrack.id);
@@ -353,17 +357,34 @@ export default function SoundView() {
                   {cat.name}
                   <span className="ml-1 opacity-50">{tracks.filter((t) => t.category_id === cat.id).length}</span>
                 </button>
-                <button
-                  onClick={() => deleteCategory(cat.id)}
-                  className={`text-xs px-1.5 py-1.5 rounded-r-full border-y border-r transition-all ${
-                    filter === cat.id
-                      ? "bg-stone-800 border-stone-800 text-white hover:bg-stone-700"
-                      : "border-stone-200 text-stone-300 hover:text-red-400 hover:border-stone-300"
-                  }`}
-                  title="Delete category"
-                >
-                  ×
-                </button>
+                {deleteCatTarget === cat.id ? (
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      onClick={() => { deleteCategory(cat.id); setDeleteCatTarget(null); }}
+                      className="text-[10px] px-2 py-1.5 rounded-full border border-red-200 text-red-500 hover:bg-red-50 font-medium transition-colors"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      onClick={() => setDeleteCatTarget(null)}
+                      className="text-[10px] px-2 py-1.5 rounded-full border border-stone-200 text-stone-400 hover:bg-stone-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setDeleteCatTarget(cat.id)}
+                    className={`text-xs px-1.5 py-1.5 rounded-r-full border-y border-r transition-all ${
+                      filter === cat.id
+                        ? "bg-stone-800 border-stone-800 text-white hover:bg-stone-700"
+                        : "border-stone-200 text-stone-300 hover:text-red-400 hover:border-stone-300"
+                    }`}
+                    title="Delete category"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
             ))}
 
@@ -542,18 +563,12 @@ export default function SoundView() {
                 <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Notes</label>
                 <textarea
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  onChange={(e) => { setNotes(e.target.value); triggerNotesSave(e.target.value); }}
                   placeholder="Add notes — mix feedback, edit points, reminders…"
                   rows={5}
                   className="w-full border border-stone-200 rounded-md px-3 py-2 text-xs text-stone-600 placeholder-stone-300 outline-none focus:border-stone-400 transition-colors resize-none leading-relaxed"
                 />
-                <button
-                  onClick={saveNotes}
-                  disabled={savingNotes || notes === (selectedTrack.notes || "")}
-                  className="mt-2 w-full bg-stone-800 text-white text-xs font-medium py-2 rounded-md hover:opacity-90 disabled:opacity-30 transition-opacity"
-                >
-                  {savingNotes ? "Saving..." : "Save Notes"}
-                </button>
+                <p className={`mt-1.5 text-[10px] text-green-600 text-center transition-opacity duration-300 ${notesSaved ? 'opacity-100' : 'opacity-0'}`}>Saved</p>
               </div>
 
               {/* Used in Posts */}

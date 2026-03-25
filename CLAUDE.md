@@ -10,6 +10,8 @@ Personal creative management platform for organizing photos, videos, audio, and 
 
 ## Session Continuity
 @.claude/state/project-state.md
+@.claude/state/roadmap.md
+@.claude/docs/session-wrapup.md
 
 ## Quick Reference
 - **Dev server**: `cd lume-studio && npm run dev`

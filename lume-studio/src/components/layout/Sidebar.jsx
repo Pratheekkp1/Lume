@@ -1,26 +1,6 @@
-import { useEffect, useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { NavLink } from 'react-router-dom'
 
 export default function Sidebar() {
-  const navigate = useNavigate()
-  const [recentPosts, setRecentPosts] = useState([])
-  const [postsExpanded, setPostsExpanded] = useState(false)
-
-  useEffect(() => {
-    fetchRecentPosts()
-    window.addEventListener('lume-posts-updated', fetchRecentPosts)
-    return () => window.removeEventListener('lume-posts-updated', fetchRecentPosts)
-  }, [])
-
-  async function fetchRecentPosts() {
-    const { data } = await supabase
-      .from('posts')
-      .select('id, title, status')
-      .order('created_at', { ascending: false })
-      .limit(3)
-    setRecentPosts(data || [])
-  }
 
   const navClass = ({ isActive }) =>
     `flex items-center gap-2 px-4 py-2 text-sm border-l-2 transition-all ${
@@ -57,42 +37,14 @@ export default function Sidebar() {
           Posts
         </NavLink>
 
-        {/* Collapsible recent posts */}
-        {recentPosts.length > 0 && (
-          <>
-            <button
-              onClick={() => setPostsExpanded(prev => !prev)}
-              className="w-full flex items-center gap-2 px-4 py-1 text-[10px] text-stone-400 hover:text-stone-600 transition-colors"
-            >
-              <span className="text-[8px]">{postsExpanded ? '▾' : '▸'}</span>
-              <span>Recent</span>
-            </button>
-            {postsExpanded && recentPosts.map(p => (
-              <NavLink
-                key={p.id}
-                to={`/posts/${p.id}`}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 pl-8 pr-4 py-1.5 text-xs border-l-2 transition-all truncate ${
-                    isActive
-                      ? 'text-amber-700 border-amber-700 bg-amber-50 font-medium'
-                      : 'text-stone-400 border-transparent hover:bg-stone-200 hover:text-stone-600'
-                  }`
-                }
-              >
-                <span className="truncate">{p.title}</span>
-              </NavLink>
-            ))}
-          </>
-        )}
-
-        {/* Quick create */}
-        <button
-          onClick={() => navigate('/posts?create=true')}
+        {/* Quick create — opens Posts page with create modal */}
+        <NavLink
+          to="/posts?create=true"
           className="flex items-center gap-2 px-4 py-1.5 text-xs text-stone-400 hover:text-amber-700 transition-colors w-full"
         >
           <span className="w-4 text-center">+</span>
           New Post
-        </button>
+        </NavLink>
       </div>
 
       <div className="border-t border-stone-200 mx-3 mb-3" />
