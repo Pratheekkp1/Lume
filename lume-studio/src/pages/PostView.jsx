@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { POST_STATUSES, POST_TYPES, PLATFORMS } from '../lib/constants'
 import { recordOpen } from '../lib/recentOpens'
+import useDebouncedSave from '../hooks/useDebouncedSave'
 
 const BUCKET = 'Photos'
 
@@ -243,6 +244,14 @@ export default function PostView() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Caption */}
+        <div className="px-7 py-4 bg-white border-b border-stone-200 flex-shrink-0">
+          <CaptionEditor
+            value={post.caption || ''}
+            onSave={val => updateField('caption', val)}
+          />
         </div>
 
         {/* Tabs */}
@@ -547,19 +556,26 @@ export default function PostView() {
           <div>
             <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">Type</p>
             <div className="flex flex-wrap gap-1.5">
-              {POST_TYPES.map(t => (
-                <button
-                  key={t}
-                  onClick={() => updateField('type', post.type === t ? null : t)}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                    post.type === t
-                      ? 'bg-stone-800 text-white border-stone-800'
-                      : 'border-stone-200 text-stone-500 hover:border-stone-400'
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
+              {POST_TYPES.map(t => {
+                const selected = (post.type || []).includes(t)
+                return (
+                  <button
+                    key={t}
+                    onClick={() => {
+                      const cur = post.type || []
+                      const next = selected ? cur.filter(v => v !== t) : [...cur, t]
+                      updateField('type', next.length > 0 ? next : null)
+                    }}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                      selected
+                        ? 'bg-stone-800 text-white border-stone-800'
+                        : 'border-stone-200 text-stone-500 hover:border-stone-400'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -567,19 +583,26 @@ export default function PostView() {
           <div>
             <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">Platform</p>
             <div className="flex flex-wrap gap-1.5">
-              {PLATFORMS.map(p => (
-                <button
-                  key={p}
-                  onClick={() => updateField('platform', post.platform === p ? null : p)}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                    post.platform === p
-                      ? 'bg-stone-800 text-white border-stone-800'
-                      : 'border-stone-200 text-stone-500 hover:border-stone-400'
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
+              {PLATFORMS.map(p => {
+                const selected = (post.platform || []).includes(p)
+                return (
+                  <button
+                    key={p}
+                    onClick={() => {
+                      const cur = post.platform || []
+                      const next = selected ? cur.filter(v => v !== p) : [...cur, p]
+                      updateField('platform', next.length > 0 ? next : null)
+                    }}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                      selected
+                        ? 'bg-stone-800 text-white border-stone-800'
+                        : 'border-stone-200 text-stone-500 hover:border-stone-400'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -786,24 +809,54 @@ function DescriptionEditor({ value, onSave }) {
   const [draft, setDraft] = useState(value)
   const [editing, setEditing] = useState(false)
 
+  const saveFn = useCallback(async (val) => { await onSave(val) }, [onSave])
+  const { saved, triggerSave, flush } = useDebouncedSave(saveFn)
+
   useEffect(() => { setDraft(value) }, [value])
 
   return editing ? (
-    <textarea
-      autoFocus
-      value={draft}
-      onChange={e => setDraft(e.target.value)}
-      onBlur={() => { onSave(draft); setEditing(false) }}
-      rows={4}
-      className="w-full text-xs text-stone-600 border border-stone-200 rounded-md p-2 outline-none focus:border-stone-400 resize-none transition-colors"
-      placeholder="Add notes…"
-    />
+    <div>
+      <textarea
+        autoFocus
+        value={draft}
+        onChange={e => { setDraft(e.target.value); triggerSave(e.target.value) }}
+        onBlur={() => { flush(); setEditing(false) }}
+        rows={4}
+        className="w-full text-xs text-stone-600 border border-stone-200 rounded-md p-2 outline-none focus:border-stone-400 resize-none transition-colors"
+        placeholder="Add notes…"
+      />
+      <p className={`mt-1 text-[10px] text-green-600 text-center transition-opacity duration-300 ${saved ? 'opacity-100' : 'opacity-0'}`}>Saved</p>
+    </div>
   ) : (
     <div
       onClick={() => setEditing(true)}
       className="text-xs text-stone-500 cursor-pointer hover:text-stone-700 transition-colors min-h-[2.5rem] whitespace-pre-wrap"
     >
       {value || <span className="text-stone-300 italic">Add notes…</span>}
+    </div>
+  )
+}
+
+// ── Caption editor ──────────────────────────────────────────────────────────
+
+function CaptionEditor({ value, onSave }) {
+  const [draft, setDraft] = useState(value)
+  const saveFn = useCallback(async (val) => { await onSave(val) }, [onSave])
+  const { saved, triggerSave, flush } = useDebouncedSave(saveFn)
+
+  useEffect(() => { setDraft(value) }, [value])
+
+  return (
+    <div className="relative">
+      <textarea
+        value={draft}
+        onChange={e => { setDraft(e.target.value); triggerSave(e.target.value) }}
+        onBlur={flush}
+        rows={3}
+        className="w-full text-sm text-stone-700 placeholder-stone-300 outline-none resize-none bg-transparent leading-relaxed"
+        placeholder="Write your caption…"
+      />
+      <p className={`text-[10px] text-green-600 transition-opacity duration-300 ${saved ? 'opacity-100' : 'opacity-0'}`}>Saved</p>
     </div>
   )
 }
@@ -816,6 +869,7 @@ function CategoryPanel({ categories, type, onClose, onCreate, onDelete }) {
   const [name, setName] = useState('')
   const [color, setColor] = useState(PRESET_COLORS[0])
   const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   async function handleCreate(e) {
     e.preventDefault()
@@ -841,12 +895,29 @@ function CategoryPanel({ categories, type, onClose, onCreate, onDelete }) {
             <div key={cat.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-stone-50 group">
               <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
               <span className="flex-1 text-sm text-stone-600">{cat.name}</span>
-              <button
-                onClick={() => onDelete(cat.id)}
-                className="text-stone-200 hover:text-red-400 text-xs transition-colors hidden group-hover:block"
-              >
-                ✕
-              </button>
+              {deleteTarget === cat.id ? (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => { onDelete(cat.id); setDeleteTarget(null) }}
+                    className="text-[10px] text-red-500 hover:text-red-600 font-medium transition-colors"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={() => setDeleteTarget(null)}
+                    className="text-[10px] text-stone-400 hover:text-stone-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setDeleteTarget(cat.id)}
+                  className="text-stone-200 hover:text-red-400 text-xs transition-colors hidden group-hover:block"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           ))}
         </div>

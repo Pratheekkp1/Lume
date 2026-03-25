@@ -34,8 +34,8 @@ const AudioPlayer = forwardRef(function AudioPlayer({ src, autoPlay = false }, r
   function toggle() {
     const a = audioRef.current;
     if (!a) return;
-    if (playing) { a.pause(); setPlaying(false); }
-    else { a.play(); setPlaying(true); }
+    if (a.paused) a.play();
+    else a.pause();
   }
 
   useImperativeHandle(ref, () => ({ toggle }));
@@ -48,7 +48,7 @@ const AudioPlayer = forwardRef(function AudioPlayer({ src, autoPlay = false }, r
     setDuration(audioRef.current?.duration || 0);
     if (shouldAutoPlay.current) {
       shouldAutoPlay.current = false;
-      audioRef.current?.play().then(() => setPlaying(true)).catch(() => {});
+      audioRef.current?.play().catch(() => {});
     }
   }
 
@@ -90,6 +90,8 @@ const AudioPlayer = forwardRef(function AudioPlayer({ src, autoPlay = false }, r
         onTimeUpdate={onTimeUpdate}
         onLoadedMetadata={onLoadedMetadata}
         onEnded={onEnded}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
         preload="metadata"
       />
 

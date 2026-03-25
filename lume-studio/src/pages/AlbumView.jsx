@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { STATUSES, POST_TYPES, PLATFORMS } from "../lib/constants";
 import PhotoUploader from "../components/ui/PhotoUploader";
 import { recordOpen } from "../lib/recentOpens";
+import useDebouncedSave from "../hooks/useDebouncedSave";
 
 function applySort(items, sort) {
   const arr = [...items];
@@ -50,7 +51,6 @@ export default function AlbumView() {
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [notes, setNotes] = useState("");
-  const [savingNotes, setSavingNotes] = useState(false);
   const [filter, setFilter] = useState("all");
   const [showUploader, setShowUploader] = useState(false);
   const [deletingPhoto, setDeletingPhoto] = useState(false);
@@ -60,6 +60,7 @@ export default function AlbumView() {
   const [coverError, setCoverError] = useState(false);
 
   // Multi-select
+  const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [bulkProcessing, setBulkProcessing] = useState(false);
@@ -154,6 +155,7 @@ export default function AlbumView() {
   }
 
   function openPhoto(photo) {
+    flushNotes();
     setSelectedPhoto(photo);
     setNotes(photo.notes || "");
     setConfirmDelete(false);
@@ -163,19 +165,20 @@ export default function AlbumView() {
   }
 
   function closeDetail() {
+    flushNotes();
     setSelectedPhoto(null);
     setNotes("");
     setRenaming(false);
     setLinkedPosts([]);
   }
 
-  async function saveNotes() {
+  const notesSaveFn = useCallback(async (val) => {
     if (!selectedPhoto) return;
-    setSavingNotes(true);
-    await supabase.from("photos").update({ notes }).eq("id", selectedPhoto.id);
-    setPhotos((prev) => prev.map((p) => (p.id === selectedPhoto.id ? { ...p, notes } : p)));
-    setSavingNotes(false);
-  }
+    await supabase.from("photos").update({ notes: val }).eq("id", selectedPhoto.id);
+    setPhotos((prev) => prev.map((p) => (p.id === selectedPhoto.id ? { ...p, notes: val } : p)));
+  }, [selectedPhoto?.id]);
+
+  const { saved: notesSaved, triggerSave: triggerNotesSave, flush: flushNotes } = useDebouncedSave(notesSaveFn);
 
   async function saveRename() {
     const trimmed = renameValue.trim();
@@ -227,6 +230,7 @@ export default function AlbumView() {
 
   function deselectAll() {
     setSelectedIds(new Set());
+    setSelectMode(false);
     setConfirmBulkDelete(false);
   }
 
@@ -322,16 +326,28 @@ export default function AlbumView() {
             {f !== "all" && <span className="ml-1 opacity-60">{photos.filter((p) => p.status === f).length}</span>}
           </button>
         ))}
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          className="ml-auto text-xs border border-stone-200 rounded-md px-2 py-1.5 text-stone-500 bg-white outline-none focus:border-stone-400 transition-colors cursor-pointer"
-        >
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="name_az">Name A→Z</option>
-          <option value="name_za">Name Z→A</option>
-        </select>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => { setSelectMode(!selectMode); if (selectMode) deselectAll(); }}
+            className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
+              selectMode
+                ? 'bg-stone-800 text-white border-stone-800'
+                : 'border-stone-200 text-stone-500 hover:border-stone-300'
+            }`}
+          >
+            {selectMode ? 'Done' : 'Select'}
+          </button>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+            className="text-xs border border-stone-200 rounded-md px-2 py-1.5 text-stone-500 bg-white outline-none focus:border-stone-400 transition-colors cursor-pointer"
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="name_az">Name A→Z</option>
+            <option value="name_za">Name Z→A</option>
+          </select>
+        </div>
       </div>
 
       {/* Bulk action bar */}
@@ -405,9 +421,10 @@ export default function AlbumView() {
               photo={photo}
               selected={selectedPhoto?.id === photo.id}
               checked={selectedIds.has(photo.id)}
+              selectMode={selectMode}
               anySelected={anySelected}
               onCheck={(e) => { e.stopPropagation(); toggleSelect(photo.id); }}
-              onClick={() => openPhoto(photo)}
+              onClick={() => selectMode ? toggleSelect(photo.id) : openPhoto(photo)}
             />
           ))}
         </div>
@@ -620,18 +637,12 @@ export default function AlbumView() {
                 <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Notes</label>
                 <textarea
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  onChange={(e) => { setNotes(e.target.value); triggerNotesSave(e.target.value); }}
                   placeholder="Add notes — editing ideas, client feedback, reminders…"
                   rows={6}
                   className="w-full border border-stone-200 rounded-md px-3 py-2 text-xs text-stone-600 placeholder-stone-300 outline-none focus:border-stone-400 transition-colors resize-none leading-relaxed"
                 />
-                <button
-                  onClick={saveNotes}
-                  disabled={savingNotes || notes === (selectedPhoto.notes || "")}
-                  className="mt-2 w-full bg-stone-800 text-white text-xs font-medium py-2 rounded-md hover:opacity-90 disabled:opacity-30 transition-opacity"
-                >
-                  {savingNotes ? "Saving..." : "Save Notes"}
-                </button>
+                <p className={`mt-1.5 text-[10px] text-green-600 text-center transition-opacity duration-300 ${notesSaved ? 'opacity-100' : 'opacity-0'}`}>Saved</p>
               </div>
 
               {/* Categories */}
@@ -856,7 +867,7 @@ function AddToPostModal({ posts, photoIds, onClose, onAdded }) {
   );
 }
 
-function PhotoCard({ photo, selected, checked, anySelected, onCheck, onClick }) {
+function PhotoCard({ photo, selected, checked, selectMode, anySelected, onCheck, onClick }) {
   const status = STATUSES[photo.status] || STATUSES.unedited;
   const cats = (photo.photo_categories || []).map(pc => pc.category).filter(Boolean);
 
@@ -895,7 +906,7 @@ function PhotoCard({ photo, selected, checked, anySelected, onCheck, onClick }) 
         )}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
         <div
-          className={`absolute top-2 left-2 transition-opacity ${anySelected || checked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+          className={`absolute top-2 left-2 transition-opacity ${selectMode || anySelected || checked ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
           onClick={onCheck}
         >
           <Checkbox checked={checked} onChange={onCheck} />
@@ -922,6 +933,7 @@ function CategoryPanel({ categories, onClose, onCreate, onDelete }) {
   const [name, setName] = useState('');
   const [color, setColor] = useState(PRESET_COLORS[0]);
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -946,7 +958,24 @@ function CategoryPanel({ categories, onClose, onCreate, onDelete }) {
             <div key={cat.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-stone-50 group">
               <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
               <span className="flex-1 text-sm text-stone-600">{cat.name}</span>
-              <button onClick={() => onDelete(cat.id)} className="text-stone-200 hover:text-red-400 text-xs transition-colors hidden group-hover:block">✕</button>
+              {deleteTarget === cat.id ? (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => { onDelete(cat.id); setDeleteTarget(null); }}
+                    className="text-[10px] text-red-500 hover:text-red-600 font-medium transition-colors"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={() => setDeleteTarget(null)}
+                    className="text-[10px] text-stone-400 hover:text-stone-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => setDeleteTarget(cat.id)} className="text-stone-200 hover:text-red-400 text-xs transition-colors hidden group-hover:block">✕</button>
+              )}
             </div>
           ))}
         </div>
