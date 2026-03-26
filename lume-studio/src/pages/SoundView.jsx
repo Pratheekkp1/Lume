@@ -3,7 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { STATUSES, SOUND_STATUSES } from "../lib/constants";
 import AudioUploader from "../components/ui/AudioUploader";
+import { recordOpen } from "../lib/recentOpens";
 import useDebouncedSave from "../hooks/useDebouncedSave";
+import { softDelete, ENTITY_TYPES } from "../lib/trash";
 
 function fmtTime(s) {
   if (!s || isNaN(s)) return "0:00";
@@ -44,6 +46,7 @@ export default function SoundView() {
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
 
   useEffect(() => {
+    recordOpen('sound', projectId);
     fetchProject();
     fetchTracks();
     fetchCategories();
@@ -301,10 +304,10 @@ export default function SoundView() {
           <div className="flex items-end justify-between mb-5">
             <div>
               <button
-                onClick={() => navigate("/sounds")}
+                onClick={() => navigate("/library")}
                 className="text-xs text-stone-400 hover:text-stone-600 mb-2 flex items-center gap-1 transition-colors"
               >
-                ← Sounds
+                ← Library
               </button>
               <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Sound Project</p>
               <h1 className="font-serif text-3xl text-stone-800">{project?.name || "..."}</h1>

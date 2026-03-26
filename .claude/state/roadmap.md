@@ -48,12 +48,12 @@ Reorganize the app so content creation is the primary workflow. Library supports
 
 | # | Task | Description | Status |
 |---|------|-------------|--------|
-| 2.1 | Kanban board view for Posts | Add a toggle between Grid view (current) and Board view (kanban columns by status). Drag posts between columns to update status. Column headers show count. | not started |
-| 2.2 | Unified Library concept | Create a combined browsing experience for all media. One Library page with type filters (photo, video, audio), album/project filters, category filters, date range. Albums and Sound Projects become organizational containers within the library. Keep existing Album/Sound detail pages. | not started |
-| 2.3 | Asset reordering in PostView | Add drag-to-reorder for photos, videos, and audio within PostView tabs. Persist order via `order_index` field (already exists on post_assets). | not started |
-| 2.4 | Improved linking UX | Replace modal-based "Link from Album" with an inline library browser panel (slide-in drawer or split view). Filter and multi-select assets without leaving PostView context. | not started |
-| 2.5 | Global drag-and-drop upload | Drop files anywhere in the app. Auto-detect file type (image/video/audio). If inside a PostView, attach to current post. If on Media page, prompt for album. If on Sounds, prompt for project. | not started |
-| 2.6 | Sidebar update | Update sidebar to reflect new structure: Dashboard, Projects (renamed from Posts), Library (merged Media + Sounds), Settings. Keep recent items section but expand to include recent albums/projects too. | not started |
+| 2.1 | Kanban board view for Posts | Add a toggle between Grid view (current) and Board view (kanban columns by status). Drag posts between columns to update status. Column headers show count. | done (2026-03-25) |
+| 2.2 | Unified Library concept | Create a combined browsing experience for all media. One Library page with type filters (photo, video, audio), album/project filters, category filters, date range. Albums and Audio Collections become organizational containers within the library. Keep existing Album/Sound detail pages. | done (2026-03-25) |
+| 2.3 | Asset reordering in PostView | Add drag-to-reorder for photos, videos, and audio within PostView tabs. Persist order via `order_index` field (already exists on post_assets). | done (2026-03-25) |
+| 2.4 | Improved linking UX | Replace modal-based "Link from Album" with an inline library browser panel (slide-in drawer or split view). Filter and multi-select assets without leaving PostView context. | done (2026-03-25) |
+| 2.5 | Global drag-and-drop upload | Drop files anywhere in the app. Auto-detect file type (image/video/audio). If inside a PostView, attach to current post. If on Media page, prompt for album. If on Sounds, prompt for project. | done (2026-03-25) |
+| 2.6 | Sidebar update | Update sidebar to reflect new structure: Dashboard, Projects (renamed from Posts), Library (merged Media + Sounds), Settings. Keep recent items section but expand to include recent albums/projects too. | done (2026-03-25) |
 
 **Phase 2 complete when:** The app feels project-centric. Creator opens a project, pulls from a unified library, arranges assets, writes caption. The workflow is: create → collect → arrange → write → publish.
 
@@ -65,8 +65,8 @@ Add features that make Lume genuinely useful for content creators publishing acr
 
 | # | Task | Description | Status |
 |---|------|-------------|--------|
-| 3.1 | Multi-platform variants | A project can target multiple platforms. Each variant can have different caption, crop notes, or asset selection. Platform tabs within a project. | not started |
-| 3.2 | Calendar/schedule view | New view showing posts on a calendar by target publish date. Add `scheduled_date` field to posts. Drag to reschedule. | not started |
+| 3.1 | Multi-platform variants | A project can target multiple platforms. Each variant can have different caption, crop notes, or asset selection. Platform tabs within a project. | done (2026-03-25) |
+| 3.2 | Calendar/schedule view | New view showing posts on a calendar by target publish date. Add `scheduled_date` field to posts. Drag to reschedule. | done (2026-03-25) |
 | 3.3 | Undo/trash system | Soft delete with 30-day trash. Toast notification with "Undo" button on delete (5 second window). Trash page in settings or sidebar. | not started |
 | 3.4 | Batch operations everywhere | Multi-select + bulk actions (status change, category assign, delete) on Posts page, Sounds page, and within PostView. Not just AlbumView. | not started |
 | 3.5 | Templates | Create post from template. Templates save type, platform, category, and placeholder structure. E.g., "Instagram Reel Template" pre-fills type=Reel, platform=Instagram. | not started |

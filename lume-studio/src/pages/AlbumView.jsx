@@ -5,6 +5,7 @@ import { STATUSES, POST_TYPES, PLATFORMS } from "../lib/constants";
 import PhotoUploader from "../components/ui/PhotoUploader";
 import { recordOpen } from "../lib/recentOpens";
 import useDebouncedSave from "../hooks/useDebouncedSave";
+import { softDelete, softDeleteBulk, ENTITY_TYPES } from "../lib/trash";
 
 function applySort(items, sort) {
   const arr = [...items];
@@ -101,6 +102,7 @@ export default function AlbumView() {
       .from("photos")
       .select("*, photo_categories(category:categories(id,name,color))")
       .eq("collection_id", collectionId)
+      .is("deleted_at", null)
       .order("created_at", { ascending: true });
     if (data) setPhotos(data);
     setLoading(false);
@@ -196,19 +198,14 @@ export default function AlbumView() {
 
   async function deletePhoto() {
     if (!selectedPhoto) return;
-    setDeletingPhoto(true);
-    await supabase.storage.from("Photos").remove([selectedPhoto.file_path]);
-    await supabase.from("photos").delete().eq("id", selectedPhoto.id);
-    if (collection?.cover_photo_id === selectedPhoto.id) {
-      await supabase.from("collections").update({ cover_photo_id: null }).eq("id", collectionId);
-      setCollection((prev) => ({ ...prev, cover_photo_id: null }));
-    }
-    setPhotos((prev) => prev.filter((p) => p.id !== selectedPhoto.id));
-    setSelectedIds((prev) => { const s = new Set(prev); s.delete(selectedPhoto.id); return s; });
+    const photo = selectedPhoto;
+    setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+    setSelectedIds((prev) => { const s = new Set(prev); s.delete(photo.id); return s; });
     setSelectedPhoto(null);
     setNotes("");
     setConfirmDelete(false);
     setDeletingPhoto(false);
+    await softDelete(ENTITY_TYPES.PHOTO, photo.id, photo.name);
   }
 
   async function setCoverPhoto() {
@@ -247,18 +244,13 @@ export default function AlbumView() {
 
   async function bulkDelete() {
     setBulkProcessing(true);
-    const toDelete = photos.filter((p) => selectedIds.has(p.id));
-    await Promise.all(toDelete.map((p) => supabase.storage.from("Photos").remove([p.file_path])));
-    await supabase.from("photos").delete().in("id", [...selectedIds]);
-    if (collection?.cover_photo_id && selectedIds.has(collection.cover_photo_id)) {
-      await supabase.from("collections").update({ cover_photo_id: null }).eq("id", collectionId);
-      setCollection((prev) => ({ ...prev, cover_photo_id: null }));
-    }
+    const ids = [...selectedIds];
     if (selectedPhoto && selectedIds.has(selectedPhoto.id)) closeDetail();
     setPhotos((prev) => prev.filter((p) => !selectedIds.has(p.id)));
     setSelectedIds(new Set());
     setConfirmBulkDelete(false);
     setBulkProcessing(false);
+    await softDeleteBulk(ENTITY_TYPES.PHOTO, ids, `${ids.length} photo${ids.length !== 1 ? 's' : ''}`);
   }
 
   const filtered = filter === "all" ? photos : photos.filter((p) => p.status === filter);
@@ -295,10 +287,10 @@ export default function AlbumView() {
       <div className="flex items-end justify-between mb-5">
         <div>
           <button
-            onClick={() => navigate("/media")}
+            onClick={() => navigate("/library")}
             className="text-xs text-stone-400 hover:text-stone-600 mb-2 flex items-center gap-1 transition-colors"
           >
-            ← Media
+            ← Library
           </button>
           <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Album</p>
           <h1 className="font-serif text-3xl text-stone-800">{collection?.name || "..."}</h1>
