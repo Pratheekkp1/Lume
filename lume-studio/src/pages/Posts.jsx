@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { POST_STATUSES, POST_TYPES, PLATFORMS } from '../lib/constants'
+import { softDelete, ENTITY_TYPES } from '../lib/trash'
 
 export default function Posts() {
   const navigate = useNavigate()
@@ -12,7 +13,11 @@ export default function Posts() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [filterStatus, setFilterStatus] = useState(searchParams.get('status') || 'all')
-  const [viewMode, setViewMode] = useState('grid')
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('lume-posts-view') || 'board')
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date()
+    return { year: now.getFullYear(), month: now.getMonth() }
+  })
 
   useEffect(() => {
     fetchPosts()
@@ -30,14 +35,15 @@ export default function Posts() {
   async function fetchPosts() {
     const { data } = await supabase
       .from('posts')
-      .select('id, title, type, status, platform, created_at, post_categories(category:categories(id,name,color))')
+      .select('id, title, type, status, platform, created_at, scheduled_date, post_categories(category:categories(id,name,color))')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
     setPosts(data || [])
     setLoading(false)
   }
 
   async function handleCreate(fields) {
-    const { data, error } = await supabase.from('posts').insert(fields).select('id, title, type, status, platform, created_at').single()
+    const { data, error } = await supabase.from('posts').insert(fields).select('id, title, type, status, platform, created_at, scheduled_date').single()
     if (!error && data) {
       setPosts(prev => [data, ...prev])
       setShowCreate(false)
@@ -47,10 +53,10 @@ export default function Posts() {
   }
 
   async function handleDelete() {
-    await supabase.from('posts').delete().eq('id', deleteTarget.id)
-    setPosts(prev => prev.filter(p => p.id !== deleteTarget.id))
+    const target = deleteTarget
     setDeleteTarget(null)
-    window.dispatchEvent(new CustomEvent('lume-posts-updated'))
+    setPosts(prev => prev.filter(p => p.id !== target.id))
+    await softDelete(ENTITY_TYPES.POST, target.id, target.title)
   }
 
   async function handleEdit(fields) {
@@ -63,18 +69,33 @@ export default function Posts() {
   }
 
   async function handleDeleteFromEdit() {
-    await supabase.from('posts').delete().eq('id', editTarget.id)
-    setPosts(prev => prev.filter(p => p.id !== editTarget.id))
+    const target = editTarget
     setEditTarget(null)
-    window.dispatchEvent(new CustomEvent('lume-posts-updated'))
+    setPosts(prev => prev.filter(p => p.id !== target.id))
+    await softDelete(ENTITY_TYPES.POST, target.id, target.title)
+  }
+
+  async function handleScheduleChange(postId, newDate) {
+    const post = posts.find(p => p.id === postId)
+    if (!post) return
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, scheduled_date: newDate } : p))
+    const { error } = await supabase.from('posts').update({ scheduled_date: newDate }).eq('id', postId)
+    if (error) {
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, scheduled_date: post.scheduled_date } : p))
+    }
   }
 
   async function handleStatusChange(postId, newStatus) {
     const post = posts.find(p => p.id === postId)
     if (!post || post.status === newStatus) return
-    setPosts(prev => prev.map(p => p.id === postId ? { ...p, status: newStatus } : p))
+    // Move to front of array so it appears at top of the new column
+    setPosts(prev => [
+      { ...post, status: newStatus },
+      ...prev.filter(p => p.id !== postId),
+    ])
     const { error } = await supabase.from('posts').update({ status: newStatus }).eq('id', postId)
     if (error) {
+      // Rollback: restore original status and position
       setPosts(prev => prev.map(p => p.id === postId ? { ...p, status: post.status } : p))
     } else {
       window.dispatchEvent(new CustomEvent('lume-posts-updated'))
@@ -95,16 +116,22 @@ export default function Posts() {
         <div className="flex items-center gap-2">
           <div className="flex border border-stone-200 rounded-md overflow-hidden">
             <button
-              onClick={() => setViewMode('grid')}
+              onClick={() => { setViewMode('board'); localStorage.setItem('lume-posts-view', 'board') }}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'board' ? 'bg-stone-800 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
+            >
+              Board
+            </button>
+            <button
+              onClick={() => { setViewMode('grid'); localStorage.setItem('lume-posts-view', 'grid') }}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'grid' ? 'bg-stone-800 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
             >
               Grid
             </button>
             <button
-              onClick={() => setViewMode('board')}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'board' ? 'bg-stone-800 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
+              onClick={() => { setViewMode('calendar'); localStorage.setItem('lume-posts-view', 'calendar') }}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'calendar' ? 'bg-stone-800 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
             >
-              Board
+              Calendar
             </button>
           </div>
           <button
@@ -148,6 +175,14 @@ export default function Posts() {
 
       {loading ? (
         <p className="text-stone-400 text-sm">Loading…</p>
+      ) : viewMode === 'calendar' ? (
+        <CalendarView
+          posts={posts}
+          calendarMonth={calendarMonth}
+          setCalendarMonth={setCalendarMonth}
+          onNavigate={(id) => navigate(`/posts/${id}`)}
+          onScheduleChange={handleScheduleChange}
+        />
       ) : viewMode === 'board' ? (
         <KanbanBoard
           posts={posts}
@@ -197,6 +232,223 @@ export default function Posts() {
     </div>
   )
 }
+
+/* ── Calendar View ───────────────────────────────────────── */
+
+function generateCalendarGrid(year, month) {
+  const firstDay = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const daysInPrev = new Date(year, month, 0).getDate()
+  const cells = []
+
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const d = daysInPrev - i
+    cells.push({ date: new Date(year, month - 1, d), isCurrentMonth: false })
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ date: new Date(year, month, d), isCurrentMonth: true })
+  }
+  while (cells.length < 42) {
+    const d = cells.length - firstDay - daysInMonth + 1
+    cells.push({ date: new Date(year, month + 1, d), isCurrentMonth: false })
+  }
+  return cells
+}
+
+function toDateStr(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+function CalendarView({ posts, calendarMonth, setCalendarMonth, onNavigate, onScheduleChange }) {
+  const [dragOverDate, setDragOverDate] = useState(null)
+  const [expandedDate, setExpandedDate] = useState(null)
+
+  const { year, month } = calendarMonth
+  const cells = generateCalendarGrid(year, month)
+  const todayStr = toDateStr(new Date())
+
+  const scheduled = posts.filter(p => p.scheduled_date)
+  const unscheduled = posts.filter(p => !p.scheduled_date)
+
+  const postsByDate = {}
+  scheduled.forEach(p => {
+    const key = p.scheduled_date
+    if (!postsByDate[key]) postsByDate[key] = []
+    postsByDate[key].push(p)
+  })
+
+  function prevMonth() {
+    setCalendarMonth(prev => prev.month === 0 ? { year: prev.year - 1, month: 11 } : { year: prev.year, month: prev.month - 1 })
+  }
+
+  function nextMonth() {
+    setCalendarMonth(prev => prev.month === 11 ? { year: prev.year + 1, month: 0 } : { year: prev.year, month: prev.month + 1 })
+  }
+
+  function goToday() {
+    const now = new Date()
+    setCalendarMonth({ year: now.getFullYear(), month: now.getMonth() })
+  }
+
+  function handleDragStart(e, postId) {
+    e.dataTransfer.setData('text/plain', postId)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function handleDragOver(e, dateStr) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragOverDate !== dateStr) setDragOverDate(dateStr)
+  }
+
+  function handleDragLeave(e) {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverDate(null)
+    }
+  }
+
+  function handleDrop(e, dateStr) {
+    e.preventDefault()
+    setDragOverDate(null)
+    const postId = e.dataTransfer.getData('text/plain')
+    if (postId) onScheduleChange(postId, dateStr)
+  }
+
+  function handleUnscheduleDrop(e) {
+    e.preventDefault()
+    setDragOverDate(null)
+    const postId = e.dataTransfer.getData('text/plain')
+    if (postId) onScheduleChange(postId, null)
+  }
+
+  const MAX_VISIBLE = 2
+
+  return (
+    <div>
+      {/* Calendar header */}
+      <div className="flex items-center gap-3 mb-4">
+        <button onClick={prevMonth} className="w-7 h-7 rounded-md border border-stone-200 text-stone-500 hover:bg-stone-50 flex items-center justify-center text-sm transition-colors">←</button>
+        <h2 className="text-sm font-semibold text-stone-700 w-40 text-center">{MONTH_NAMES[month]} {year}</h2>
+        <button onClick={nextMonth} className="w-7 h-7 rounded-md border border-stone-200 text-stone-500 hover:bg-stone-50 flex items-center justify-center text-sm transition-colors">→</button>
+        <button onClick={goToday} className="text-xs text-stone-400 hover:text-amber-700 transition-colors ml-1">Today</button>
+      </div>
+
+      {/* Day headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {DAY_NAMES.map(d => (
+          <div key={d} className="text-[10px] font-medium text-stone-400 uppercase tracking-wider text-center py-1">{d}</div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      <div className="grid grid-cols-7 border-t border-l border-stone-200">
+        {cells.map((cell, i) => {
+          const dateStr = toDateStr(cell.date)
+          const dayPosts = postsByDate[dateStr] || []
+          const isToday = dateStr === todayStr
+          const isOver = dragOverDate === dateStr
+
+          return (
+            <div
+              key={i}
+              className={`border-r border-b border-stone-200 min-h-[100px] p-1.5 transition-colors ${
+                !cell.isCurrentMonth ? 'bg-stone-50' : ''
+              } ${isOver ? 'bg-amber-50 ring-2 ring-inset ring-amber-300' : ''}`}
+              onDragOver={(e) => handleDragOver(e, dateStr)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, dateStr)}
+            >
+              <div className={`text-xs mb-1 ${
+                isToday ? 'bg-amber-600 text-white w-5 h-5 rounded-full flex items-center justify-center font-medium' :
+                cell.isCurrentMonth ? 'text-stone-600' : 'text-stone-300'
+              }`}>
+                {cell.date.getDate()}
+              </div>
+              <div className="flex flex-col gap-0.5">
+                {dayPosts.slice(0, MAX_VISIBLE).map(p => {
+                  const status = POST_STATUSES[p.status]
+                  return (
+                    <div
+                      key={p.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, p.id)}
+                      onClick={() => onNavigate(p.id)}
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-white border border-stone-100 cursor-pointer hover:border-stone-300 transition-colors truncate"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: status?.color || '#b0a090' }} />
+                      <span className="truncate text-stone-600">{p.title}</span>
+                    </div>
+                  )
+                })}
+                {dayPosts.length > MAX_VISIBLE && (
+                  <button
+                    onClick={() => setExpandedDate(expandedDate === dateStr ? null : dateStr)}
+                    className="text-[10px] text-stone-400 hover:text-amber-700 text-left px-1.5 transition-colors"
+                  >
+                    +{dayPosts.length - MAX_VISIBLE} more
+                  </button>
+                )}
+                {expandedDate === dateStr && dayPosts.slice(MAX_VISIBLE).map(p => {
+                  const status = POST_STATUSES[p.status]
+                  return (
+                    <div
+                      key={p.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, p.id)}
+                      onClick={() => onNavigate(p.id)}
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-white border border-stone-100 cursor-pointer hover:border-stone-300 transition-colors truncate"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: status?.color || '#b0a090' }} />
+                      <span className="truncate text-stone-600">{p.title}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Unscheduled posts */}
+      <div
+        className={`mt-6 p-4 rounded-xl transition-colors ${dragOverDate === '__unschedule__' ? 'bg-stone-100 ring-2 ring-stone-300' : 'bg-stone-50'}`}
+        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragOverDate !== '__unschedule__') setDragOverDate('__unschedule__') }}
+        onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOverDate(null) }}
+        onDrop={handleUnscheduleDrop}
+      >
+        <p className="text-[10px] font-medium text-stone-400 uppercase tracking-wider mb-2">
+          Unscheduled ({unscheduled.length})
+        </p>
+        {unscheduled.length === 0 ? (
+          <p className="text-xs text-stone-300">All posts are scheduled. Drag posts here to unschedule.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {unscheduled.map(p => {
+              const status = POST_STATUSES[p.status]
+              return (
+                <div
+                  key={p.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, p.id)}
+                  onClick={() => onNavigate(p.id)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-white border border-stone-200 cursor-pointer hover:border-stone-300 hover:shadow-sm transition-all"
+                >
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: status?.color || '#b0a090' }} />
+                  <span className="text-stone-600">{p.title}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ── Kanban Board ────────────────────────────────────────── */
 
 function KanbanBoard({ posts, onNavigate, onEdit, onDelete, onStatusChange }) {
   const [dragOverCol, setDragOverCol] = useState(null)
@@ -398,6 +650,7 @@ function PostModal({ initial = {}, onSave, onClose }) {
   const [platforms, setPlatforms] = useState(initial.platform || [])
   const [status, setStatus] = useState(initial.status || 'idea')
   const [description, setDescription] = useState(initial.description || '')
+  const [scheduledDate, setScheduledDate] = useState(initial.scheduled_date || '')
   const [saving, setSaving] = useState(false)
 
   function toggleItem(arr, setArr, item) {
@@ -414,6 +667,7 @@ function PostModal({ initial = {}, onSave, onClose }) {
       platform: platforms.length > 0 ? platforms : null,
       status,
       description: description.trim() || null,
+      scheduled_date: scheduledDate || null,
     })
     setSaving(false)
   }
@@ -477,6 +731,14 @@ function PostModal({ initial = {}, onSave, onClose }) {
               placeholder="Quick notes or context…"
               rows={2}
               className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 resize-none transition-colors"
+            />
+          </Field>
+          <Field label="Schedule Date">
+            <input
+              type="date"
+              value={scheduledDate}
+              onChange={e => setScheduledDate(e.target.value)}
+              className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 outline-none bg-white focus:border-stone-400 transition-colors"
             />
           </Field>
           <div className="flex gap-2 pt-1">

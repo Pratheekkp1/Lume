@@ -1,6 +1,11 @@
-import { NavLink } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { supabase } from '../../lib/supabase'
+import { getRecentOpens } from '../../lib/recentOpens'
 
 export default function Sidebar() {
+  const navigate = useNavigate()
+  const [recents, setRecents] = useState([])
 
   const navClass = ({ isActive }) =>
     `flex items-center gap-2 px-4 py-2 text-sm border-l-2 transition-all ${
@@ -8,6 +13,56 @@ export default function Sidebar() {
         ? 'text-amber-700 border-amber-700 bg-amber-50 font-medium'
         : 'text-stone-500 border-transparent hover:bg-stone-200 hover:text-stone-800'
     }`
+
+  useEffect(() => {
+    loadRecents()
+    window.addEventListener('lume-posts-updated', loadRecents)
+    window.addEventListener('lume-media-updated', loadRecents)
+    window.addEventListener('lume-sounds-updated', loadRecents)
+    return () => {
+      window.removeEventListener('lume-posts-updated', loadRecents)
+      window.removeEventListener('lume-media-updated', loadRecents)
+      window.removeEventListener('lume-sounds-updated', loadRecents)
+    }
+  }, [])
+
+  async function loadRecents() {
+    const opens = getRecentOpens().slice(0, 8)
+    if (opens.length === 0) { setRecents([]); return }
+
+    const postIds = opens.filter(o => o.type === 'post').map(o => o.id)
+    const albumIds = opens.filter(o => o.type === 'album').map(o => o.id)
+    const soundIds = opens.filter(o => o.type === 'sound').map(o => o.id)
+
+    const promises = []
+    promises.push(postIds.length > 0
+      ? supabase.from('posts').select('id, title').in('id', postIds)
+      : Promise.resolve({ data: [] }))
+    promises.push(albumIds.length > 0
+      ? supabase.from('collections').select('id, name').in('id', albumIds)
+      : Promise.resolve({ data: [] }))
+    promises.push(soundIds.length > 0
+      ? supabase.from('audio_projects').select('id, name').in('id', soundIds)
+      : Promise.resolve({ data: [] }))
+
+    const [postRes, albumRes, soundRes] = await Promise.all(promises)
+
+    const postMap = Object.fromEntries((postRes.data || []).map(p => [p.id, p]))
+    const albumMap = Object.fromEntries((albumRes.data || []).map(a => [a.id, a]))
+    const soundMap = Object.fromEntries((soundRes.data || []).map(s => [s.id, s]))
+
+    const resolved = opens
+      .map(o => {
+        if (o.type === 'post' && postMap[o.id]) return { ...o, label: postMap[o.id].title, icon: '▷', link: `/posts/${o.id}` }
+        if (o.type === 'album' && albumMap[o.id]) return { ...o, label: albumMap[o.id].name, icon: '◻', link: `/media/${o.id}` }
+        if (o.type === 'sound' && soundMap[o.id]) return { ...o, label: soundMap[o.id].name, icon: '♩', link: `/sounds/${o.id}` }
+        return null
+      })
+      .filter(Boolean)
+      .slice(0, 6)
+
+    setRecents(resolved)
+  }
 
   return (
     <aside className="w-48 bg-stone-100 border-r border-stone-200 flex flex-col py-4 flex-shrink-0 overflow-y-auto">
@@ -30,38 +85,55 @@ export default function Sidebar() {
 
       <div className="border-t border-stone-200 mx-3 mb-3" />
 
-      {/* Posts */}
+      {/* Projects (renamed from Posts) */}
       <div className="mb-4">
         <NavLink to="/posts" className={navClass}>
           <span className="w-4 text-center text-xs">▷</span>
-          Posts
+          Projects
         </NavLink>
 
-        {/* Quick create — opens Posts page with create modal */}
         <NavLink
           to="/posts?create=true"
           className="flex items-center gap-2 px-4 py-1.5 text-xs text-stone-400 hover:text-amber-700 transition-colors w-full"
         >
           <span className="w-4 text-center">+</span>
-          New Post
+          New Project
         </NavLink>
       </div>
 
       <div className="border-t border-stone-200 mx-3 mb-3" />
 
-      {/* Media & Sounds */}
+      {/* Library */}
       <div className="mb-4">
-        <NavLink to="/media" className={navClass}>
+        <NavLink to="/library" className={navClass}>
           <span className="w-4 text-center text-xs">◻</span>
-          Media
-        </NavLink>
-        <NavLink to="/sounds" className={navClass}>
-          <span className="w-4 text-center text-xs">♩</span>
-          Sounds
+          Library
         </NavLink>
       </div>
 
       <div className="border-t border-stone-200 mx-3 mb-3" />
+
+      {/* Recent Items */}
+      {recents.length > 0 && (
+        <>
+          <div className="px-4 mb-2">
+            <p className="text-[10px] font-medium text-stone-400 uppercase tracking-wider">Recent</p>
+          </div>
+          <div className="mb-4 space-y-0.5">
+            {recents.map(item => (
+              <button
+                key={`${item.type}-${item.id}`}
+                onClick={() => navigate(item.link)}
+                className="flex items-center gap-2 px-4 py-1.5 text-xs text-stone-500 hover:text-stone-700 hover:bg-stone-200 transition-colors w-full text-left truncate"
+              >
+                <span className="w-3 text-center text-[10px] text-stone-400 flex-shrink-0">{item.icon}</span>
+                <span className="truncate">{item.label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="border-t border-stone-200 mx-3 mb-3" />
+        </>
+      )}
 
       {/* Settings */}
       <div className="mt-auto px-3">

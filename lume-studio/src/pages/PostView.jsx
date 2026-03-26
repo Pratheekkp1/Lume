@@ -24,6 +24,10 @@ export default function PostView() {
   const [titleDraft, setTitleDraft] = useState('')
   const [deleteAssetTarget, setDeleteAssetTarget] = useState(null)
 
+  // Variants (multi-platform)
+  const [variants, setVariants] = useState([])
+  const [activeVariant, setActiveVariant] = useState(null) // null = "Base", or variant id
+
   // Tabs & selection
   const [activeTab, setActiveTab] = useState('photos')
   const [selectedItem, setSelectedItem] = useState(null) // { kind: 'asset'|'linked_photo'|'linked_track', data }
@@ -37,22 +41,33 @@ export default function PostView() {
     recordOpen('post', postId)
   }, [postId])
 
+  // Listen for global drag-and-drop forwarded files
+  useEffect(() => {
+    function onGlobalDrop(e) {
+      handleFiles(e.detail.files)
+    }
+    window.addEventListener('lume-global-drop', onGlobalDrop)
+    return () => window.removeEventListener('lume-global-drop', onGlobalDrop)
+  })
+
   async function fetchAll() {
-    const [{ data: postData }, { data: assetData }, { data: catJoins }, { data: allCats }, { data: photoLinks }, { data: trackLinks }] = await Promise.all([
+    const [{ data: postData }, { data: assetData }, { data: catJoins }, { data: allCats }, { data: photoLinks }, { data: trackLinks }, { data: variantData }] = await Promise.all([
       supabase.from('posts').select('*').eq('id', postId).single(),
       supabase.from('post_assets').select('*').eq('post_id', postId).order('order_index').order('created_at'),
       supabase.from('post_categories').select('category:categories(*)').eq('post_id', postId),
       supabase.from('categories').select('*').eq('type', 'post').order('name'),
-      supabase.from('post_linked_photos').select('photo:photos(id, name, file_path, collection_id, collections(id, name))').eq('post_id', postId),
-      supabase.from('post_linked_tracks').select('track:audio_tracks(id, name, project_id, audio_projects(id, name))').eq('post_id', postId),
+      supabase.from('post_linked_photos').select('order_index, photo_id, photo:photos(id, name, file_path, collection_id, collections(id, name))').eq('post_id', postId).order('order_index'),
+      supabase.from('post_linked_tracks').select('order_index, track_id, track:audio_tracks(id, name, project_id, audio_projects(id, name))').eq('post_id', postId).order('order_index'),
+      supabase.from('post_variants').select('*').eq('post_id', postId),
     ])
     setPost(postData)
     setTitleDraft(postData?.title || '')
     setAssets(assetData || [])
     setCategories((catJoins || []).map(j => j.category).filter(Boolean))
     setAllCategories(allCats || [])
-    setLinkedPhotos((photoLinks || []).map(l => l.photo).filter(Boolean))
-    setLinkedTracks((trackLinks || []).map(l => l.track).filter(Boolean))
+    setLinkedPhotos((photoLinks || []).map(l => l.photo ? { ...l.photo, _order_index: l.order_index ?? 0 } : null).filter(Boolean))
+    setLinkedTracks((trackLinks || []).map(l => l.track ? { ...l.track, _order_index: l.order_index ?? 0 } : null).filter(Boolean))
+    setVariants(variantData || [])
     setLoading(false)
   }
 
@@ -69,6 +84,68 @@ export default function PostView() {
   async function updateField(field, value) {
     await supabase.from('posts').update({ [field]: value, updated_at: new Date().toISOString() }).eq('id', postId)
     setPost(prev => ({ ...prev, [field]: value }))
+  }
+
+  // ── Variants ───────────────────────────────────────────────────────────────
+
+  async function getOrCreateVariant(platform) {
+    const existing = variants.find(v => v.platform === platform)
+    if (existing) { setActiveVariant(existing.id); return }
+    const { data, error } = await supabase
+      .from('post_variants')
+      .insert({ post_id: postId, platform })
+      .select()
+      .single()
+    if (!error && data) {
+      setVariants(prev => [...prev, data])
+      setActiveVariant(data.id)
+    }
+  }
+
+  async function updateVariant(variantId, fields) {
+    await supabase.from('post_variants').update(fields).eq('id', variantId)
+    setVariants(prev => prev.map(v => v.id === variantId ? { ...v, ...fields } : v))
+  }
+
+  async function deleteVariant(variantId) {
+    await supabase.from('post_variants').delete().eq('id', variantId)
+    setVariants(prev => prev.filter(v => v.id !== variantId))
+    if (activeVariant === variantId) setActiveVariant(null)
+  }
+
+  const currentVariant = variants.find(v => v.id === activeVariant) || null
+
+  function isIncludedInVariant(itemId, itemKind) {
+    if (!currentVariant) return true
+    const field = itemKind === 'asset' ? 'included_asset_ids'
+      : itemKind === 'linked_photo' ? 'included_linked_photo_ids'
+      : 'included_linked_track_ids'
+    const ids = currentVariant[field]
+    if (!ids) return true // null = all included
+    return ids.includes(itemId)
+  }
+
+  async function toggleVariantInclusion(itemId, itemKind) {
+    if (!currentVariant) return
+    const field = itemKind === 'asset' ? 'included_asset_ids'
+      : itemKind === 'linked_photo' ? 'included_linked_photo_ids'
+      : 'included_linked_track_ids'
+
+    // Build current set of all IDs of this kind
+    let allIds
+    if (itemKind === 'asset') allIds = assets.map(a => a.id)
+    else if (itemKind === 'linked_photo') allIds = linkedPhotos.map(p => p.id)
+    else allIds = linkedTracks.map(t => t.id)
+
+    // Current included list (null = all)
+    const current = currentVariant[field] || [...allIds]
+    const included = current.includes(itemId)
+      ? current.filter(id => id !== itemId)
+      : [...current, itemId]
+
+    // If all are included, store null (meaning "include all")
+    const val = included.length === allIds.length ? null : included
+    await updateVariant(currentVariant.id, { [field]: val })
   }
 
   // ── Categories ──────────────────────────────────────────────────────────────
@@ -102,8 +179,9 @@ export default function PostView() {
   // ── Library linking ─────────────────────────────────────────────────────────
 
   async function linkPhoto(photo) {
-    await supabase.from('post_linked_photos').insert({ post_id: postId, photo_id: photo.id })
-    setLinkedPhotos(prev => [...prev, photo])
+    const nextOrder = assets.filter(a => a.file_type === 'image').length + linkedPhotos.length
+    await supabase.from('post_linked_photos').insert({ post_id: postId, photo_id: photo.id, order_index: nextOrder })
+    setLinkedPhotos(prev => [...prev, { ...photo, _order_index: nextOrder }])
   }
 
   async function unlinkPhoto(photoId) {
@@ -113,8 +191,9 @@ export default function PostView() {
   }
 
   async function linkTrack(track) {
-    await supabase.from('post_linked_tracks').insert({ post_id: postId, track_id: track.id })
-    setLinkedTracks(prev => [...prev, track])
+    const nextOrder = assets.filter(a => a.file_type === 'audio').length + linkedTracks.length
+    await supabase.from('post_linked_tracks').insert({ post_id: postId, track_id: track.id, order_index: nextOrder })
+    setLinkedTracks(prev => [...prev, { ...track, _order_index: nextOrder }])
   }
 
   async function unlinkTrack(trackId) {
@@ -165,7 +244,9 @@ export default function PostView() {
 
   const onDrop = (e) => {
     e.preventDefault()
-    handleFiles(e.dataTransfer.files)
+    // Only handle file uploads here; internal reorder drops are handled by item-level handlers
+    if (dragActive.current) return
+    if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files)
   }
 
   function triggerUpload() {
@@ -183,6 +264,96 @@ export default function PostView() {
     setSelectedItem({ kind, data })
   }
 
+  // ── Drag-to-reorder ──────────────────────────────────────────────────────────
+
+  const [dragItem, setDragItem] = useState(null)
+  const [dragOverIndex, setDragOverIndex] = useState(null)
+  const dragActive = useRef(false)
+
+  function handleReorderDragStart(e, item, index) {
+    dragActive.current = true
+    setDragItem({ ...item, index })
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', '')
+  }
+
+  function handleReorderDragEnd() {
+    dragActive.current = false
+    setDragItem(null)
+    setDragOverIndex(null)
+  }
+
+  function handleReorderDragOver(e, index) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragOverIndex !== index) setDragOverIndex(index)
+  }
+
+  async function handleReorderDrop(e, targetIndex, orderedList, tabKind) {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOverIndex(null)
+    if (!dragItem || dragItem.index === targetIndex) { setDragItem(null); return }
+
+    const newList = [...orderedList]
+    const [moved] = newList.splice(dragItem.index, 1)
+    newList.splice(targetIndex, 0, moved)
+
+    // Optimistic UI update
+    applyNewOrder(newList, tabKind)
+    // Persist
+    await persistOrder(newList)
+    setDragItem(null)
+  }
+
+  function applyNewOrder(newList, tabKind) {
+    const updatedAssets = []
+    const updatedLinkedPhotos = []
+    const updatedLinkedTracks = []
+
+    newList.forEach((item, i) => {
+      if (item.kind === 'asset') {
+        updatedAssets.push({ ...item.data, order_index: i })
+      } else if (item.kind === 'linked_photo') {
+        updatedLinkedPhotos.push({ ...item.data, _order_index: i })
+      } else if (item.kind === 'linked_track') {
+        updatedLinkedTracks.push({ ...item.data, _order_index: i })
+      }
+    })
+
+    if (updatedAssets.length > 0) {
+      setAssets(prev => {
+        const ids = new Set(updatedAssets.map(a => a.id))
+        return [...prev.filter(a => !ids.has(a.id)), ...updatedAssets]
+      })
+    }
+    if (updatedLinkedPhotos.length > 0) setLinkedPhotos(updatedLinkedPhotos)
+    if (updatedLinkedTracks.length > 0) setLinkedTracks(updatedLinkedTracks)
+  }
+
+  async function persistOrder(newList) {
+    const updates = newList.map((item, i) => {
+      if (item.kind === 'asset') {
+        return supabase.from('post_assets').update({ order_index: i }).eq('id', item.data.id)
+      } else if (item.kind === 'linked_photo') {
+        return supabase.from('post_linked_photos').update({ order_index: i }).eq('post_id', postId).eq('photo_id', item.data.id)
+      } else if (item.kind === 'linked_track') {
+        return supabase.from('post_linked_tracks').update({ order_index: i }).eq('post_id', postId).eq('track_id', item.data.id)
+      }
+      return null
+    }).filter(Boolean)
+    await Promise.all(updates)
+  }
+
+  function buildOrderedItems(directAssets, linkedItems, linkedKind) {
+    const items = [
+      ...directAssets.map((a, i) => ({ kind: 'asset', data: a, order: a.order_index ?? i })),
+      ...linkedItems.map((l, i) => ({ kind: linkedKind, data: l, order: l._order_index ?? (directAssets.length + i) })),
+    ]
+    items.sort((a, b) => a.order - b.order)
+    return items
+  }
+
   if (loading) return <div className="p-7 text-stone-400 text-sm">Loading…</div>
   if (!post) return <div className="p-7 text-stone-400 text-sm">Post not found.</div>
 
@@ -190,6 +361,11 @@ export default function PostView() {
   const photoAssets = assets.filter(a => a.file_type === 'image')
   const videoAssets = assets.filter(a => a.file_type === 'video')
   const audioAssets = assets.filter(a => a.file_type === 'audio')
+
+  // Unified ordered lists for drag-to-reorder
+  const orderedPhotos = buildOrderedItems(photoAssets, linkedPhotos, 'linked_photo')
+  const orderedVideos = videoAssets.map((a, i) => ({ kind: 'asset', data: a, order: a.order_index ?? i })).sort((a, b) => a.order - b.order)
+  const orderedAudio = buildOrderedItems(audioAssets, linkedTracks, 'linked_track')
 
   const photosCount = photoAssets.length + linkedPhotos.length
   const videosCount = videoAssets.length
@@ -200,7 +376,7 @@ export default function PostView() {
   const audioSources = [...new Map(linkedTracks.filter(t => t.audio_projects).map(t => [t.audio_projects.id, t.audio_projects])).values()]
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-full overflow-hidden relative">
       {/* Main area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
@@ -246,12 +422,76 @@ export default function PostView() {
           )}
         </div>
 
+        {/* Platform variant tabs */}
+        {(post.platform || []).length > 0 && (
+          <div className="px-7 bg-white border-b border-stone-200 flex-shrink-0">
+            <div className="flex gap-1 pt-2 pb-0">
+              <button
+                onClick={() => setActiveVariant(null)}
+                className={`text-xs px-3 py-2 rounded-t-md border border-b-0 transition-colors ${
+                  !activeVariant
+                    ? 'bg-white text-stone-800 font-medium border-stone-200 -mb-px z-10'
+                    : 'bg-stone-50 text-stone-400 border-transparent hover:text-stone-600'
+                }`}
+              >
+                Base
+              </button>
+              {(post.platform || []).map(p => {
+                const v = variants.find(va => va.platform === p)
+                const isActive = v && activeVariant === v.id
+                const hasExclusions = v && (v.included_asset_ids || v.included_linked_photo_ids || v.included_linked_track_ids)
+                return (
+                  <button
+                    key={p}
+                    onClick={() => getOrCreateVariant(p)}
+                    className={`text-xs px-3 py-2 rounded-t-md border border-b-0 transition-colors ${
+                      isActive
+                        ? 'bg-white text-stone-800 font-medium border-stone-200 -mb-px z-10'
+                        : 'bg-stone-50 text-stone-400 border-transparent hover:text-stone-600'
+                    }`}
+                  >
+                    {p}
+                    {hasExclusions && <span className="ml-1 text-amber-500 text-[9px]">●</span>}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Caption */}
         <div className="px-7 py-4 bg-white border-b border-stone-200 flex-shrink-0">
-          <CaptionEditor
-            value={post.caption || ''}
-            onSave={val => updateField('caption', val)}
-          />
+          {currentVariant ? (
+            <>
+              <CaptionEditor
+                key={`variant-caption-${currentVariant.id}`}
+                value={currentVariant.caption || ''}
+                placeholder={post.caption || 'Write your caption…'}
+                onSave={val => updateVariant(currentVariant.id, { caption: val })}
+              />
+              {currentVariant.caption && (
+                <button
+                  onClick={() => updateVariant(currentVariant.id, { caption: null })}
+                  className="text-[10px] text-stone-400 hover:text-amber-700 transition-colors mt-1"
+                >
+                  Reset to base caption
+                </button>
+              )}
+              {/* Crop notes */}
+              <div className="mt-3 pt-3 border-t border-stone-100">
+                <CropNotesEditor
+                  key={`crop-${currentVariant.id}`}
+                  value={currentVariant.crop_notes || ''}
+                  onSave={val => updateVariant(currentVariant.id, { crop_notes: val })}
+                />
+              </div>
+            </>
+          ) : (
+            <CaptionEditor
+              value={post.caption || ''}
+              onSave={val => updateField('caption', val)}
+            />
+          )}
         </div>
 
         {/* Tabs */}
@@ -293,36 +533,37 @@ export default function PostView() {
                 subtitle="Upload photos or link from your albums"
                 onUpload={triggerUpload}
                 onLink={() => { setLibraryLinkerTab('photos'); setShowLibraryLinker(true) }}
-                linkLabel="Link from Album"
+                linkLabel="Browse Library"
               />
             ) : (
               <>
                 <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-                  {photoAssets.map(asset => (
-                    <MediaCard
-                      key={`a-${asset.id}`}
-                      selected={selectedItem?.kind === 'asset' && selectedItem.data.id === asset.id}
-                      onClick={() => selectItem('asset', asset)}
-                      onRemove={() => setDeleteAssetTarget(asset)}
+                  {orderedPhotos.map((item, idx) => (
+                    <div
+                      key={`${item.kind}-${item.data.id}`}
+                      draggable
+                      onDragStart={e => handleReorderDragStart(e, item, idx)}
+                      onDragEnd={handleReorderDragEnd}
+                      onDragOver={e => handleReorderDragOver(e, idx)}
+                      onDrop={e => handleReorderDrop(e, idx, orderedPhotos, 'photos')}
+                      className={`cursor-grab active:cursor-grabbing ${dragOverIndex === idx && dragItem ? 'ring-2 ring-amber-400 rounded-xl' : ''}`}
                     >
-                      <img src={asset.file_path} alt="" className="w-full h-full object-cover" loading="lazy" />
-                    </MediaCard>
-                  ))}
-                  {linkedPhotos.map(photo => (
-                    <MediaCard
-                      key={`l-${photo.id}`}
-                      selected={selectedItem?.kind === 'linked_photo' && selectedItem.data.id === photo.id}
-                      onClick={() => selectItem('linked_photo', photo)}
-                      onRemove={() => unlinkPhoto(photo.id)}
-                      badge={photo.collections?.name}
-                    >
-                      <img
-                        src={supabase.storage.from('Photos').getPublicUrl(photo.file_path).data.publicUrl}
-                        alt={photo.name}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    </MediaCard>
+                      <MediaCard
+                        selected={selectedItem?.kind === item.kind && selectedItem.data.id === item.data.id}
+                        onClick={() => selectItem(item.kind, item.data)}
+                        onRemove={() => item.kind === 'asset' ? setDeleteAssetTarget(item.data) : unlinkPhoto(item.data.id)}
+                        badge={item.kind === 'linked_photo' ? item.data.collections?.name : undefined}
+                        excluded={currentVariant ? !isIncludedInVariant(item.data.id, item.kind) : false}
+                        onToggleInclude={currentVariant ? () => toggleVariantInclusion(item.data.id, item.kind) : undefined}
+                      >
+                        <img
+                          src={item.kind === 'asset' ? item.data.file_path : supabase.storage.from('Photos').getPublicUrl(item.data.file_path).data.publicUrl}
+                          alt={item.data.name || ''}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </MediaCard>
+                    </div>
                   ))}
                   {uploading && <UploadingPlaceholder />}
                   <AddButton onClick={triggerUpload} />
@@ -331,7 +572,7 @@ export default function PostView() {
                   onClick={() => { setLibraryLinkerTab('photos'); setShowLibraryLinker(true) }}
                   className="mt-3 text-xs text-stone-400 hover:text-amber-700 transition-colors"
                 >
-                  + Link from Album
+                  + Browse Library
                 </button>
               </>
             )
@@ -349,18 +590,29 @@ export default function PostView() {
             ) : (
               <>
                 <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-                  {videoAssets.map(asset => (
-                    <MediaCard
-                      key={`a-${asset.id}`}
-                      selected={selectedItem?.kind === 'asset' && selectedItem.data.id === asset.id}
-                      onClick={() => selectItem('asset', asset)}
-                      onRemove={() => setDeleteAssetTarget(asset)}
+                  {orderedVideos.map((item, idx) => (
+                    <div
+                      key={`asset-${item.data.id}`}
+                      draggable
+                      onDragStart={e => handleReorderDragStart(e, item, idx)}
+                      onDragEnd={handleReorderDragEnd}
+                      onDragOver={e => handleReorderDragOver(e, idx)}
+                      onDrop={e => handleReorderDrop(e, idx, orderedVideos, 'videos')}
+                      className={`cursor-grab active:cursor-grabbing ${dragOverIndex === idx && dragItem ? 'ring-2 ring-amber-400 rounded-xl' : ''}`}
                     >
-                      <video src={asset.file_path} className="w-full h-full object-cover" muted />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                        <span className="text-white text-xl drop-shadow">▷</span>
-                      </div>
-                    </MediaCard>
+                      <MediaCard
+                        selected={selectedItem?.kind === 'asset' && selectedItem.data.id === item.data.id}
+                        onClick={() => selectItem('asset', item.data)}
+                        onRemove={() => setDeleteAssetTarget(item.data)}
+                        excluded={currentVariant ? !isIncludedInVariant(item.data.id, 'asset') : false}
+                        onToggleInclude={currentVariant ? () => toggleVariantInclusion(item.data.id, 'asset') : undefined}
+                      >
+                        <video src={item.data.file_path} className="w-full h-full object-cover" muted />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                          <span className="text-white text-xl drop-shadow">▷</span>
+                        </div>
+                      </MediaCard>
+                    </div>
                   ))}
                   {uploading && <UploadingPlaceholder />}
                   <AddButton onClick={triggerUpload} />
@@ -378,60 +630,62 @@ export default function PostView() {
                 subtitle="Upload audio or link from your sounds library"
                 onUpload={triggerUpload}
                 onLink={() => { setLibraryLinkerTab('audio'); setShowLibraryLinker(true) }}
-                linkLabel="Link from Sounds"
+                linkLabel="Browse Library"
               />
             ) : (
               <>
                 <div className="flex flex-col gap-2">
-                  {audioAssets.map(asset => {
-                    const isSelected = selectedItem?.kind === 'asset' && selectedItem.data.id === asset.id
-                    const ext = asset.file_path?.split('.').pop()?.split('?')[0] || ''
+                  {orderedAudio.map((item, idx) => {
+                    const isAsset = item.kind === 'asset'
+                    const isSelected = selectedItem?.kind === item.kind && selectedItem.data.id === item.data.id
+                    const ext = isAsset ? (item.data.file_path?.split('.').pop()?.split('?')[0] || '') : ''
+                    const audioExcluded = currentVariant ? !isIncludedInVariant(item.data.id, item.kind) : false
                     return (
-                      <button
-                        key={`a-${asset.id}`}
-                        onClick={() => selectItem('asset', asset)}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all group ${
-                          isSelected ? 'border-amber-500 bg-amber-50' : 'border-stone-200 hover:border-stone-300'
-                        }`}
+                      <div
+                        key={`${item.kind}-${item.data.id}`}
+                        draggable
+                        onDragStart={e => handleReorderDragStart(e, item, idx)}
+                        onDragEnd={handleReorderDragEnd}
+                        onDragOver={e => handleReorderDragOver(e, idx)}
+                        onDrop={e => handleReorderDrop(e, idx, orderedAudio, 'audio')}
+                        className={`cursor-grab active:cursor-grabbing ${dragOverIndex === idx && dragItem ? 'ring-2 ring-amber-400 rounded-xl' : ''}`}
                       >
-                        <span className="w-8 h-8 rounded-lg bg-stone-100 flex items-center justify-center text-stone-400 text-xs flex-shrink-0">♩</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-stone-700 truncate">Audio{ext ? `.${ext}` : ''}</p>
-                          <p className="text-[10px] text-stone-400">Uploaded</p>
-                        </div>
                         <button
-                          onClick={(e) => { e.stopPropagation(); setDeleteAssetTarget(asset) }}
-                          className="text-stone-200 hover:text-red-400 text-xs transition-colors hidden group-hover:block flex-shrink-0"
+                          onClick={() => selectItem(item.kind, item.data)}
+                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all group ${
+                            audioExcluded ? 'opacity-40 border-stone-200' : isSelected ? 'border-amber-500 bg-amber-50' : 'border-stone-200 hover:border-stone-300'
+                          }`}
                         >
-                          ✕
-                        </button>
-                      </button>
-                    )
-                  })}
-                  {linkedTracks.map(track => {
-                    const isSelected = selectedItem?.kind === 'linked_track' && selectedItem.data.id === track.id
-                    return (
-                      <button
-                        key={`l-${track.id}`}
-                        onClick={() => selectItem('linked_track', track)}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all group ${
-                          isSelected ? 'border-amber-500 bg-amber-50' : 'border-stone-200 hover:border-stone-300'
-                        }`}
-                      >
-                        <span className="w-8 h-8 rounded-lg bg-stone-100 flex items-center justify-center text-stone-400 text-xs flex-shrink-0">♩</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-stone-700 truncate">{track.name}</p>
-                          {track.audio_projects?.name && (
-                            <p className="text-[10px] text-stone-400">from {track.audio_projects.name}</p>
+                          {currentVariant && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleVariantInclusion(item.data.id, item.kind) }}
+                              className={`w-5 h-5 rounded border flex items-center justify-center text-[9px] flex-shrink-0 transition-colors ${
+                                audioExcluded ? 'border-stone-300 bg-white text-stone-400' : 'border-green-500 bg-green-500 text-white'
+                              }`}
+                            >
+                              {!audioExcluded && '✓'}
+                            </button>
                           )}
-                        </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); unlinkTrack(track.id) }}
-                          className="text-stone-200 hover:text-red-400 text-xs transition-colors hidden group-hover:block flex-shrink-0"
-                        >
-                          ✕
+                          <span className="w-8 h-8 rounded-lg bg-stone-100 flex items-center justify-center text-stone-400 text-xs flex-shrink-0">♩</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-stone-700 truncate">
+                              {isAsset ? `Audio${ext ? `.${ext}` : ''}` : item.data.name}
+                            </p>
+                            <p className="text-[10px] text-stone-400">
+                              {isAsset ? 'Uploaded' : (item.data.audio_projects?.name ? `from ${item.data.audio_projects.name}` : 'Linked')}
+                            </p>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              isAsset ? setDeleteAssetTarget(item.data) : unlinkTrack(item.data.id)
+                            }}
+                            className="text-stone-200 hover:text-red-400 text-xs transition-colors hidden group-hover:block flex-shrink-0"
+                          >
+                            ✕
+                          </button>
                         </button>
-                      </button>
+                      </div>
                     )
                   })}
                   {uploading && (
@@ -449,7 +703,7 @@ export default function PostView() {
                     onClick={() => { setLibraryLinkerTab('audio'); setShowLibraryLinker(true) }}
                     className="text-xs text-stone-400 hover:text-amber-700 transition-colors"
                   >
-                    + Link from Sounds
+                    + Browse Library
                   </button>
                 </div>
               </>
@@ -592,6 +846,11 @@ export default function PostView() {
                       const cur = post.platform || []
                       const next = selected ? cur.filter(v => v !== p) : [...cur, p]
                       updateField('platform', next.length > 0 ? next : null)
+                      // Clean up variant when platform removed
+                      if (selected) {
+                        const v = variants.find(va => va.platform === p)
+                        if (v) deleteVariant(v.id)
+                      }
                     }}
                     className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
                       selected
@@ -603,6 +862,28 @@ export default function PostView() {
                   </button>
                 )
               })}
+            </div>
+          </div>
+
+          {/* Scheduled Date */}
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">Schedule Date</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={post.scheduled_date || ''}
+                onChange={e => updateField('scheduled_date', e.target.value || null)}
+                className="flex-1 border border-stone-200 rounded-md px-2.5 py-1.5 text-xs text-stone-700 outline-none bg-white focus:border-stone-400 transition-colors"
+              />
+              {post.scheduled_date && (
+                <button
+                  onClick={() => updateField('scheduled_date', null)}
+                  className="text-stone-300 hover:text-stone-500 text-sm transition-colors"
+                  title="Clear date"
+                >
+                  ×
+                </button>
+              )}
             </div>
           </div>
 
@@ -697,7 +978,7 @@ export default function PostView() {
         />
       )}
 
-      {/* Library linker */}
+      {/* Library linker drawer */}
       {showLibraryLinker && (
         <LibraryLinker
           initialTab={libraryLinkerTab}
@@ -730,12 +1011,12 @@ export default function PostView() {
 
 // ── Media card (grid item) ──────────────────────────────────────────────────────
 
-function MediaCard({ selected, onClick, onRemove, badge, children }) {
+function MediaCard({ selected, onClick, onRemove, badge, excluded, onToggleInclude, children }) {
   return (
     <div
       onClick={onClick}
       className={`group relative aspect-square rounded-xl overflow-hidden bg-stone-100 cursor-pointer ring-2 transition-all ${
-        selected ? 'ring-amber-500' : 'ring-transparent hover:ring-stone-300'
+        excluded ? 'ring-transparent opacity-40' : selected ? 'ring-amber-500' : 'ring-transparent hover:ring-stone-300'
       }`}
     >
       {children}
@@ -744,6 +1025,16 @@ function MediaCard({ selected, onClick, onRemove, badge, children }) {
           <p className="text-[10px] text-white/80 truncate">{badge}</p>
         </div>
       )}
+      {onToggleInclude ? (
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleInclude() }}
+          className={`absolute top-1.5 left-1.5 w-5 h-5 rounded border flex items-center justify-center text-[9px] transition-colors ${
+            excluded ? 'border-stone-300 bg-white/80 text-stone-400' : 'border-green-500 bg-green-500 text-white'
+          }`}
+        >
+          {!excluded && '✓'}
+        </button>
+      ) : null}
       <button
         onClick={(e) => { e.stopPropagation(); onRemove() }}
         className="absolute top-1.5 right-1.5 w-5 h-5 rounded bg-black/50 text-white items-center justify-center text-[10px] hidden group-hover:flex hover:bg-black/70 transition-colors"
@@ -839,7 +1130,7 @@ function DescriptionEditor({ value, onSave }) {
 
 // ── Caption editor ──────────────────────────────────────────────────────────
 
-function CaptionEditor({ value, onSave }) {
+function CaptionEditor({ value, onSave, placeholder = 'Write your caption…' }) {
   const [draft, setDraft] = useState(value)
   const saveFn = useCallback(async (val) => { await onSave(val) }, [onSave])
   const { saved, triggerSave, flush } = useDebouncedSave(saveFn)
@@ -854,9 +1145,34 @@ function CaptionEditor({ value, onSave }) {
         onBlur={flush}
         rows={3}
         className="w-full text-sm text-stone-700 placeholder-stone-300 outline-none resize-none bg-transparent leading-relaxed"
-        placeholder="Write your caption…"
+        placeholder={placeholder}
       />
       <p className={`text-[10px] text-green-600 transition-opacity duration-300 ${saved ? 'opacity-100' : 'opacity-0'}`}>Saved</p>
+    </div>
+  )
+}
+
+// ── Crop notes editor ────────────────────────────────────────────────────────────
+
+function CropNotesEditor({ value, onSave }) {
+  const [draft, setDraft] = useState(value)
+  const saveFn = useCallback(async (val) => { await onSave(val) }, [onSave])
+  const { saved, triggerSave, flush } = useDebouncedSave(saveFn)
+
+  useEffect(() => { setDraft(value) }, [value])
+
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">Crop Notes</p>
+      <textarea
+        value={draft}
+        onChange={e => { setDraft(e.target.value); triggerSave(e.target.value) }}
+        onBlur={flush}
+        rows={2}
+        className="w-full text-xs text-stone-600 placeholder-stone-300 outline-none resize-none bg-stone-50 rounded-md px-2.5 py-2 border border-stone-200 focus:border-stone-400 transition-colors"
+        placeholder="e.g. 9:16 vertical for Reels, 1:1 for feed…"
+      />
+      <p className={`mt-0.5 text-[10px] text-green-600 transition-opacity duration-300 ${saved ? 'opacity-100' : 'opacity-0'}`}>Saved</p>
     </div>
   )
 }
@@ -956,27 +1272,42 @@ function CategoryPanel({ categories, type, onClose, onCreate, onDelete }) {
   )
 }
 
-// ── Library linker ──────────────────────────────────────────────────────────────
+// ── Library linker (slide-in drawer) ─────────────────────────────────────────────
 
 function LibraryLinker({ initialTab = 'photos', linkedPhotos, linkedTracks, onLinkPhoto, onUnlinkPhoto, onLinkTrack, onUnlinkTrack, onClose }) {
   const [tab, setTab] = useState(initialTab)
+  const [search, setSearch] = useState('')
   const [collections, setCollections] = useState([])
   const [audioProjects, setAudioProjects] = useState([])
   const [expandedId, setExpandedId] = useState(null)
   const [items, setItems] = useState([])
   const [loadingItems, setLoadingItems] = useState(false)
+  const [selected, setSelected] = useState(new Set()) // ids for multi-select
+  const [linking, setLinking] = useState(false)
 
   useEffect(() => {
-    supabase.from('collections').select('id, name').order('created_at', { ascending: false })
-      .then(({ data }) => setCollections(data || []))
-    supabase.from('audio_projects').select('id, name').order('created_at', { ascending: false })
-      .then(({ data }) => setAudioProjects(data || []))
+    Promise.all([
+      supabase.from('collections').select('id, name').order('created_at', { ascending: false }),
+      supabase.from('audio_projects').select('id, name').order('created_at', { ascending: false }),
+    ]).then(([{ data: cols }, { data: projs }]) => {
+      setCollections(cols || [])
+      setAudioProjects(projs || [])
+    })
   }, [])
 
+  // Reset selection when switching tabs
+  useEffect(() => {
+    setSelected(new Set())
+    setExpandedId(null)
+    setItems([])
+    setSearch('')
+  }, [tab])
+
   async function expand(type, id) {
-    if (expandedId === id) { setExpandedId(null); return }
+    if (expandedId === id) { setExpandedId(null); setSelected(new Set()); return }
     setExpandedId(id)
     setLoadingItems(true)
+    setSelected(new Set())
     if (type === 'collection') {
       const { data } = await supabase.from('photos').select('id, name, file_path, collection_id').eq('collection_id', id).order('created_at')
       setItems(data || [])
@@ -987,116 +1318,233 @@ function LibraryLinker({ initialTab = 'photos', linkedPhotos, linkedTracks, onLi
     setLoadingItems(false)
   }
 
+  function toggleSelect(id) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function selectAllVisible(filteredItems, linkedIds) {
+    const unlinkable = filteredItems.filter(i => !linkedIds.has(i.id))
+    if (unlinkable.length === 0) return
+    const allSelected = unlinkable.every(i => selected.has(i.id))
+    if (allSelected) {
+      setSelected(prev => {
+        const next = new Set(prev)
+        unlinkable.forEach(i => next.delete(i.id))
+        return next
+      })
+    } else {
+      setSelected(prev => {
+        const next = new Set(prev)
+        unlinkable.forEach(i => next.add(i.id))
+        return next
+      })
+    }
+  }
+
+  async function linkSelected() {
+    if (selected.size === 0) return
+    setLinking(true)
+    const selectedItems = items.filter(i => selected.has(i.id))
+    for (const item of selectedItems) {
+      if (tab === 'photos') await onLinkPhoto(item)
+      else await onLinkTrack(item)
+    }
+    setSelected(new Set())
+    setLinking(false)
+  }
+
   const linkedPhotoIds = new Set(linkedPhotos.map(p => p.id))
   const linkedTrackIds = new Set(linkedTracks.map(t => t.id))
+  const linkedIds = tab === 'photos' ? linkedPhotoIds : linkedTrackIds
+
+  const searchLower = search.toLowerCase()
+  const filteredContainers = tab === 'photos'
+    ? collections.filter(c => !search || c.name.toLowerCase().includes(searchLower))
+    : audioProjects.filter(p => !search || p.name.toLowerCase().includes(searchLower))
+
+  const filteredItems = items.filter(i => !search || (i.name || '').toLowerCase().includes(searchLower))
+
+  // Count unlinked selected
+  const unlinkableSelected = [...selected].filter(id => !linkedIds.has(id)).length
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 max-h-[70vh] flex flex-col">
-        <div className="flex items-center justify-between p-5 pb-3">
-          <h2 className="font-serif text-xl text-stone-800">Link from Library</h2>
+    <div className="absolute inset-y-0 right-0 z-30 w-80 bg-white border-l border-stone-200 shadow-lg flex flex-col animate-slide-in">
+      {/* Header */}
+      <div className="px-4 pt-4 pb-3 border-b border-stone-100 flex-shrink-0">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-serif text-lg text-stone-800">Library</h2>
           <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-sm transition-colors">✕</button>
         </div>
 
-        <div className="flex gap-1 px-5 mb-3">
+        {/* Search */}
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder={expandedId ? 'Filter items…' : (tab === 'photos' ? 'Search albums…' : 'Search projects…')}
+          className="w-full border border-stone-200 rounded-lg px-3 py-1.5 text-xs text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 transition-colors mb-3"
+        />
+
+        {/* Tabs */}
+        <div className="flex gap-1">
           <button
-            onClick={() => { setTab('photos'); setExpandedId(null) }}
+            onClick={() => setTab('photos')}
             className={`text-xs px-3 py-1.5 rounded-full transition-colors ${tab === 'photos' ? 'bg-stone-800 text-white' : 'text-stone-400 hover:text-stone-600'}`}
           >
             Albums
           </button>
           <button
-            onClick={() => { setTab('audio'); setExpandedId(null) }}
+            onClick={() => setTab('audio')}
             className={`text-xs px-3 py-1.5 rounded-full transition-colors ${tab === 'audio' ? 'bg-stone-800 text-white' : 'text-stone-400 hover:text-stone-600'}`}
           >
             Sounds
           </button>
         </div>
-
-        <div className="flex-1 overflow-y-auto px-5 pb-5">
-          {tab === 'photos' ? (
-            collections.length === 0 ? (
-              <p className="text-xs text-stone-300 italic text-center py-6">No albums</p>
-            ) : (
-              <div className="flex flex-col gap-0.5">
-                {collections.map(col => (
-                  <div key={col.id}>
-                    <button
-                      onClick={() => expand('collection', col.id)}
-                      className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm text-stone-600 hover:bg-stone-50 transition-colors"
-                    >
-                      <span className="text-[10px] text-stone-400">{expandedId === col.id ? '▾' : '▸'}</span>
-                      <span className="truncate">{col.name}</span>
-                    </button>
-                    {expandedId === col.id && (
-                      <div className="pl-6 flex flex-col gap-0.5 mb-1">
-                        {loadingItems ? (
-                          <p className="text-xs text-stone-300 py-1">Loading…</p>
-                        ) : items.length === 0 ? (
-                          <p className="text-xs text-stone-300 italic py-1">No photos</p>
-                        ) : items.map(photo => {
-                          const linked = linkedPhotoIds.has(photo.id)
-                          return (
-                            <button
-                              key={photo.id}
-                              onClick={() => linked ? onUnlinkPhoto(photo.id) : onLinkPhoto(photo)}
-                              className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors text-left ${linked ? 'bg-stone-100' : 'hover:bg-stone-50'}`}
-                            >
-                              <span className="w-4 text-center text-stone-300">◻</span>
-                              <span className="flex-1 truncate text-stone-600">{photo.name}</span>
-                              {linked && <span className="text-stone-400">✓</span>}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )
-          ) : (
-            audioProjects.length === 0 ? (
-              <p className="text-xs text-stone-300 italic text-center py-6">No sound projects</p>
-            ) : (
-              <div className="flex flex-col gap-0.5">
-                {audioProjects.map(proj => (
-                  <div key={proj.id}>
-                    <button
-                      onClick={() => expand('audio', proj.id)}
-                      className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm text-stone-600 hover:bg-stone-50 transition-colors"
-                    >
-                      <span className="text-[10px] text-stone-400">{expandedId === proj.id ? '▾' : '▸'}</span>
-                      <span className="truncate">{proj.name}</span>
-                    </button>
-                    {expandedId === proj.id && (
-                      <div className="pl-6 flex flex-col gap-0.5 mb-1">
-                        {loadingItems ? (
-                          <p className="text-xs text-stone-300 py-1">Loading…</p>
-                        ) : items.length === 0 ? (
-                          <p className="text-xs text-stone-300 italic py-1">No tracks</p>
-                        ) : items.map(track => {
-                          const linked = linkedTrackIds.has(track.id)
-                          return (
-                            <button
-                              key={track.id}
-                              onClick={() => linked ? onUnlinkTrack(track.id) : onLinkTrack(track)}
-                              className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors text-left ${linked ? 'bg-stone-100' : 'hover:bg-stone-50'}`}
-                            >
-                              <span className="w-4 text-center text-stone-300">♩</span>
-                              <span className="flex-1 truncate text-stone-600">{track.name}</span>
-                              {linked && <span className="text-stone-400">✓</span>}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )
-          )}
-        </div>
       </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-4 py-3">
+        {/* Breadcrumb when expanded */}
+        {expandedId && (
+          <button
+            onClick={() => { setExpandedId(null); setItems([]); setSelected(new Set()) }}
+            className="flex items-center gap-1 text-xs text-stone-400 hover:text-stone-600 transition-colors mb-3"
+          >
+            ← All {tab === 'photos' ? 'Albums' : 'Projects'}
+          </button>
+        )}
+
+        {!expandedId ? (
+          /* Container list */
+          filteredContainers.length === 0 ? (
+            <p className="text-xs text-stone-300 italic text-center py-6">
+              {search ? 'No matches' : (tab === 'photos' ? 'No albums' : 'No sound projects')}
+            </p>
+          ) : (
+            <div className="flex flex-col gap-0.5">
+              {filteredContainers.map(container => (
+                <button
+                  key={container.id}
+                  onClick={() => expand(tab === 'photos' ? 'collection' : 'audio', container.id)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-stone-600 hover:bg-stone-50 transition-colors text-left"
+                >
+                  <span className="w-5 h-5 rounded bg-stone-100 flex items-center justify-center text-stone-400 text-[10px] flex-shrink-0">
+                    {tab === 'photos' ? '◻' : '♩'}
+                  </span>
+                  <span className="truncate flex-1">{container.name}</span>
+                  <span className="text-[10px] text-stone-300">▸</span>
+                </button>
+              ))}
+            </div>
+          )
+        ) : (
+          /* Expanded items */
+          loadingItems ? (
+            <p className="text-xs text-stone-300 text-center py-6">Loading…</p>
+          ) : filteredItems.length === 0 ? (
+            <p className="text-xs text-stone-300 italic text-center py-6">
+              {search ? 'No matches' : (tab === 'photos' ? 'No photos' : 'No tracks')}
+            </p>
+          ) : tab === 'photos' ? (
+            /* Photo grid with thumbnails */
+            <>
+              <button
+                onClick={() => selectAllVisible(filteredItems, linkedIds)}
+                className="text-[10px] text-stone-400 hover:text-amber-700 transition-colors mb-2"
+              >
+                {filteredItems.filter(i => !linkedIds.has(i.id)).every(i => selected.has(i.id)) ? 'Deselect all' : 'Select all unlinked'}
+              </button>
+              <div className="grid grid-cols-3 gap-2">
+                {filteredItems.map(photo => {
+                  const linked = linkedPhotoIds.has(photo.id)
+                  const isSelected = selected.has(photo.id)
+                  const url = supabase.storage.from('Photos').getPublicUrl(photo.file_path).data.publicUrl
+                  return (
+                    <button
+                      key={photo.id}
+                      onClick={() => {
+                        if (linked) { onUnlinkPhoto(photo.id); return }
+                        toggleSelect(photo.id)
+                      }}
+                      className={`relative aspect-square rounded-lg overflow-hidden bg-stone-100 ring-2 transition-all ${
+                        linked ? 'ring-green-400 opacity-70' : isSelected ? 'ring-amber-500' : 'ring-transparent hover:ring-stone-300'
+                      }`}
+                    >
+                      <img src={url} alt={photo.name || ''} className="w-full h-full object-cover" loading="lazy" />
+                      {/* Checkbox overlay */}
+                      <div className={`absolute top-1 left-1 w-4 h-4 rounded border flex items-center justify-center text-[8px] ${
+                        linked ? 'bg-green-500 border-green-500 text-white' : isSelected ? 'bg-amber-500 border-amber-500 text-white' : 'border-white/70 bg-black/20'
+                      }`}>
+                        {(linked || isSelected) && '✓'}
+                      </div>
+                      {/* Name tooltip on hover */}
+                      {photo.name && (
+                        <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5 bg-gradient-to-t from-black/50 to-transparent">
+                          <p className="text-[8px] text-white/80 truncate">{photo.name}</p>
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          ) : (
+            /* Audio list */
+            <>
+              <button
+                onClick={() => selectAllVisible(filteredItems, linkedIds)}
+                className="text-[10px] text-stone-400 hover:text-amber-700 transition-colors mb-2"
+              >
+                {filteredItems.filter(i => !linkedIds.has(i.id)).every(i => selected.has(i.id)) ? 'Deselect all' : 'Select all unlinked'}
+              </button>
+              <div className="flex flex-col gap-1">
+                {filteredItems.map(track => {
+                  const linked = linkedTrackIds.has(track.id)
+                  const isSelected = selected.has(track.id)
+                  return (
+                    <button
+                      key={track.id}
+                      onClick={() => {
+                        if (linked) { onUnlinkTrack(track.id); return }
+                        toggleSelect(track.id)
+                      }}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors text-left ${
+                        linked ? 'bg-green-50 text-green-700' : isSelected ? 'bg-amber-50 border border-amber-300' : 'hover:bg-stone-50 text-stone-600'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center text-[8px] flex-shrink-0 ${
+                        linked ? 'bg-green-500 border-green-500 text-white' : isSelected ? 'bg-amber-500 border-amber-500 text-white' : 'border-stone-300'
+                      }`}>
+                        {(linked || isSelected) && '✓'}
+                      </div>
+                      <span className="w-6 h-6 rounded bg-stone-100 flex items-center justify-center text-stone-400 text-[10px] flex-shrink-0">♩</span>
+                      <span className="flex-1 truncate">{track.name}</span>
+                      {linked && <span className="text-[10px] text-green-500">Linked</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )
+        )}
+      </div>
+
+      {/* Footer action bar — shown when items are selected */}
+      {unlinkableSelected > 0 && (
+        <div className="px-4 py-3 border-t border-stone-200 bg-stone-50 flex-shrink-0">
+          <button
+            onClick={linkSelected}
+            disabled={linking}
+            className="w-full bg-amber-600 text-white text-xs py-2 rounded-lg hover:bg-amber-700 disabled:opacity-50 transition-colors font-medium"
+          >
+            {linking ? 'Linking…' : `Link ${unlinkableSelected} ${unlinkableSelected === 1 ? 'item' : 'items'}`}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
