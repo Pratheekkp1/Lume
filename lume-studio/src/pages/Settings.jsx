@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { getProfile, saveProfile, deriveInitials, AVATAR_COLORS } from '../lib/profile'
+import { fetchTrashed, restoreItem, permanentDelete, ENTITY_TYPES } from '../lib/trash'
 
 export default function Settings() {
   const [activeSection, setActiveSection] = useState('profile')
@@ -12,6 +13,7 @@ export default function Settings() {
         {[
           { key: 'profile', label: 'Profile' },
           { key: 'shortcuts', label: 'Keyboard Shortcuts' },
+          { key: 'trash', label: 'Trash' },
           { key: 'about', label: 'About' },
         ].map((s) => (
           <button
@@ -32,6 +34,7 @@ export default function Settings() {
       <div className="flex-1 overflow-y-auto p-8 max-w-xl">
         {activeSection === 'profile' && <ProfileSection />}
         {activeSection === 'shortcuts' && <ShortcutsSection />}
+        {activeSection === 'trash' && <TrashSection />}
         {activeSection === 'about' && <AboutSection />}
       </div>
     </div>
@@ -217,6 +220,157 @@ function AboutSection() {
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+function TrashSection() {
+  const [trash, setTrash] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [confirmPermanent, setConfirmPermanent] = useState(null)
+  const [confirmEmpty, setConfirmEmpty] = useState(false)
+
+  useEffect(() => { loadTrash() }, [])
+
+  async function loadTrash() {
+    setLoading(true)
+    const data = await fetchTrashed()
+    setTrash(data)
+    setLoading(false)
+  }
+
+  function daysRemaining(deletedAt) {
+    const days = 30 - Math.floor((Date.now() - new Date(deletedAt).getTime()) / (1000 * 60 * 60 * 24))
+    return Math.max(0, days)
+  }
+
+  async function handleRestore(entityType, id, deletedAt) {
+    await restoreItem(entityType, id, deletedAt)
+    window.dispatchEvent(new CustomEvent(entityType.event))
+    loadTrash()
+  }
+
+  async function handlePermanentDelete(entityType, id) {
+    setConfirmPermanent(null)
+    await permanentDelete(entityType, id)
+    loadTrash()
+  }
+
+  async function handleEmptyTrash() {
+    setConfirmEmpty(false)
+    if (!trash) return
+    const allItems = [
+      ...trash.posts.map(i => ({ type: ENTITY_TYPES.POST, id: i.id })),
+      ...trash.collections.map(i => ({ type: ENTITY_TYPES.COLLECTION, id: i.id })),
+      ...trash.audioProjects.map(i => ({ type: ENTITY_TYPES.AUDIO_PROJECT, id: i.id })),
+      ...trash.photos.map(i => ({ type: ENTITY_TYPES.PHOTO, id: i.id })),
+      ...trash.audioTracks.map(i => ({ type: ENTITY_TYPES.AUDIO_TRACK, id: i.id })),
+    ]
+    for (const item of allItems) {
+      await permanentDelete(item.type, item.id)
+    }
+    loadTrash()
+  }
+
+  const totalItems = trash
+    ? trash.posts.length + trash.collections.length + trash.audioProjects.length + trash.photos.length + trash.audioTracks.length
+    : 0
+
+  const sections = trash ? [
+    { label: 'Posts', type: ENTITY_TYPES.POST, items: trash.posts, nameField: 'title' },
+    { label: 'Albums', type: ENTITY_TYPES.COLLECTION, items: trash.collections, nameField: 'name' },
+    { label: 'Sound Projects', type: ENTITY_TYPES.AUDIO_PROJECT, items: trash.audioProjects, nameField: 'name' },
+    { label: 'Photos', type: ENTITY_TYPES.PHOTO, items: trash.photos, nameField: 'name' },
+    { label: 'Tracks', type: ENTITY_TYPES.AUDIO_TRACK, items: trash.audioTracks, nameField: 'name' },
+  ].filter(s => s.items.length > 0) : []
+
+  return (
+    <div>
+      <div className="flex items-end justify-between mb-6">
+        <div>
+          <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Trash</p>
+          <h1 className="font-serif text-3xl text-stone-800">Trash</h1>
+          <p className="text-xs text-stone-400 mt-1">Items are permanently deleted after 30 days</p>
+        </div>
+        {totalItems > 0 && (
+          <button
+            onClick={() => setConfirmEmpty(true)}
+            className="text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-300 px-3 py-1.5 rounded-md transition-colors"
+          >
+            Empty Trash
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <p className="text-stone-400 text-sm">Loading…</p>
+      ) : totalItems === 0 ? (
+        <div className="text-center py-16 text-stone-400">
+          <p className="text-4xl mb-3">🗑</p>
+          <p className="text-sm font-medium">Trash is empty</p>
+          <p className="text-xs mt-1">Deleted items will appear here for 30 days</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6">
+          {sections.map(section => (
+            <div key={section.label}>
+              <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">{section.label}</p>
+              <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+                {section.items.map((item, i) => (
+                  <div key={item.id} className={`flex items-center gap-3 px-4 py-3 ${i !== 0 ? 'border-t border-stone-100' : ''}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-stone-700 truncate">{item[section.nameField]}</p>
+                      <p className="text-[10px] text-stone-400 mt-0.5">{daysRemaining(item.deleted_at)} days remaining</p>
+                    </div>
+                    <button
+                      onClick={() => handleRestore(section.type, item.id, item.deleted_at)}
+                      className="text-xs text-amber-600 hover:text-amber-800 font-medium px-2 py-1 rounded transition-colors"
+                    >
+                      Restore
+                    </button>
+                    <button
+                      onClick={() => setConfirmPermanent({ type: section.type, id: item.id, name: item[section.nameField] })}
+                      className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded transition-colors"
+                    >
+                      Delete Forever
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {confirmPermanent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <h2 className="font-serif text-xl text-stone-800 mb-2">Delete forever?</h2>
+            <p className="text-sm text-stone-500 mb-6">
+              "<span className="font-medium text-stone-700">{confirmPermanent.name}</span>" will be permanently deleted. This cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmPermanent(null)} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
+              <button onClick={() => handlePermanentDelete(confirmPermanent.type, confirmPermanent.id)} className="flex-1 bg-red-500 text-white text-sm py-2 rounded-md hover:bg-red-600 transition-colors">Delete Forever</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmEmpty && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <h2 className="font-serif text-xl text-stone-800 mb-2">Empty trash?</h2>
+            <p className="text-sm text-stone-500 mb-6">
+              All {totalItems} item{totalItems !== 1 ? 's' : ''} will be permanently deleted. This cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmEmpty(false)} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
+              <button onClick={() => handleEmptyTrash()} className="flex-1 bg-red-500 text-white text-sm py-2 rounded-md hover:bg-red-600 transition-colors">Empty Trash</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

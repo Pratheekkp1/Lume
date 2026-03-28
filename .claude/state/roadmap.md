@@ -67,7 +67,7 @@ Add features that make Lume genuinely useful for content creators publishing acr
 |---|------|-------------|--------|
 | 3.1 | Multi-platform variants | A project can target multiple platforms. Each variant can have different caption, crop notes, or asset selection. Platform tabs within a project. | done (2026-03-25) |
 | 3.2 | Calendar/schedule view | New view showing posts on a calendar by target publish date. Add `scheduled_date` field to posts. Drag to reschedule. | done (2026-03-25) |
-| 3.3 | Undo/trash system | Soft delete with 30-day trash. Toast notification with "Undo" button on delete (5 second window). Trash page in settings or sidebar. | not started |
+| 3.3 | Undo/trash system | Soft delete with 30-day trash. Toast notification with "Undo" button on delete (5 second window). Trash page in settings or sidebar. | done (2026-03-26) |
 | 3.4 | Batch operations everywhere | Multi-select + bulk actions (status change, category assign, delete) on Posts page, Sounds page, and within PostView. Not just AlbumView. | not started |
 | 3.5 | Templates | Create post from template. Templates save type, platform, category, and placeholder structure. E.g., "Instagram Reel Template" pre-fills type=Reel, platform=Instagram. | not started |
 | 3.6 | Enhanced search | Search across notes, categories, captions — not just titles. Add recent searches. Full-page search results view for complex queries. | not started |

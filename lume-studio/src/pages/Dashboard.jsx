@@ -22,12 +22,12 @@ export default function Dashboard() {
       { data: photoSizes },
       { data: trackSizes },
     ] = await Promise.all([
-      supabase.from('posts').select('id, title, type, status, platform, created_at').order('created_at', { ascending: false }),
-      supabase.from('collections').select('*', { count: 'exact', head: true }),
-      supabase.from('photos').select('*', { count: 'exact', head: true }),
-      supabase.from('audio_projects').select('*', { count: 'exact', head: true }),
-      supabase.from('photos').select('file_size'),
-      supabase.from('audio_tracks').select('file_size'),
+      supabase.from('posts').select('id, title, type, status, platform, created_at').is('deleted_at', null).order('created_at', { ascending: false }),
+      supabase.from('collections').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+      supabase.from('photos').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+      supabase.from('audio_projects').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+      supabase.from('photos').select('file_size').is('deleted_at', null),
+      supabase.from('audio_tracks').select('file_size').is('deleted_at', null),
     ])
 
     // Pipeline counts

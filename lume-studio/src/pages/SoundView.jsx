@@ -157,6 +157,7 @@ export default function SoundView() {
       .from("audio_tracks")
       .select("*")
       .eq("project_id", projectId)
+      .is("deleted_at", null)
       .order("created_at", { ascending: true });
     if (data) setTracks(data);
     setLoading(false);
@@ -266,11 +267,9 @@ export default function SoundView() {
 
   async function deleteTrack() {
     if (!selectedTrack) return;
-    setDeletingTrack(true);
-    await supabase.storage.from("Audio").remove([selectedTrack.file_path]);
-    await supabase.from("audio_tracks").delete().eq("id", selectedTrack.id);
-    setTracks((prev) => prev.filter((t) => t.id !== selectedTrack.id));
-    if (playingTrack?.id === selectedTrack.id) {
+    const track = selectedTrack;
+    setTracks((prev) => prev.filter((t) => t.id !== track.id));
+    if (playingTrack?.id === track.id) {
       audioRef.current?.pause();
       selectedTrackRef.current = null;
       setPlayingTrack(null);
@@ -279,6 +278,7 @@ export default function SoundView() {
     setNotes("");
     setConfirmDelete(false);
     setDeletingTrack(false);
+    await softDelete(ENTITY_TYPES.AUDIO_TRACK, track.id, track.name);
   }
 
   const filtered =
