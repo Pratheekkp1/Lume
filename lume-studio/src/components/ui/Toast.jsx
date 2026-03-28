@@ -52,7 +52,7 @@ function ToastItem({ toast, onDismiss, onUndo }) {
   }, [])
 
   return (
-    <div className="pointer-events-auto bg-stone-800 text-white rounded-lg shadow-lg flex items-center gap-3 pl-4 pr-2 py-2.5 min-w-[280px] max-w-md animate-slide-up">
+    <div className="pointer-events-auto relative bg-stone-800 text-white rounded-lg shadow-lg flex items-center gap-3 pl-4 pr-2 py-2.5 min-w-[280px] max-w-md animate-slide-up">
       <p className="text-sm flex-1">{toast.message}</p>
       {toast.undoFn && (
         <button

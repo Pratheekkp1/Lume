@@ -53,10 +53,10 @@ export default function Topbar() {
       { data: photos },
       { data: audioProjects },
     ] = await Promise.all([
-      supabase.from('posts').select('id, title').ilike('title', like).limit(4),
-      supabase.from('collections').select('id, name').ilike('name', like).limit(4),
-      supabase.from('photos').select('id, name, collection_id').ilike('name', like).limit(4),
-      supabase.from('audio_projects').select('id, name').ilike('name', like).limit(4),
+      supabase.from('posts').select('id, title').ilike('title', like).is('deleted_at', null).limit(4),
+      supabase.from('collections').select('id, name').ilike('name', like).is('deleted_at', null).limit(4),
+      supabase.from('photos').select('id, name, collection_id').ilike('name', like).is('deleted_at', null).limit(4),
+      supabase.from('audio_projects').select('id, name').ilike('name', like).is('deleted_at', null).limit(4),
     ])
 
     const grouped = []

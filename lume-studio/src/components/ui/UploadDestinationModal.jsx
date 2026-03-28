@@ -19,9 +19,9 @@ export default function UploadDestinationModal({ mode, fileCount, onSelect, onCa
   useEffect(() => {
     async function fetch() {
       const promises = []
-      if (needsAlbum) promises.push(supabase.from('collections').select('id, name').order('created_at', { ascending: false }))
+      if (needsAlbum) promises.push(supabase.from('collections').select('id, name').is('deleted_at', null).order('created_at', { ascending: false }))
       else promises.push(Promise.resolve({ data: [] }))
-      if (needsProject) promises.push(supabase.from('audio_projects').select('id, name').order('created_at', { ascending: false }))
+      if (needsProject) promises.push(supabase.from('audio_projects').select('id, name').is('deleted_at', null).order('created_at', { ascending: false }))
       else promises.push(Promise.resolve({ data: [] }))
 
       const [albumRes, projectRes] = await Promise.all(promises)

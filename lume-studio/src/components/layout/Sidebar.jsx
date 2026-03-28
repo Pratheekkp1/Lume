@@ -36,13 +36,13 @@ export default function Sidebar() {
 
     const promises = []
     promises.push(postIds.length > 0
-      ? supabase.from('posts').select('id, title').in('id', postIds)
+      ? supabase.from('posts').select('id, title').in('id', postIds).is('deleted_at', null)
       : Promise.resolve({ data: [] }))
     promises.push(albumIds.length > 0
-      ? supabase.from('collections').select('id, name').in('id', albumIds)
+      ? supabase.from('collections').select('id, name').in('id', albumIds).is('deleted_at', null)
       : Promise.resolve({ data: [] }))
     promises.push(soundIds.length > 0
-      ? supabase.from('audio_projects').select('id, name').in('id', soundIds)
+      ? supabase.from('audio_projects').select('id, name').in('id', soundIds).is('deleted_at', null)
       : Promise.resolve({ data: [] }))
 
     const [postRes, albumRes, soundRes] = await Promise.all(promises)

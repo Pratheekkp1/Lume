@@ -1287,8 +1287,8 @@ function LibraryLinker({ initialTab = 'photos', linkedPhotos, linkedTracks, onLi
 
   useEffect(() => {
     Promise.all([
-      supabase.from('collections').select('id, name').order('created_at', { ascending: false }),
-      supabase.from('audio_projects').select('id, name').order('created_at', { ascending: false }),
+      supabase.from('collections').select('id, name').is('deleted_at', null).order('created_at', { ascending: false }),
+      supabase.from('audio_projects').select('id, name').is('deleted_at', null).order('created_at', { ascending: false }),
     ]).then(([{ data: cols }, { data: projs }]) => {
       setCollections(cols || [])
       setAudioProjects(projs || [])
@@ -1309,10 +1309,10 @@ function LibraryLinker({ initialTab = 'photos', linkedPhotos, linkedTracks, onLi
     setLoadingItems(true)
     setSelected(new Set())
     if (type === 'collection') {
-      const { data } = await supabase.from('photos').select('id, name, file_path, collection_id').eq('collection_id', id).order('created_at')
+      const { data } = await supabase.from('photos').select('id, name, file_path, collection_id').eq('collection_id', id).is('deleted_at', null).order('created_at')
       setItems(data || [])
     } else {
-      const { data } = await supabase.from('audio_tracks').select('id, name, project_id').eq('project_id', id).order('created_at')
+      const { data } = await supabase.from('audio_tracks').select('id, name, project_id').eq('project_id', id).is('deleted_at', null).order('created_at')
       setItems(data || [])
     }
     setLoadingItems(false)
