@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { POST_STATUSES, POST_TYPES, PLATFORMS } from '../lib/constants'
-import { softDelete, ENTITY_TYPES } from '../lib/trash'
+import { softDelete, softDeleteBulk, ENTITY_TYPES } from '../lib/trash'
 
 export default function Posts() {
   const navigate = useNavigate()
@@ -19,9 +19,31 @@ export default function Posts() {
     return { year: now.getFullYear(), month: now.getMonth() }
   })
 
+  // Templates
+  const [templates, setTemplates] = useState([])
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false)
+  const [templateInitial, setTemplateInitial] = useState({})
+  const templatePickerRef = useRef(null)
+
+  // Multi-select
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [bulkProcessing, setBulkProcessing] = useState(false)
+
   useEffect(() => {
     fetchPosts()
+    fetchTemplates()
   }, [])
+
+  useEffect(() => {
+    if (!showTemplatePicker) return
+    function handleClick(e) {
+      if (templatePickerRef.current && !templatePickerRef.current.contains(e.target)) setShowTemplatePicker(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showTemplatePicker])
 
   useEffect(() => {
     if (searchParams.get('create') === 'true') {
@@ -40,6 +62,11 @@ export default function Posts() {
       .order('created_at', { ascending: false })
     setPosts(data || [])
     setLoading(false)
+  }
+
+  async function fetchTemplates() {
+    const { data } = await supabase.from('post_templates').select('*').order('created_at', { ascending: false })
+    setTemplates(data || [])
   }
 
   async function handleCreate(fields) {
@@ -102,6 +129,39 @@ export default function Posts() {
     }
   }
 
+  function toggleSelect(id) {
+    setSelectedIds(prev => {
+      const s = new Set(prev)
+      s.has(id) ? s.delete(id) : s.add(id)
+      return s
+    })
+  }
+
+  function deselectAll() {
+    setSelectedIds(new Set())
+    setSelectMode(false)
+    setConfirmBulkDelete(false)
+  }
+
+  async function bulkStatusChange(status) {
+    const ids = [...selectedIds]
+    setPosts(prev => prev.map(p => selectedIds.has(p.id) ? { ...p, status } : p))
+    await supabase.from('posts').update({ status }).in('id', ids)
+    window.dispatchEvent(new CustomEvent('lume-posts-updated'))
+  }
+
+  async function bulkDelete() {
+    setBulkProcessing(true)
+    const ids = [...selectedIds]
+    setPosts(prev => prev.filter(p => !selectedIds.has(p.id)))
+    setSelectedIds(new Set())
+    setConfirmBulkDelete(false)
+    setBulkProcessing(false)
+    await softDeleteBulk(ENTITY_TYPES.POST, ids, `${ids.length} post${ids.length !== 1 ? 's' : ''}`)
+    window.dispatchEvent(new CustomEvent('lume-posts-updated'))
+  }
+
+  const anySelected = selectedIds.size > 0
   const filtered = filterStatus === 'all' ? posts : posts.filter(p => p.status === filterStatus)
 
   return (
@@ -114,6 +174,18 @@ export default function Posts() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {viewMode !== 'calendar' && (
+            <button
+              onClick={() => { setSelectMode(!selectMode); if (selectMode) deselectAll(); }}
+              className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
+                selectMode
+                  ? 'bg-stone-800 text-white border-stone-800'
+                  : 'border-stone-200 text-stone-500 hover:border-stone-300'
+              }`}
+            >
+              {selectMode ? 'Done' : 'Select'}
+            </button>
+          )}
           <div className="flex border border-stone-200 rounded-md overflow-hidden">
             <button
               onClick={() => { setViewMode('board'); localStorage.setItem('lume-posts-view', 'board') }}
@@ -134,12 +206,49 @@ export default function Posts() {
               Calendar
             </button>
           </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
-          >
-            + New Post
-          </button>
+          <div className="relative" ref={templatePickerRef}>
+            <div className="flex">
+              <button
+                onClick={() => { setTemplateInitial({}); setShowCreate(true) }}
+                className="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-l-md hover:opacity-90 transition-opacity"
+              >
+                + New Post
+              </button>
+              {templates.length > 0 && (
+                <button
+                  onClick={() => setShowTemplatePicker(!showTemplatePicker)}
+                  className="bg-stone-800 text-white text-xs font-medium px-2 py-2 rounded-r-md border-l border-stone-600 hover:opacity-90 transition-opacity"
+                >
+                  ▾
+                </button>
+              )}
+              {templates.length === 0 && <span className="rounded-r-md" />}
+            </div>
+            {showTemplatePicker && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-stone-200 rounded-lg shadow-lg min-w-[200px] py-1 z-20">
+                <p className="text-[10px] uppercase tracking-widest text-stone-400 px-3 py-1.5">From Template</p>
+                {templates.map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      setTemplateInitial({
+                        type: t.type || [],
+                        platform: t.platform || [],
+                        status: t.status || 'idea',
+                        description: t.description || '',
+                        caption: t.caption || '',
+                      })
+                      setShowCreate(true)
+                      setShowTemplatePicker(false)
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
+                  >
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -173,6 +282,44 @@ export default function Posts() {
         </div>
       )}
 
+      {/* Bulk action bar */}
+      {anySelected && (
+        <div className="flex items-center gap-3 mb-4 px-3 py-2 bg-stone-100 border border-stone-200 rounded-lg text-xs">
+          <span className="text-stone-600 font-medium">{selectedIds.size} post{selectedIds.size !== 1 ? 's' : ''} selected</span>
+          <button onClick={deselectAll} className="text-stone-400 hover:text-stone-600 transition-colors">Deselect all</button>
+          <div className="ml-auto flex items-center gap-2">
+            {confirmBulkDelete ? (
+              <>
+                <span className="text-stone-500">Delete {selectedIds.size} post{selectedIds.size !== 1 ? 's' : ''}?</span>
+                <button onClick={() => setConfirmBulkDelete(false)} className="text-stone-400 hover:text-stone-600 px-2 py-1 border border-stone-200 rounded transition-colors">Cancel</button>
+                <button onClick={bulkDelete} disabled={bulkProcessing} className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 disabled:opacity-40 transition-colors">
+                  {bulkProcessing ? 'Deleting…' : 'Confirm Delete'}
+                </button>
+              </>
+            ) : (
+              <>
+                <select
+                  defaultValue=""
+                  onChange={(e) => { if (e.target.value) { bulkStatusChange(e.target.value); e.target.value = ''; } }}
+                  className="text-xs border border-stone-200 text-stone-600 bg-white px-2 py-1 rounded outline-none cursor-pointer"
+                >
+                  <option value="" disabled>Set status…</option>
+                  {Object.entries(POST_STATUSES).map(([key, val]) => (
+                    <option key={key} value={key}>{val.label}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setConfirmBulkDelete(true)}
+                  className="border border-red-200 text-red-400 px-3 py-1 rounded hover:bg-red-50 hover:text-red-500 transition-colors"
+                >
+                  Delete
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <p className="text-stone-400 text-sm">Loading…</p>
       ) : viewMode === 'calendar' ? (
@@ -190,6 +337,9 @@ export default function Posts() {
           onEdit={(post) => setEditTarget(post)}
           onDelete={(post) => setDeleteTarget(post)}
           onStatusChange={handleStatusChange}
+          selectMode={selectMode}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
         />
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-stone-400">
@@ -203,16 +353,20 @@ export default function Posts() {
             <PostCard
               key={post.id}
               post={post}
-              onClick={() => navigate(`/posts/${post.id}`)}
+              onClick={() => selectMode ? toggleSelect(post.id) : navigate(`/posts/${post.id}`)}
               onEdit={(e) => { e.stopPropagation(); setEditTarget(post) }}
               onDelete={(e) => { e.stopPropagation(); setDeleteTarget(post) }}
+              selectMode={selectMode}
+              checked={selectedIds.has(post.id)}
+              anySelected={anySelected}
+              onCheck={(e) => { e.stopPropagation(); toggleSelect(post.id) }}
             />
           ))}
         </div>
       )}
 
       {showCreate && (
-        <PostModal onSave={handleCreate} onClose={() => setShowCreate(false)} />
+        <PostModal initial={templateInitial} onSave={handleCreate} onClose={() => { setShowCreate(false); setTemplateInitial({}) }} />
       )}
       {deleteTarget && (
         <ConfirmDelete
@@ -450,7 +604,7 @@ function CalendarView({ posts, calendarMonth, setCalendarMonth, onNavigate, onSc
 
 /* ── Kanban Board ────────────────────────────────────────── */
 
-function KanbanBoard({ posts, onNavigate, onEdit, onDelete, onStatusChange }) {
+function KanbanBoard({ posts, onNavigate, onEdit, onDelete, onStatusChange, selectMode, selectedIds, onToggleSelect }) {
   const [dragOverCol, setDragOverCol] = useState(null)
 
   function handleDragStart(e, postId) {
@@ -502,9 +656,13 @@ function KanbanBoard({ posts, onNavigate, onEdit, onDelete, onStatusChange }) {
                   key={post.id}
                   post={post}
                   onDragStart={handleDragStart}
-                  onClick={() => onNavigate(post.id)}
+                  onClick={() => selectMode ? onToggleSelect(post.id) : onNavigate(post.id)}
                   onEdit={() => onEdit(post)}
                   onDelete={() => onDelete(post)}
+                  selectMode={selectMode}
+                  checked={selectedIds.has(post.id)}
+                  anySelected={selectedIds.size > 0}
+                  onCheck={(e) => { e.stopPropagation(); onToggleSelect(post.id) }}
                 />
               ))}
               {columnPosts.length === 0 && (
@@ -518,19 +676,32 @@ function KanbanBoard({ posts, onNavigate, onEdit, onDelete, onStatusChange }) {
   )
 }
 
-function KanbanCard({ post, onDragStart, onClick, onEdit, onDelete }) {
+function KanbanCard({ post, onDragStart, onClick, onEdit, onDelete, selectMode, checked, anySelected, onCheck }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const cats = (post.post_categories || []).map(pc => pc.category).filter(Boolean)
 
   return (
     <div
-      draggable
-      onDragStart={(e) => onDragStart(e, post.id)}
+      draggable={!selectMode}
+      onDragStart={(e) => !selectMode && onDragStart(e, post.id)}
       onClick={onClick}
-      className="bg-white border border-stone-200 rounded-lg p-3 cursor-pointer hover:border-stone-300 hover:shadow-sm transition-all"
+      className={`bg-white border rounded-lg p-3 cursor-pointer hover:border-stone-300 hover:shadow-sm transition-all ${
+        checked ? 'border-amber-400 ring-1 ring-amber-200' : 'border-stone-200'
+      }`}
     >
       <div className="flex items-start justify-between mb-1.5">
-        <p className="text-sm font-medium text-stone-700 truncate flex-1 mr-2">{post.title}</p>
+        <div className="flex items-center gap-2 flex-1 min-w-0 mr-2">
+          {(selectMode || anySelected) && (
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={onCheck}
+              onClick={e => e.stopPropagation()}
+              className="accent-amber-500 flex-shrink-0"
+            />
+          )}
+          <p className="text-sm font-medium text-stone-700 truncate">{post.title}</p>
+        </div>
         <div className="relative flex-shrink-0">
           <button
             onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
@@ -576,7 +747,7 @@ function KanbanCard({ post, onDragStart, onClick, onEdit, onDelete }) {
   )
 }
 
-function PostCard({ post, onClick, onEdit, onDelete }) {
+function PostCard({ post, onClick, onEdit, onDelete, selectMode, checked, anySelected, onCheck }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const status = POST_STATUSES[post.status]
   const cats = (post.post_categories || []).map(pc => pc.category).filter(Boolean)
@@ -584,8 +755,21 @@ function PostCard({ post, onClick, onEdit, onDelete }) {
   return (
     <button
       onClick={onClick}
-      className="relative text-left bg-white border border-stone-200 rounded-xl p-4 hover:border-stone-300 hover:shadow-sm transition-all"
+      className={`relative text-left bg-white border rounded-xl p-4 hover:border-stone-300 hover:shadow-sm transition-all ${
+        checked ? 'border-amber-400 ring-1 ring-amber-200' : 'border-stone-200'
+      }`}
     >
+      {(selectMode || anySelected) && (
+        <div className="absolute top-2 left-2 z-10">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={onCheck}
+            onClick={e => e.stopPropagation()}
+            className="accent-amber-500"
+          />
+        </div>
+      )}
       <div className="flex items-start justify-between mb-2">
         <span
           className="text-[10px] font-medium px-2 py-0.5 rounded-full"
@@ -650,8 +834,10 @@ function PostModal({ initial = {}, onSave, onClose }) {
   const [platforms, setPlatforms] = useState(initial.platform || [])
   const [status, setStatus] = useState(initial.status || 'idea')
   const [description, setDescription] = useState(initial.description || '')
+  const [caption, setCaption] = useState(initial.caption || '')
   const [scheduledDate, setScheduledDate] = useState(initial.scheduled_date || '')
   const [saving, setSaving] = useState(false)
+  const isFromTemplate = !!(initial.type?.length || initial.platform?.length || initial.caption)
 
   function toggleItem(arr, setArr, item) {
     setArr(arr.includes(item) ? arr.filter(v => v !== item) : [...arr, item])
@@ -667,6 +853,7 @@ function PostModal({ initial = {}, onSave, onClose }) {
       platform: platforms.length > 0 ? platforms : null,
       status,
       description: description.trim() || null,
+      caption: caption.trim() || null,
       scheduled_date: scheduledDate || null,
     })
     setSaving(false)
@@ -675,7 +862,7 @@ function PostModal({ initial = {}, onSave, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
-        <h2 className="font-serif text-xl text-stone-800 mb-5">New Post</h2>
+        <h2 className="font-serif text-xl text-stone-800 mb-5">{isFromTemplate ? 'New Post from Template' : 'New Post'}</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Field label="Title">
             <input
@@ -723,6 +910,15 @@ function PostModal({ initial = {}, onSave, onClose }) {
                 </button>
               ))}
             </div>
+          </Field>
+          <Field label="Caption">
+            <textarea
+              value={caption}
+              onChange={e => setCaption(e.target.value)}
+              placeholder="Post caption…"
+              rows={2}
+              className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 resize-none transition-colors"
+            />
           </Field>
           <Field label="Notes">
             <textarea

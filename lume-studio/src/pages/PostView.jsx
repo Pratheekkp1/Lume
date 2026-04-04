@@ -24,6 +24,11 @@ export default function PostView() {
   const [titleDraft, setTitleDraft] = useState('')
   const [deleteAssetTarget, setDeleteAssetTarget] = useState(null)
 
+  // Multi-select for assets
+  const [assetSelectMode, setAssetSelectMode] = useState(false)
+  const [selectedAssetIds, setSelectedAssetIds] = useState(new Set()) // stores 'kind:id' strings
+  const [confirmBulkRemove, setConfirmBulkRemove] = useState(false)
+
   // Variants (multi-platform)
   const [variants, setVariants] = useState([])
   const [activeVariant, setActiveVariant] = useState(null) // null = "Base", or variant id
@@ -241,6 +246,79 @@ export default function PostView() {
     if (selectedItem?.kind === 'asset' && selectedItem.data.id === asset.id) setSelectedItem(null)
     setDeleteAssetTarget(null)
   }
+
+  // ── Multi-select for assets ────────────────────────────────────────────────
+
+  function makeAssetKey(kind, id) { return `${kind}:${id}` }
+
+  function toggleAssetSelect(kind, id) {
+    const key = makeAssetKey(kind, id)
+    setSelectedAssetIds(prev => {
+      const s = new Set(prev)
+      s.has(key) ? s.delete(key) : s.add(key)
+      return s
+    })
+  }
+
+  function deselectAllAssets() {
+    setSelectedAssetIds(new Set())
+    setAssetSelectMode(false)
+    setConfirmBulkRemove(false)
+  }
+
+  async function bulkRemoveAssets() {
+    const toRemove = [...selectedAssetIds].map(key => {
+      const [kind, id] = key.split(':')
+      return { kind, id }
+    })
+
+    // Remove direct assets
+    const assetIds = toRemove.filter(r => r.kind === 'asset').map(r => r.id)
+    if (assetIds.length > 0) {
+      // Delete from storage
+      for (const id of assetIds) {
+        const asset = assets.find(a => a.id === id)
+        if (asset) {
+          const url = asset.file_path
+          const bucketMarker = `/object/public/${BUCKET}/`
+          const idx = url.indexOf(bucketMarker)
+          if (idx !== -1) {
+            const storagePath = decodeURIComponent(url.slice(idx + bucketMarker.length))
+            await supabase.storage.from(BUCKET).remove([storagePath])
+          }
+        }
+      }
+      await supabase.from('post_assets').delete().in('id', assetIds)
+      setAssets(prev => prev.filter(a => !assetIds.includes(a.id)))
+    }
+
+    // Unlink photos
+    const photoIds = toRemove.filter(r => r.kind === 'linked_photo').map(r => r.id)
+    if (photoIds.length > 0) {
+      for (const photoId of photoIds) {
+        await supabase.from('post_linked_photos').delete().eq('post_id', postId).eq('photo_id', photoId)
+      }
+      setLinkedPhotos(prev => prev.filter(p => !photoIds.includes(p.id)))
+    }
+
+    // Unlink tracks
+    const trackIds = toRemove.filter(r => r.kind === 'linked_track').map(r => r.id)
+    if (trackIds.length > 0) {
+      for (const trackId of trackIds) {
+        await supabase.from('post_linked_tracks').delete().eq('post_id', postId).eq('track_id', trackId)
+      }
+      setLinkedTracks(prev => prev.filter(t => !trackIds.includes(t.id)))
+    }
+
+    if (selectedItem && selectedAssetIds.has(makeAssetKey(selectedItem.kind, selectedItem.data.id))) {
+      setSelectedItem(null)
+    }
+    setSelectedAssetIds(new Set())
+    setConfirmBulkRemove(false)
+    setAssetSelectMode(false)
+  }
+
+  const anyAssetSelected = selectedAssetIds.size > 0
 
   const onDrop = (e) => {
     e.preventDefault()
@@ -496,7 +574,7 @@ export default function PostView() {
 
         {/* Tabs */}
         <div className="px-7 bg-white border-b border-stone-200 flex-shrink-0">
-          <div className="flex gap-6">
+          <div className="flex items-center gap-6">
             {[
               { key: 'photos', label: 'Photos', count: photosCount },
               { key: 'videos', label: 'Videos', count: videosCount },
@@ -504,7 +582,7 @@ export default function PostView() {
             ].map(tab => (
               <button
                 key={tab.key}
-                onClick={() => { setActiveTab(tab.key); setSelectedItem(null) }}
+                onClick={() => { setActiveTab(tab.key); setSelectedItem(null); deselectAllAssets(); }}
                 className={`pb-2.5 pt-3 text-xs font-medium border-b-2 transition-colors ${
                   activeTab === tab.key
                     ? 'border-stone-800 text-stone-800'
@@ -515,8 +593,48 @@ export default function PostView() {
                 {tab.count > 0 && <span className="ml-1 text-stone-300">{tab.count}</span>}
               </button>
             ))}
+            <div className="ml-auto pb-1.5 pt-2">
+              <button
+                onClick={() => { setAssetSelectMode(!assetSelectMode); if (assetSelectMode) deselectAllAssets(); }}
+                className={`text-xs px-3 py-1 rounded-md border transition-colors ${
+                  assetSelectMode
+                    ? 'bg-stone-800 text-white border-stone-800'
+                    : 'border-stone-200 text-stone-500 hover:border-stone-300'
+                }`}
+              >
+                {assetSelectMode ? 'Done' : 'Select'}
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Bulk action bar for assets */}
+        {anyAssetSelected && (
+          <div className="px-7 py-2 bg-stone-100 border-b border-stone-200 flex-shrink-0">
+            <div className="flex items-center gap-3 text-xs">
+              <span className="text-stone-600 font-medium">{selectedAssetIds.size} item{selectedAssetIds.size !== 1 ? 's' : ''} selected</span>
+              <button onClick={deselectAllAssets} className="text-stone-400 hover:text-stone-600 transition-colors">Deselect all</button>
+              <div className="ml-auto flex items-center gap-2">
+                {confirmBulkRemove ? (
+                  <>
+                    <span className="text-stone-500">Remove {selectedAssetIds.size} item{selectedAssetIds.size !== 1 ? 's' : ''}?</span>
+                    <button onClick={() => setConfirmBulkRemove(false)} className="text-stone-400 hover:text-stone-600 px-2 py-1 border border-stone-200 rounded transition-colors">Cancel</button>
+                    <button onClick={bulkRemoveAssets} className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-colors">
+                      Confirm
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setConfirmBulkRemove(true)}
+                    className="border border-red-200 text-red-400 px-3 py-1 rounded hover:bg-red-50 hover:text-red-500 transition-colors"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tab content */}
         <div
@@ -541,20 +659,24 @@ export default function PostView() {
                   {orderedPhotos.map((item, idx) => (
                     <div
                       key={`${item.kind}-${item.data.id}`}
-                      draggable
-                      onDragStart={e => handleReorderDragStart(e, item, idx)}
+                      draggable={!assetSelectMode}
+                      onDragStart={e => !assetSelectMode && handleReorderDragStart(e, item, idx)}
                       onDragEnd={handleReorderDragEnd}
                       onDragOver={e => handleReorderDragOver(e, idx)}
                       onDrop={e => handleReorderDrop(e, idx, orderedPhotos, 'photos')}
-                      className={`cursor-grab active:cursor-grabbing ${dragOverIndex === idx && dragItem ? 'ring-2 ring-amber-400 rounded-xl' : ''}`}
+                      className={`${assetSelectMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} ${dragOverIndex === idx && dragItem ? 'ring-2 ring-amber-400 rounded-xl' : ''}`}
                     >
                       <MediaCard
                         selected={selectedItem?.kind === item.kind && selectedItem.data.id === item.data.id}
-                        onClick={() => selectItem(item.kind, item.data)}
+                        onClick={() => assetSelectMode ? toggleAssetSelect(item.kind, item.data.id) : selectItem(item.kind, item.data)}
                         onRemove={() => item.kind === 'asset' ? setDeleteAssetTarget(item.data) : unlinkPhoto(item.data.id)}
                         badge={item.kind === 'linked_photo' ? item.data.collections?.name : undefined}
                         excluded={currentVariant ? !isIncludedInVariant(item.data.id, item.kind) : false}
                         onToggleInclude={currentVariant ? () => toggleVariantInclusion(item.data.id, item.kind) : undefined}
+                        selectMode={assetSelectMode}
+                        anySelected={anyAssetSelected}
+                        checked={selectedAssetIds.has(makeAssetKey(item.kind, item.data.id))}
+                        onCheck={() => toggleAssetSelect(item.kind, item.data.id)}
                       >
                         <img
                           src={item.kind === 'asset' ? item.data.file_path : supabase.storage.from('Photos').getPublicUrl(item.data.file_path).data.publicUrl}
@@ -593,19 +715,23 @@ export default function PostView() {
                   {orderedVideos.map((item, idx) => (
                     <div
                       key={`asset-${item.data.id}`}
-                      draggable
-                      onDragStart={e => handleReorderDragStart(e, item, idx)}
+                      draggable={!assetSelectMode}
+                      onDragStart={e => !assetSelectMode && handleReorderDragStart(e, item, idx)}
                       onDragEnd={handleReorderDragEnd}
                       onDragOver={e => handleReorderDragOver(e, idx)}
                       onDrop={e => handleReorderDrop(e, idx, orderedVideos, 'videos')}
-                      className={`cursor-grab active:cursor-grabbing ${dragOverIndex === idx && dragItem ? 'ring-2 ring-amber-400 rounded-xl' : ''}`}
+                      className={`${assetSelectMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} ${dragOverIndex === idx && dragItem ? 'ring-2 ring-amber-400 rounded-xl' : ''}`}
                     >
                       <MediaCard
                         selected={selectedItem?.kind === 'asset' && selectedItem.data.id === item.data.id}
-                        onClick={() => selectItem('asset', item.data)}
+                        onClick={() => assetSelectMode ? toggleAssetSelect('asset', item.data.id) : selectItem('asset', item.data)}
                         onRemove={() => setDeleteAssetTarget(item.data)}
                         excluded={currentVariant ? !isIncludedInVariant(item.data.id, 'asset') : false}
                         onToggleInclude={currentVariant ? () => toggleVariantInclusion(item.data.id, 'asset') : undefined}
+                        selectMode={assetSelectMode}
+                        anySelected={anyAssetSelected}
+                        checked={selectedAssetIds.has(makeAssetKey('asset', item.data.id))}
+                        onCheck={() => toggleAssetSelect('asset', item.data.id)}
                       >
                         <video src={item.data.file_path} className="w-full h-full object-cover" muted />
                         <div className="absolute inset-0 flex items-center justify-center bg-black/10">
@@ -640,23 +766,32 @@ export default function PostView() {
                     const isSelected = selectedItem?.kind === item.kind && selectedItem.data.id === item.data.id
                     const ext = isAsset ? (item.data.file_path?.split('.').pop()?.split('?')[0] || '') : ''
                     const audioExcluded = currentVariant ? !isIncludedInVariant(item.data.id, item.kind) : false
+                    const audioChecked = selectedAssetIds.has(makeAssetKey(item.kind, item.data.id))
                     return (
                       <div
                         key={`${item.kind}-${item.data.id}`}
-                        draggable
-                        onDragStart={e => handleReorderDragStart(e, item, idx)}
+                        draggable={!assetSelectMode}
+                        onDragStart={e => !assetSelectMode && handleReorderDragStart(e, item, idx)}
                         onDragEnd={handleReorderDragEnd}
                         onDragOver={e => handleReorderDragOver(e, idx)}
                         onDrop={e => handleReorderDrop(e, idx, orderedAudio, 'audio')}
-                        className={`cursor-grab active:cursor-grabbing ${dragOverIndex === idx && dragItem ? 'ring-2 ring-amber-400 rounded-xl' : ''}`}
+                        className={`${assetSelectMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} ${dragOverIndex === idx && dragItem ? 'ring-2 ring-amber-400 rounded-xl' : ''}`}
                       >
                         <button
-                          onClick={() => selectItem(item.kind, item.data)}
+                          onClick={() => assetSelectMode ? toggleAssetSelect(item.kind, item.data.id) : selectItem(item.kind, item.data)}
                           className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all group ${
-                            audioExcluded ? 'opacity-40 border-stone-200' : isSelected ? 'border-amber-500 bg-amber-50' : 'border-stone-200 hover:border-stone-300'
+                            audioChecked ? 'border-amber-400 bg-amber-50' : audioExcluded ? 'opacity-40 border-stone-200' : isSelected ? 'border-amber-500 bg-amber-50' : 'border-stone-200 hover:border-stone-300'
                           }`}
                         >
-                          {currentVariant && (
+                          {(assetSelectMode || anyAssetSelected) ? (
+                            <input
+                              type="checkbox"
+                              checked={audioChecked}
+                              onChange={(e) => { e.stopPropagation(); toggleAssetSelect(item.kind, item.data.id) }}
+                              onClick={e => e.stopPropagation()}
+                              className="accent-amber-500 flex-shrink-0"
+                            />
+                          ) : currentVariant ? (
                             <button
                               onClick={(e) => { e.stopPropagation(); toggleVariantInclusion(item.data.id, item.kind) }}
                               className={`w-5 h-5 rounded border flex items-center justify-center text-[9px] flex-shrink-0 transition-colors ${
@@ -665,7 +800,7 @@ export default function PostView() {
                             >
                               {!audioExcluded && '✓'}
                             </button>
-                          )}
+                          ) : null}
                           <span className="w-8 h-8 rounded-lg bg-stone-100 flex items-center justify-center text-stone-400 text-xs flex-shrink-0">♩</span>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-stone-700 truncate">
@@ -1011,12 +1146,12 @@ export default function PostView() {
 
 // ── Media card (grid item) ──────────────────────────────────────────────────────
 
-function MediaCard({ selected, onClick, onRemove, badge, excluded, onToggleInclude, children }) {
+function MediaCard({ selected, onClick, onRemove, badge, excluded, onToggleInclude, checked, selectMode, anySelected, onCheck, children }) {
   return (
     <div
       onClick={onClick}
       className={`group relative aspect-square rounded-xl overflow-hidden bg-stone-100 cursor-pointer ring-2 transition-all ${
-        excluded ? 'ring-transparent opacity-40' : selected ? 'ring-amber-500' : 'ring-transparent hover:ring-stone-300'
+        checked ? 'ring-amber-400' : excluded ? 'ring-transparent opacity-40' : selected ? 'ring-amber-500' : 'ring-transparent hover:ring-stone-300'
       }`}
     >
       {children}
@@ -1025,7 +1160,19 @@ function MediaCard({ selected, onClick, onRemove, badge, excluded, onToggleInclu
           <p className="text-[10px] text-white/80 truncate">{badge}</p>
         </div>
       )}
-      {onToggleInclude ? (
+      {(selectMode || anySelected) ? (
+        <div
+          className="absolute top-1.5 left-1.5"
+          onClick={e => e.stopPropagation()}
+        >
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={onCheck}
+            className="accent-amber-500"
+          />
+        </div>
+      ) : onToggleInclude ? (
         <button
           onClick={(e) => { e.stopPropagation(); onToggleInclude() }}
           className={`absolute top-1.5 left-1.5 w-5 h-5 rounded border flex items-center justify-center text-[9px] transition-colors ${
