@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { getProfile, saveProfile, deriveInitials, AVATAR_COLORS } from '../lib/profile'
 import { fetchTrashed, restoreItem, permanentDelete, ENTITY_TYPES } from '../lib/trash'
+import { supabase } from '../lib/supabase'
+import { POST_STATUSES, POST_TYPES, PLATFORMS } from '../lib/constants'
 
 export default function Settings() {
   const [activeSection, setActiveSection] = useState('profile')
@@ -13,6 +15,7 @@ export default function Settings() {
         {[
           { key: 'profile', label: 'Profile' },
           { key: 'shortcuts', label: 'Keyboard Shortcuts' },
+          { key: 'templates', label: 'Templates' },
           { key: 'trash', label: 'Trash' },
           { key: 'about', label: 'About' },
         ].map((s) => (
@@ -34,6 +37,7 @@ export default function Settings() {
       <div className="flex-1 overflow-y-auto p-8 max-w-xl">
         {activeSection === 'profile' && <ProfileSection />}
         {activeSection === 'shortcuts' && <ShortcutsSection />}
+        {activeSection === 'templates' && <TemplatesSection />}
         {activeSection === 'trash' && <TrashSection />}
         {activeSection === 'about' && <AboutSection />}
       </div>
@@ -219,6 +223,235 @@ function AboutSection() {
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  )
+}
+
+function TemplatesSection() {
+  const [templates, setTemplates] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState(null) // null = closed, {} = new, {id,...} = edit
+  const [confirmDelete, setConfirmDelete] = useState(null)
+
+  useEffect(() => { loadTemplates() }, [])
+
+  async function loadTemplates() {
+    const { data } = await supabase.from('post_templates').select('*').order('created_at', { ascending: false })
+    setTemplates(data || [])
+    setLoading(false)
+  }
+
+  async function handleSave(fields) {
+    if (editing?.id) {
+      const { error } = await supabase.from('post_templates').update(fields).eq('id', editing.id)
+      if (!error) {
+        setTemplates(prev => prev.map(t => t.id === editing.id ? { ...t, ...fields } : t))
+        setEditing(null)
+      }
+    } else {
+      const { data, error } = await supabase.from('post_templates').insert(fields).select().single()
+      if (!error && data) {
+        setTemplates(prev => [data, ...prev])
+        setEditing(null)
+      }
+    }
+  }
+
+  async function handleDelete(id) {
+    setConfirmDelete(null)
+    await supabase.from('post_templates').delete().eq('id', id)
+    setTemplates(prev => prev.filter(t => t.id !== id))
+  }
+
+  function summarize(template) {
+    const parts = []
+    if (template.type?.length) parts.push(template.type.join(', '))
+    if (template.platform?.length) parts.push(template.platform.join(', '))
+    if (template.status) parts.push(POST_STATUSES[template.status]?.label || template.status)
+    return parts.join(' · ') || 'Blank template'
+  }
+
+  return (
+    <div>
+      <div className="flex items-end justify-between mb-6">
+        <div>
+          <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Templates</p>
+          <h1 className="font-serif text-3xl text-stone-800">Post Templates</h1>
+          <p className="text-xs text-stone-400 mt-1">Pre-fill new posts with saved configurations</p>
+        </div>
+        <button
+          onClick={() => setEditing({})}
+          className="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
+        >
+          + New Template
+        </button>
+      </div>
+
+      {loading ? (
+        <p className="text-stone-400 text-sm">Loading…</p>
+      ) : templates.length === 0 ? (
+        <div className="text-center py-16 text-stone-400">
+          <p className="text-4xl mb-3">📋</p>
+          <p className="text-sm font-medium">No templates yet</p>
+          <p className="text-xs mt-1">Create a template to quickly start new posts with pre-filled settings</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {templates.map(t => (
+            <div key={t.id} className="bg-white border border-stone-200 rounded-xl px-4 py-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-stone-700 truncate">{t.name}</p>
+                <p className="text-[10px] text-stone-400 mt-0.5">{summarize(t)}</p>
+              </div>
+              <button
+                onClick={() => setEditing(t)}
+                className="text-xs text-stone-400 hover:text-stone-600 px-2 py-1 transition-colors"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => setConfirmDelete(t)}
+                className="text-xs text-red-400 hover:text-red-600 px-2 py-1 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editing !== null && (
+        <TemplateFormModal
+          initial={editing}
+          onSave={handleSave}
+          onClose={() => setEditing(null)}
+        />
+      )}
+
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <h2 className="font-serif text-xl text-stone-800 mb-2">Delete template?</h2>
+            <p className="text-sm text-stone-500 mb-6">
+              "<span className="font-medium text-stone-700">{confirmDelete.name}</span>" will be deleted.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmDelete(null)} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
+              <button onClick={() => handleDelete(confirmDelete.id)} className="flex-1 bg-red-500 text-white text-sm py-2 rounded-md hover:bg-red-600 transition-colors">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TemplateFormModal({ initial, onSave, onClose }) {
+  const [name, setName] = useState(initial.name || '')
+  const [types, setTypes] = useState(initial.type || [])
+  const [platforms, setPlatforms] = useState(initial.platform || [])
+  const [status, setStatus] = useState(initial.status || 'idea')
+  const [description, setDescription] = useState(initial.description || '')
+  const [caption, setCaption] = useState(initial.caption || '')
+  const [saving, setSaving] = useState(false)
+
+  function toggleItem(arr, setArr, item) {
+    setArr(arr.includes(item) ? arr.filter(v => v !== item) : [...arr, item])
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!name.trim()) return
+    setSaving(true)
+    await onSave({
+      name: name.trim(),
+      type: types.length > 0 ? types : null,
+      platform: platforms.length > 0 ? platforms : null,
+      status,
+      description: description.trim() || null,
+      caption: caption.trim() || null,
+    })
+    setSaving(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 max-h-[85vh] overflow-y-auto">
+        <h2 className="font-serif text-xl text-stone-800 mb-5">{initial.id ? 'Edit Template' : 'New Template'}</h2>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Field label="Template Name">
+            <input
+              autoFocus
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g. Instagram Reel"
+              className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 transition-colors"
+            />
+          </Field>
+          <Field label="Default Status">
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(POST_STATUSES).map(([key, s]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setStatus(key)}
+                  className="px-2.5 py-1 rounded-full text-xs border transition-colors"
+                  style={status === key
+                    ? { backgroundColor: s.color, color: '#fff', borderColor: s.color }
+                    : { borderColor: '#e7e5e4', color: '#78716c' }
+                  }
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <Field label="Type">
+            <div className="flex flex-wrap gap-1.5">
+              {POST_TYPES.map(t => (
+                <button key={t} type="button" onClick={() => toggleItem(types, setTypes, t)}
+                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${types.includes(t) ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <Field label="Platform">
+            <div className="flex flex-wrap gap-1.5">
+              {PLATFORMS.map(p => (
+                <button key={p} type="button" onClick={() => toggleItem(platforms, setPlatforms, p)}
+                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${platforms.includes(p) ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
+                  {p}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <Field label="Default Notes">
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Pre-filled notes…"
+              rows={2}
+              className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 resize-none transition-colors"
+            />
+          </Field>
+          <Field label="Default Caption">
+            <textarea
+              value={caption}
+              onChange={e => setCaption(e.target.value)}
+              placeholder="Pre-filled caption…"
+              rows={2}
+              className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 resize-none transition-colors"
+            />
+          </Field>
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
+            <button type="submit" disabled={!name.trim() || saving} className="flex-1 bg-stone-800 text-white text-sm py-2 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity">
+              {saving ? 'Saving…' : initial.id ? 'Save' : 'Create'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )

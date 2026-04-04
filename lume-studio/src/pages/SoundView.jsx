@@ -5,7 +5,7 @@ import { STATUSES, SOUND_STATUSES } from "../lib/constants";
 import AudioUploader from "../components/ui/AudioUploader";
 import { recordOpen } from "../lib/recentOpens";
 import useDebouncedSave from "../hooks/useDebouncedSave";
-import { softDelete, ENTITY_TYPES } from "../lib/trash";
+import { softDelete, softDeleteBulk, ENTITY_TYPES } from "../lib/trash";
 
 function fmtTime(s) {
   if (!s || isNaN(s)) return "0:00";
@@ -27,6 +27,12 @@ export default function SoundView() {
   const [showUploader, setShowUploader] = useState(false);
   const [deletingTrack, setDeletingTrack] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Multi-select
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   // Categories
   const [categories, setCategories] = useState([]);
@@ -281,6 +287,56 @@ export default function SoundView() {
     await softDelete(ENTITY_TYPES.AUDIO_TRACK, track.id, track.name);
   }
 
+  function toggleSelect(id) {
+    setSelectedIds(prev => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
+  }
+
+  function deselectAll() {
+    setSelectedIds(new Set());
+    setSelectMode(false);
+    setConfirmBulkDelete(false);
+  }
+
+  async function bulkUpdateStatus(status) {
+    const ids = [...selectedIds];
+    await supabase.from("audio_tracks").update({ status }).in("id", ids);
+    setTracks(prev => prev.map(t => selectedIds.has(t.id) ? { ...t, status } : t));
+    if (selectedTrack && selectedIds.has(selectedTrack.id)) setSelectedTrack(prev => ({ ...prev, status }));
+  }
+
+  async function bulkAssignCategory(catId) {
+    const ids = [...selectedIds];
+    await supabase.from("audio_tracks").update({ category_id: catId }).in("id", ids);
+    setTracks(prev => prev.map(t => selectedIds.has(t.id) ? { ...t, category_id: catId } : t));
+    if (selectedTrack && selectedIds.has(selectedTrack.id)) setSelectedTrack(prev => ({ ...prev, category_id: catId }));
+    if (playingTrack && selectedIds.has(playingTrack.id)) setPlayingTrack(prev => ({ ...prev, category_id: catId }));
+  }
+
+  async function bulkDeleteTracks() {
+    setBulkProcessing(true);
+    const ids = [...selectedIds];
+    if (playingTrack && selectedIds.has(playingTrack.id)) {
+      audioRef.current?.pause();
+      selectedTrackRef.current = null;
+      setPlayingTrack(null);
+    }
+    if (selectedTrack && selectedIds.has(selectedTrack.id)) {
+      setSelectedTrack(null);
+      setNotes("");
+    }
+    setTracks(prev => prev.filter(t => !selectedIds.has(t.id)));
+    setSelectedIds(new Set());
+    setConfirmBulkDelete(false);
+    setBulkProcessing(false);
+    await softDeleteBulk(ENTITY_TYPES.AUDIO_TRACK, ids, `${ids.length} track${ids.length !== 1 ? 's' : ''}`);
+  }
+
+  const anySelected = selectedIds.size > 0;
+
   const filtered =
     filter === "all" ? tracks
     : filter === "favorites" ? tracks.filter((t) => t.is_favorite)
@@ -334,12 +390,24 @@ export default function SoundView() {
                 </div>
               )}
             </div>
-            <button
-              onClick={() => setShowUploader(true)}
-              className="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
-            >
-              + Add Tracks
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setSelectMode(!selectMode); if (selectMode) deselectAll(); }}
+                className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
+                  selectMode
+                    ? 'bg-stone-800 text-white border-stone-800'
+                    : 'border-stone-200 text-stone-500 hover:border-stone-300'
+                }`}
+              >
+                {selectMode ? 'Done' : 'Select'}
+              </button>
+              <button
+                onClick={() => setShowUploader(true)}
+                className="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
+              >
+                + Add Tracks
+              </button>
+            </div>
           </div>
 
           {/* Filter / category pills */}
@@ -450,6 +518,56 @@ export default function SoundView() {
             )}
           </div>
 
+          {/* Bulk action bar */}
+          {anySelected && (
+            <div className="flex items-center gap-3 mb-4 px-3 py-2 bg-stone-100 border border-stone-200 rounded-lg text-xs">
+              <span className="text-stone-600 font-medium">{selectedIds.size} track{selectedIds.size !== 1 ? 's' : ''} selected</span>
+              <button onClick={deselectAll} className="text-stone-400 hover:text-stone-600 transition-colors">Deselect all</button>
+              <div className="ml-auto flex items-center gap-2">
+                {confirmBulkDelete ? (
+                  <>
+                    <span className="text-stone-500">Delete {selectedIds.size} track{selectedIds.size !== 1 ? 's' : ''}?</span>
+                    <button onClick={() => setConfirmBulkDelete(false)} className="text-stone-400 hover:text-stone-600 px-2 py-1 border border-stone-200 rounded transition-colors">Cancel</button>
+                    <button onClick={bulkDeleteTracks} disabled={bulkProcessing} className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 disabled:opacity-40 transition-colors">
+                      {bulkProcessing ? 'Deleting…' : 'Confirm Delete'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <select
+                      defaultValue=""
+                      onChange={(e) => { if (e.target.value) { bulkUpdateStatus(e.target.value); e.target.value = ''; } }}
+                      className="text-xs border border-stone-200 text-stone-600 bg-white px-2 py-1 rounded outline-none cursor-pointer"
+                    >
+                      <option value="" disabled>Set status…</option>
+                      {Object.entries(STATUSES).map(([key, val]) => (
+                        <option key={key} value={key}>{val.label}</option>
+                      ))}
+                    </select>
+                    {categories.length > 0 && (
+                      <select
+                        defaultValue=""
+                        onChange={(e) => { if (e.target.value) { bulkAssignCategory(e.target.value); e.target.value = ''; } }}
+                        className="text-xs border border-stone-200 text-stone-600 bg-white px-2 py-1 rounded outline-none cursor-pointer"
+                      >
+                        <option value="" disabled>Set category…</option>
+                        {categories.map(cat => (
+                          <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                      </select>
+                    )}
+                    <button
+                      onClick={() => setConfirmBulkDelete(true)}
+                      className="border border-red-200 text-red-400 px-3 py-1 rounded hover:bg-red-50 hover:text-red-500 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Tracks */}
           {loading ? (
             <p className="text-stone-400 text-sm">Loading...</p>
@@ -468,8 +586,12 @@ export default function SoundView() {
                   index={i + 1}
                   selected={selectedTrack?.id === track.id}
                   isPlaying={isPlaying && playingTrack?.id === track.id}
-                  onClick={() => loadTrack(track)}
+                  onClick={() => selectMode ? toggleSelect(track.id) : loadTrack(track)}
                   onFavorite={(e) => toggleFavorite(track, e)}
+                  selectMode={selectMode}
+                  checked={selectedIds.has(track.id)}
+                  anySelected={anySelected}
+                  onCheck={(e) => { e.stopPropagation(); toggleSelect(track.id); }}
                 />
               ))}
             </div>
@@ -734,21 +856,33 @@ export default function SoundView() {
   );
 }
 
-function TrackRow({ track, index, selected, isPlaying, onClick, onFavorite }) {
+function TrackRow({ track, index, selected, isPlaying, onClick, onFavorite, selectMode, checked, anySelected, onCheck }) {
   const status = STATUSES[track.status] || STATUSES.unedited;
 
   return (
     <div
       onClick={onClick}
       className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all group ${
-        selected
+        checked
+          ? "bg-amber-50 border border-amber-300"
+          : selected
           ? "bg-stone-100 border border-stone-300"
           : "border border-transparent hover:bg-stone-50 hover:border-stone-200"
       }`}
     >
-      <span className="text-xs text-stone-300 w-5 text-right flex-shrink-0 font-mono">
-        {isPlaying ? <span className="text-amber-500">▶</span> : index}
-      </span>
+      {(selectMode || anySelected) ? (
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onCheck}
+          onClick={e => e.stopPropagation()}
+          className="accent-amber-500 flex-shrink-0"
+        />
+      ) : (
+        <span className="text-xs text-stone-300 w-5 text-right flex-shrink-0 font-mono">
+          {isPlaying ? <span className="text-amber-500">▶</span> : index}
+        </span>
+      )}
       <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: status.color }} />
       <p className="text-sm text-stone-700 truncate flex-1">{track.name}</p>
       {track.file_size && (

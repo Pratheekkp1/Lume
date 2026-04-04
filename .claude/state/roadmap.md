@@ -68,10 +68,10 @@ Add features that make Lume genuinely useful for content creators publishing acr
 | 3.1 | Multi-platform variants | A project can target multiple platforms. Each variant can have different caption, crop notes, or asset selection. Platform tabs within a project. | done (2026-03-25) |
 | 3.2 | Calendar/schedule view | New view showing posts on a calendar by target publish date. Add `scheduled_date` field to posts. Drag to reschedule. | done (2026-03-25) |
 | 3.3 | Undo/trash system | Soft delete with 30-day trash. Toast notification with "Undo" button on delete (5 second window). Trash page in settings or sidebar. | done (2026-03-26) |
-| 3.4 | Batch operations everywhere | Multi-select + bulk actions (status change, category assign, delete) on Posts page, Sounds page, and within PostView. Not just AlbumView. | not started |
-| 3.5 | Templates | Create post from template. Templates save type, platform, category, and placeholder structure. E.g., "Instagram Reel Template" pre-fills type=Reel, platform=Instagram. | not started |
-| 3.6 | Enhanced search | Search across notes, categories, captions — not just titles. Add recent searches. Full-page search results view for complex queries. | not started |
-| 3.7 | Dashboard overhaul | Dashboard becomes a true home: upcoming scheduled posts, pipeline board summary, recent activity feed, storage alerts, quick actions. | not started |
+| 3.4 | Batch operations everywhere | Multi-select + bulk actions (status change, category assign, delete) on Posts page, Sounds page, and within PostView. Not just AlbumView. | done (2026-03-28) |
+| 3.5 | Templates | Create post from template. Templates save type, platform, category, and placeholder structure. E.g., "Instagram Reel Template" pre-fills type=Reel, platform=Instagram. | done (2026-03-28) |
+| 3.6 | Enhanced search | Search across notes, categories, captions — not just titles. Add recent searches. Full-page search results view for complex queries. | done (2026-04-03) |
+| 3.7 | Dashboard overhaul | Dashboard becomes a true home: upcoming scheduled posts, pipeline board summary, recent activity feed, storage alerts, quick actions. | done (2026-04-03) |
 
 **Phase 3 complete when:** Lume is a complete content creation workflow tool. A creator can plan, collect, assemble, write, schedule, and track content across platforms from one app.
 

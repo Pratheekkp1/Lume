@@ -11,6 +11,7 @@ import PostView from './pages/PostView'
 import SoundView from './pages/SoundView'
 import Library from './pages/Library'
 import Settings from './pages/Settings'
+import SearchResults from './pages/SearchResults'
 import { purgeExpired } from './lib/trash'
 
 function AlbumRedirect() {
@@ -41,6 +42,7 @@ export default function App() {
               <Route path="/posts" element={<Posts />} />
               <Route path="/posts/:postId" element={<PostView />} />
               <Route path="/sounds/:projectId" element={<SoundView />} />
+              <Route path="/search" element={<SearchResults />} />
               <Route path="/settings" element={<Settings />} />
 
               {/* Redirects from old routes */}

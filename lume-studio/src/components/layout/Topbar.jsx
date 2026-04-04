@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { getProfile, deriveInitials } from '../../lib/profile'
+import { getRecentSearches, recordSearch, removeRecentSearch, clearRecentSearches } from '../../lib/recentSearches'
 
 const TYPE_META = {
   collection: { label: 'Album', icon: '◻', pathFn: (id) => `/media/${id}` },
@@ -17,6 +18,8 @@ export default function Topbar() {
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
   const [open, setOpen] = useState(false)
+  const [recentSearches, setRecentSearches] = useState([])
+  const [showRecent, setShowRecent] = useState(false)
   const inputRef = useRef(null)
   const containerRef = useRef(null)
   const debounceRef = useRef(null)
@@ -31,6 +34,7 @@ export default function Topbar() {
     function onClickOutside(e) {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setOpen(false)
+        setShowRecent(false)
       }
     }
     document.addEventListener('mousedown', onClickOutside)
@@ -40,39 +44,45 @@ export default function Topbar() {
   useEffect(() => {
     clearTimeout(debounceRef.current)
     const q = query.trim()
-    if (!q) { setResults([]); setOpen(false); return }
+    if (!q) {
+      setResults([])
+      setOpen(false)
+      return
+    }
+    setShowRecent(false)
     debounceRef.current = setTimeout(() => runSearch(q), 220)
   }, [query])
 
   async function runSearch(q) {
     setSearching(true)
+    setOpen(true)
     const like = `%${q}%`
+
     const [
       { data: posts },
       { data: collections },
       { data: photos },
       { data: audioProjects },
+      { data: audioTracks },
     ] = await Promise.all([
-      supabase.from('posts').select('id, title').ilike('title', like).is('deleted_at', null).limit(4),
-      supabase.from('collections').select('id, name').ilike('name', like).is('deleted_at', null).limit(4),
-      supabase.from('photos').select('id, name, collection_id').ilike('name', like).is('deleted_at', null).limit(4),
-      supabase.from('audio_projects').select('id, name').ilike('name', like).is('deleted_at', null).limit(4),
+      supabase.from('posts').select('id, title').is('deleted_at', null)
+        .or(`title.ilike.${like},caption.ilike.${like}`).limit(4),
+      supabase.from('collections').select('id, name').is('deleted_at', null)
+        .or(`name.ilike.${like},description.ilike.${like}`).limit(4),
+      supabase.from('photos').select('id, name, collection_id').is('deleted_at', null)
+        .or(`name.ilike.${like},notes.ilike.${like}`).limit(4),
+      supabase.from('audio_projects').select('id, name').is('deleted_at', null)
+        .or(`name.ilike.${like},description.ilike.${like}`).limit(4),
+      supabase.from('audio_tracks').select('id, name, project_id').is('deleted_at', null)
+        .or(`name.ilike.${like},notes.ilike.${like}`).limit(4),
     ])
 
     const grouped = []
-
-    if (posts?.length) {
-      grouped.push({ groupLabel: 'Posts', items: posts.map(r => ({ type: 'post', id: r.id, name: r.title, extra: null })) })
-    }
-    if (collections?.length) {
-      grouped.push({ groupLabel: 'Albums', items: collections.map(r => ({ type: 'collection', id: r.id, name: r.name, extra: null })) })
-    }
-    if (photos?.length) {
-      grouped.push({ groupLabel: 'Photos', items: photos.map(r => ({ type: 'photo', id: r.id, name: r.name, extra: r.collection_id })) })
-    }
-    if (audioProjects?.length) {
-      grouped.push({ groupLabel: 'Sounds', items: audioProjects.map(r => ({ type: 'audio', id: r.id, name: r.name, extra: null })) })
-    }
+    if (posts?.length) grouped.push({ groupLabel: 'Projects', items: posts.map(r => ({ type: 'post', id: r.id, name: r.title, extra: null })) })
+    if (collections?.length) grouped.push({ groupLabel: 'Albums', items: collections.map(r => ({ type: 'collection', id: r.id, name: r.name, extra: null })) })
+    if (photos?.length) grouped.push({ groupLabel: 'Photos', items: photos.map(r => ({ type: 'photo', id: r.id, name: r.name, extra: r.collection_id })) })
+    if (audioProjects?.length) grouped.push({ groupLabel: 'Sounds', items: audioProjects.map(r => ({ type: 'audio', id: r.id, name: r.name, extra: null })) })
+    if (audioTracks?.length) grouped.push({ groupLabel: 'Tracks', items: audioTracks.map(r => ({ type: 'audio', id: r.id, name: r.name, extra: r.project_id })) })
 
     setResults(grouped)
     setOpen(true)
@@ -81,10 +91,63 @@ export default function Topbar() {
 
   function handleSelect(item) {
     const meta = TYPE_META[item.type]
+    recordSearch(query.trim())
     navigate(meta.pathFn(item.id, item.extra))
     setQuery('')
     setOpen(false)
+    setShowRecent(false)
     inputRef.current?.blur()
+  }
+
+  function handleViewAll() {
+    const q = query.trim()
+    if (!q) return
+    recordSearch(q)
+    navigate(`/search?q=${encodeURIComponent(q)}`)
+    setQuery('')
+    setOpen(false)
+    setShowRecent(false)
+    inputRef.current?.blur()
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleViewAll()
+    }
+  }
+
+  function handleFocus() {
+    if (query.trim()) {
+      if (results.length > 0) setOpen(true)
+    } else {
+      const recent = getRecentSearches()
+      setRecentSearches(recent)
+      if (recent.length > 0) setShowRecent(true)
+    }
+  }
+
+  function handleRecentClick(term) {
+    setQuery(term)
+    setShowRecent(false)
+    recordSearch(term)
+    navigate(`/search?q=${encodeURIComponent(term)}`)
+    setQuery('')
+    inputRef.current?.blur()
+  }
+
+  function handleRemoveRecent(e, term) {
+    e.stopPropagation()
+    removeRecentSearch(term)
+    const updated = getRecentSearches()
+    setRecentSearches(updated)
+    if (updated.length === 0) setShowRecent(false)
+  }
+
+  function handleClearAll() {
+    clearRecentSearches()
+    setRecentSearches([])
+    setShowRecent(false)
   }
 
   const totalResults = results.reduce((sum, g) => sum + g.items.length, 0)
@@ -106,20 +169,49 @@ export default function Topbar() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => { if (results.length > 0) setOpen(true) }}
+          onFocus={handleFocus}
+          onKeyDown={handleKeyDown}
           placeholder="Search…"
           className="w-full bg-white border border-stone-200 rounded-md py-1.5 pl-6 pr-3 text-xs text-stone-700 placeholder-stone-400 outline-none focus:border-amber-600 transition-colors"
         />
         {query && (
           <button
-            onClick={() => { setQuery(''); setOpen(false); inputRef.current?.focus() }}
+            onClick={() => { setQuery(''); setOpen(false); setShowRecent(false); inputRef.current?.focus() }}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-300 hover:text-stone-500 text-xs transition-colors"
           >
             ✕
           </button>
         )}
 
-        {/* Dropdown */}
+        {/* Recent Searches Dropdown */}
+        {showRecent && !open && recentSearches.length > 0 && (
+          <div className="absolute top-full mt-1.5 left-0 right-0 bg-white border border-stone-200 rounded-xl shadow-lg z-50 overflow-hidden">
+            <div className="flex items-center justify-between px-4 pt-3 pb-1.5">
+              <p className="text-[10px] uppercase tracking-widest text-stone-400">Recent Searches</p>
+              <button onClick={handleClearAll} className="text-[10px] text-stone-400 hover:text-stone-600 transition-colors">
+                Clear all
+              </button>
+            </div>
+            {recentSearches.map((term) => (
+              <button
+                key={term}
+                onClick={() => handleRecentClick(term)}
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-stone-50 transition-colors group"
+              >
+                <span className="text-stone-300 text-xs flex-shrink-0">↻</span>
+                <span className="text-xs text-stone-600 truncate flex-1">{term}</span>
+                <span
+                  onClick={(e) => handleRemoveRecent(e, term)}
+                  className="text-stone-300 hover:text-stone-500 text-xs opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                >
+                  ✕
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Search Results Dropdown */}
         {open && (
           <div className="absolute top-full mt-1.5 left-0 right-0 bg-white border border-stone-200 rounded-xl shadow-lg z-50 overflow-hidden max-h-80 overflow-y-auto">
             {searching ? (
@@ -145,6 +237,15 @@ export default function Topbar() {
                   })}
                 </div>
               ))
+            )}
+            {/* View all results link */}
+            {query.trim() && !searching && (
+              <button
+                onClick={handleViewAll}
+                className="w-full text-xs text-amber-700 hover:bg-amber-50 px-4 py-2.5 text-center border-t border-stone-100 transition-colors"
+              >
+                View all results for "{query.trim()}"
+              </button>
             )}
           </div>
         )}

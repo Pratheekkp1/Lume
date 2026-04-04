@@ -1,7 +1,7 @@
 # Lume Studio — Project State
 
-**Last updated**: 2026-03-25
-**Current phase**: Phase 1 COMPLETE — moving to Phase 2 (see roadmap.md)
+**Last updated**: 2026-04-03
+**Current phase**: Phase 3 COMPLETE — all planned features done (see roadmap.md)
 
 ---
 
@@ -33,12 +33,17 @@
 - [x] 2.5 Global drag-and-drop upload
 - [x] 2.6 Sidebar update
 
-## Phase 3 — In Progress
+## Phase 3 — Complete
 - [x] 3.1 Multi-platform variants (post_variants table, platform tabs in PostView, per-variant caption/crop notes/asset inclusion)
+- [x] 3.2 Calendar/schedule view (scheduled_date field, drag-to-reschedule, month navigation)
+- [x] 3.3 Undo/trash system (soft delete, 30-day trash, toast with undo)
+- [x] 3.4 Batch operations everywhere (multi-select + bulk actions on Posts, SoundView, PostView)
+- [x] 3.5 Templates (post_templates CRUD in Settings, split-button "New Post" with template picker)
+- [x] 3.6 Enhanced search (already implemented: full-text across notes/captions/categories, recent searches, full-page /search view)
+- [x] 3.7 Dashboard overhaul (greeting, upcoming scheduled posts, pipeline summary bar, recent activity feed, storage alerts, updated quick actions)
 
 ## What's Next
-**Phase 3 — Creator Workflow Features** (6 tasks remaining)
-Next task: 3.2 Calendar/schedule view
+**Phase 3 COMPLETE.** All creator workflow features done. Future considerations: theming, team collaboration, platform API integrations, analytics, export/backup, mobile.
 
 ## DB Migrations Applied
 - `ALTER TABLE posts ADD COLUMN caption text`
