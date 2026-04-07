@@ -1,22 +1,22 @@
 export const STATUSES = {
-  unedited:   { label: 'Unedited',   color: '#b0a090' },
-  culling:    { label: 'Culling',    color: '#c8a06a' },
-  editing:    { label: 'Editing',    color: '#7a9aaa' },
-  retouching: { label: 'Retouching', color: '#aa8a7a' },
-  delivered:  { label: 'Delivered',  color: '#8aaa8a' },
+  unedited:   { label: 'Unedited',   color: '#9ca5b2' },
+  culling:    { label: 'Culling',    color: '#6b7a8d' },
+  editing:    { label: 'Editing',    color: '#2a9d8f' },
+  retouching: { label: 'Retouching', color: '#e76f51' },
+  delivered:  { label: 'Delivered',  color: '#68b5a0' },
 }
 
 export const POST_STATUSES = {
-  idea:        { label: 'Idea',        color: '#b0a090' },
-  in_progress: { label: 'In Progress', color: '#c8a06a' },
-  ready:       { label: 'Ready',       color: '#7a9aaa' },
-  published:   { label: 'Posted',      color: '#8aaa8a' },
+  idea:        { label: 'Idea',        color: '#9ca5b2' },
+  in_progress: { label: 'In Progress', color: '#2a9d8f' },
+  ready:       { label: 'Ready',       color: '#e76f51' },
+  published:   { label: 'Posted',      color: '#68b5a0' },
 }
 
 export const SOUND_STATUSES = {
-  idea:        { label: 'Idea',        color: '#b0a090' },
-  in_progress: { label: 'In Progress', color: '#c8a06a' },
-  done:        { label: 'Done',        color: '#8aaa8a' },
+  idea:        { label: 'Idea',        color: '#9ca5b2' },
+  in_progress: { label: 'In Progress', color: '#2a9d8f' },
+  done:        { label: 'Done',        color: '#68b5a0' },
 }
 
 export const POST_TYPES = ['Montage', 'Edit', 'Photo Dump', 'Reel', 'Story']

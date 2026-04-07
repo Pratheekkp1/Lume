@@ -179,7 +179,7 @@ export default function Posts() {
               onClick={() => { setSelectMode(!selectMode); if (selectMode) deselectAll(); }}
               className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
                 selectMode
-                  ? 'bg-stone-800 text-white border-stone-800'
+                  ? 'bg-teal-500 text-white border-teal-500'
                   : 'border-stone-200 text-stone-500 hover:border-stone-300'
               }`}
             >
@@ -189,19 +189,19 @@ export default function Posts() {
           <div className="flex border border-stone-200 rounded-md overflow-hidden">
             <button
               onClick={() => { setViewMode('board'); localStorage.setItem('lume-posts-view', 'board') }}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'board' ? 'bg-stone-800 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'board' ? 'bg-teal-500 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
             >
               Board
             </button>
             <button
               onClick={() => { setViewMode('grid'); localStorage.setItem('lume-posts-view', 'grid') }}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'grid' ? 'bg-stone-800 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'grid' ? 'bg-teal-500 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
             >
               Grid
             </button>
             <button
               onClick={() => { setViewMode('calendar'); localStorage.setItem('lume-posts-view', 'calendar') }}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'calendar' ? 'bg-stone-800 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'calendar' ? 'bg-teal-500 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
             >
               Calendar
             </button>
@@ -210,14 +210,14 @@ export default function Posts() {
             <div className="flex">
               <button
                 onClick={() => { setTemplateInitial({}); setShowCreate(true) }}
-                className="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-l-md hover:opacity-90 transition-opacity"
+                className="bg-teal-500 text-white text-xs font-medium px-4 py-2 rounded-l-md hover:bg-teal-600 transition-colors"
               >
                 + New Post
               </button>
               {templates.length > 0 && (
                 <button
                   onClick={() => setShowTemplatePicker(!showTemplatePicker)}
-                  className="bg-stone-800 text-white text-xs font-medium px-2 py-2 rounded-r-md border-l border-stone-600 hover:opacity-90 transition-opacity"
+                  className="bg-teal-500 text-white text-xs font-medium px-2 py-2 rounded-r-md border-l border-teal-400 hover:bg-teal-600 transition-colors"
                 >
                   ▾
                 </button>
@@ -259,7 +259,7 @@ export default function Posts() {
             onClick={() => setFilterStatus('all')}
             className={`px-3 py-1 rounded-full text-xs border transition-colors ${
               filterStatus === 'all'
-                ? 'bg-stone-800 text-white border-stone-800'
+                ? 'bg-teal-500 text-white border-teal-500'
                 : 'border-stone-200 text-stone-500 hover:border-stone-400'
             }`}
           >
@@ -487,7 +487,7 @@ function CalendarView({ posts, calendarMonth, setCalendarMonth, onNavigate, onSc
         <button onClick={prevMonth} className="w-7 h-7 rounded-md border border-stone-200 text-stone-500 hover:bg-stone-50 flex items-center justify-center text-sm transition-colors">←</button>
         <h2 className="text-sm font-semibold text-stone-700 w-40 text-center">{MONTH_NAMES[month]} {year}</h2>
         <button onClick={nextMonth} className="w-7 h-7 rounded-md border border-stone-200 text-stone-500 hover:bg-stone-50 flex items-center justify-center text-sm transition-colors">→</button>
-        <button onClick={goToday} className="text-xs text-stone-400 hover:text-amber-700 transition-colors ml-1">Today</button>
+        <button onClick={goToday} className="text-xs text-stone-400 hover:text-teal-700 transition-colors ml-1">Today</button>
       </div>
 
       {/* Day headers */}
@@ -510,13 +510,13 @@ function CalendarView({ posts, calendarMonth, setCalendarMonth, onNavigate, onSc
               key={i}
               className={`border-r border-b border-stone-200 min-h-[100px] p-1.5 transition-colors ${
                 !cell.isCurrentMonth ? 'bg-stone-50' : ''
-              } ${isOver ? 'bg-amber-50 ring-2 ring-inset ring-amber-300' : ''}`}
+              } ${isOver ? 'bg-teal-50 ring-2 ring-inset ring-teal-300' : ''}`}
               onDragOver={(e) => handleDragOver(e, dateStr)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, dateStr)}
             >
               <div className={`text-xs mb-1 ${
-                isToday ? 'bg-amber-600 text-white w-5 h-5 rounded-full flex items-center justify-center font-medium' :
+                isToday ? 'bg-teal-600 text-white w-5 h-5 rounded-full flex items-center justify-center font-medium' :
                 cell.isCurrentMonth ? 'text-stone-600' : 'text-stone-300'
               }`}>
                 {cell.date.getDate()}
@@ -540,7 +540,7 @@ function CalendarView({ posts, calendarMonth, setCalendarMonth, onNavigate, onSc
                 {dayPosts.length > MAX_VISIBLE && (
                   <button
                     onClick={() => setExpandedDate(expandedDate === dateStr ? null : dateStr)}
-                    className="text-[10px] text-stone-400 hover:text-amber-700 text-left px-1.5 transition-colors"
+                    className="text-[10px] text-stone-400 hover:text-teal-700 text-left px-1.5 transition-colors"
                   >
                     +{dayPosts.length - MAX_VISIBLE} more
                   </button>
@@ -686,7 +686,7 @@ function KanbanCard({ post, onDragStart, onClick, onEdit, onDelete, selectMode, 
       onDragStart={(e) => !selectMode && onDragStart(e, post.id)}
       onClick={onClick}
       className={`bg-white border rounded-lg p-3 cursor-pointer hover:border-stone-300 hover:shadow-sm transition-all ${
-        checked ? 'border-amber-400 ring-1 ring-amber-200' : 'border-stone-200'
+        checked ? 'border-teal-400 ring-1 ring-teal-200' : 'border-stone-200'
       }`}
     >
       <div className="flex items-start justify-between mb-1.5">
@@ -697,7 +697,7 @@ function KanbanCard({ post, onDragStart, onClick, onEdit, onDelete, selectMode, 
               checked={checked}
               onChange={onCheck}
               onClick={e => e.stopPropagation()}
-              className="accent-amber-500 flex-shrink-0"
+              className="accent-teal-500 flex-shrink-0"
             />
           )}
           <p className="text-sm font-medium text-stone-700 truncate">{post.title}</p>
@@ -756,7 +756,7 @@ function PostCard({ post, onClick, onEdit, onDelete, selectMode, checked, anySel
     <button
       onClick={onClick}
       className={`relative text-left bg-white border rounded-xl p-4 hover:border-stone-300 hover:shadow-sm transition-all ${
-        checked ? 'border-amber-400 ring-1 ring-amber-200' : 'border-stone-200'
+        checked ? 'border-teal-400 ring-1 ring-teal-200' : 'border-stone-200'
       }`}
     >
       {(selectMode || anySelected) && (
@@ -766,7 +766,7 @@ function PostCard({ post, onClick, onEdit, onDelete, selectMode, checked, anySel
             checked={checked}
             onChange={onCheck}
             onClick={e => e.stopPropagation()}
-            className="accent-amber-500"
+            className="accent-teal-500"
           />
         </div>
       )}
@@ -895,7 +895,7 @@ function PostModal({ initial = {}, onSave, onClose }) {
             <div className="flex flex-wrap gap-1.5">
               {POST_TYPES.map(t => (
                 <button key={t} type="button" onClick={() => toggleItem(types, setTypes, t)}
-                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${types.includes(t) ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
+                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${types.includes(t) ? 'bg-teal-500 text-white border-teal-500' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
                   {t}
                 </button>
               ))}
@@ -905,7 +905,7 @@ function PostModal({ initial = {}, onSave, onClose }) {
             <div className="flex flex-wrap gap-1.5">
               {PLATFORMS.map(p => (
                 <button key={p} type="button" onClick={() => toggleItem(platforms, setPlatforms, p)}
-                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${platforms.includes(p) ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
+                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${platforms.includes(p) ? 'bg-teal-500 text-white border-teal-500' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
                   {p}
                 </button>
               ))}
@@ -939,7 +939,7 @@ function PostModal({ initial = {}, onSave, onClose }) {
           </Field>
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
-            <button type="submit" disabled={!title.trim() || saving} className="flex-1 bg-stone-800 text-white text-sm py-2 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity">
+            <button type="submit" disabled={!title.trim() || saving} className="flex-1 bg-teal-500 text-white text-sm py-2 rounded-md hover:bg-teal-600 disabled:opacity-40 transition-colors">
               {saving ? 'Saving…' : 'Create'}
             </button>
           </div>
@@ -1011,7 +1011,7 @@ function EditPostModal({ post, onSave, onDelete, onClose }) {
               <div className="flex flex-wrap gap-1.5">
                 {POST_TYPES.map(t => (
                   <button key={t} type="button" onClick={() => toggleItem(types, setTypes, t)}
-                    className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${types.includes(t) ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
+                    className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${types.includes(t) ? 'bg-teal-500 text-white border-teal-500' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
                     {t}
                   </button>
                 ))}
@@ -1021,7 +1021,7 @@ function EditPostModal({ post, onSave, onDelete, onClose }) {
               <div className="flex flex-wrap gap-1.5">
                 {PLATFORMS.map(p => (
                   <button key={p} type="button" onClick={() => toggleItem(platforms, setPlatforms, p)}
-                    className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${platforms.includes(p) ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
+                    className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${platforms.includes(p) ? 'bg-teal-500 text-white border-teal-500' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
                     {p}
                   </button>
                 ))}
@@ -1040,7 +1040,7 @@ function EditPostModal({ post, onSave, onDelete, onClose }) {
             </Field>
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={onClose} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
-              <button type="submit" disabled={!title.trim() || saving} className="flex-1 bg-stone-800 text-white text-sm py-2 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity">
+              <button type="submit" disabled={!title.trim() || saving} className="flex-1 bg-teal-500 text-white text-sm py-2 rounded-md hover:bg-teal-600 disabled:opacity-40 transition-colors">
                 {saving ? 'Saving…' : 'Save Changes'}
               </button>
             </div>

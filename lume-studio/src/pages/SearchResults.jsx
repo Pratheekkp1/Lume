@@ -159,7 +159,7 @@ export default function SearchResults() {
     const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
     const parts = text.split(regex)
     return parts.map((part, i) =>
-      regex.test(part) ? <mark key={i} className="bg-amber-100 text-amber-900 rounded-sm px-0.5">{part}</mark> : part
+      regex.test(part) ? <mark key={i} className="bg-teal-100 text-teal-900 rounded-sm px-0.5">{part}</mark> : part
     )
   }
 
@@ -180,7 +180,7 @@ export default function SearchResults() {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-lg font-medium text-stone-800">
-          {q ? <>Search results for "<span className="text-amber-700">{q}</span>"</> : 'Search'}
+          {q ? <>Search results for "<span className="text-teal-700">{q}</span>"</> : 'Search'}
         </h1>
         {results && !loading && (
           <p className="text-xs text-stone-400 mt-1">
@@ -198,7 +198,7 @@ export default function SearchResults() {
           <button
             onClick={() => setActiveSection('all')}
             className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
-              activeSection === 'all' ? 'bg-amber-100 text-amber-800' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+              activeSection === 'all' ? 'bg-teal-100 text-teal-800' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
             }`}
           >
             All ({totalCount})
@@ -208,7 +208,7 @@ export default function SearchResults() {
               key={s.key}
               onClick={() => setActiveSection(s.key)}
               className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
-                activeSection === s.key ? 'bg-amber-100 text-amber-800' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+                activeSection === s.key ? 'bg-teal-100 text-teal-800' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
               }`}
             >
               {SECTION_CONFIG[s.key].label} ({s.data.length})
@@ -285,7 +285,7 @@ function ResultRow({ item, section, config, query, highlight, getStatusBadge, na
       <span className="text-stone-300 text-sm mt-0.5 flex-shrink-0">{config.icon}</span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-stone-800 group-hover:text-amber-700 transition-colors truncate">
+          <span className="text-sm text-stone-800 group-hover:text-teal-700 transition-colors truncate">
             {highlight(name, query)}
           </span>
           {item.status && getStatusBadge(item.status, statusType)}

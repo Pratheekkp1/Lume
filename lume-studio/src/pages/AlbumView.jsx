@@ -320,7 +320,7 @@ export default function AlbumView() {
         </div>
         <button
           onClick={() => setShowUploader(true)}
-          className="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
+          className="bg-teal-500 text-white text-xs font-medium px-4 py-2 rounded-md hover:bg-teal-600 transition-colors"
         >
           + Add Media
         </button>
@@ -345,7 +345,7 @@ export default function AlbumView() {
             onClick={() => { setSelectMode(!selectMode); if (selectMode) deselectAll(); }}
             className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
               selectMode
-                ? 'bg-stone-800 text-white border-stone-800'
+                ? 'bg-teal-500 text-white border-teal-500'
                 : 'border-stone-200 text-stone-500 hover:border-stone-300'
             }`}
           >
@@ -392,7 +392,7 @@ export default function AlbumView() {
                 </select>
                 <button
                   onClick={() => setShowCreatePost(true)}
-                  className="border border-amber-200 text-amber-700 px-3 py-1 rounded hover:bg-amber-50 transition-colors"
+                  className="border border-teal-200 text-teal-700 px-3 py-1 rounded hover:bg-teal-50 transition-colors"
                 >
                   Create Post
                 </button>
@@ -568,7 +568,7 @@ export default function AlbumView() {
                   />
                   <div className="flex gap-1.5">
                     <button onClick={() => setRenaming(false)} className="flex-1 text-xs border border-stone-200 text-stone-400 py-1 rounded hover:bg-stone-50 transition-colors">Cancel</button>
-                    <button onClick={saveRename} className="flex-1 text-xs bg-stone-800 text-white py-1 rounded hover:opacity-90 transition-opacity">Save</button>
+                    <button onClick={saveRename} className="flex-1 text-xs bg-teal-500 text-white py-1 rounded hover:bg-teal-600 transition-colors">Save</button>
                   </div>
                 </div>
               ) : (
@@ -601,7 +601,7 @@ export default function AlbumView() {
                       }}
                       className={`w-full border text-xs font-medium py-1.5 rounded-md transition-colors ${
                         collection?.cover_photo_id === selectedPhoto.id
-                          ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                          ? "border-teal-300 bg-teal-50 text-teal-700 hover:bg-teal-100"
                           : "border-stone-200 text-stone-500 hover:bg-stone-100"
                       }`}
                     >
@@ -665,7 +665,7 @@ export default function AlbumView() {
                   <label className="text-xs uppercase tracking-widest text-stone-400">Categories</label>
                   <button
                     onClick={() => setShowCategoryPanel(p => !p)}
-                    className="text-[10px] text-stone-400 hover:text-amber-700 transition-colors"
+                    className="text-[10px] text-stone-400 hover:text-teal-700 transition-colors"
                   >
                     Manage
                   </button>
@@ -808,7 +808,7 @@ function CreatePostModal({ photoIds, onClose, onCreated }) {
             <div className="flex flex-wrap gap-1.5">
               {POST_TYPES.map(t => (
                 <button key={t} type="button" onClick={() => setType(type === t ? '' : t)}
-                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${type === t ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
+                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${type === t ? 'bg-teal-500 text-white border-teal-500' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
                   {t}
                 </button>
               ))}
@@ -819,7 +819,7 @@ function CreatePostModal({ photoIds, onClose, onCreated }) {
             <div className="flex flex-wrap gap-1.5">
               {PLATFORMS.map(p => (
                 <button key={p} type="button" onClick={() => setPlatform(platform === p ? '' : p)}
-                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${platform === p ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
+                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${platform === p ? 'bg-teal-500 text-white border-teal-500' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
                   {p}
                 </button>
               ))}
@@ -827,7 +827,7 @@ function CreatePostModal({ photoIds, onClose, onCreated }) {
           </div>
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
-            <button type="submit" disabled={!title.trim() || saving} className="flex-1 bg-stone-800 text-white text-sm py-2 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity">
+            <button type="submit" disabled={!title.trim() || saving} className="flex-1 bg-teal-500 text-white text-sm py-2 rounded-md hover:bg-teal-600 disabled:opacity-40 transition-colors">
               {saving ? 'Creating…' : 'Create'}
             </button>
           </div>
@@ -1006,7 +1006,7 @@ function CategoryPanel({ categories, onClose, onCreate, onDelete }) {
             <input value={name} onChange={e => setName(e.target.value)} placeholder="Category name"
               className="flex-1 border border-stone-200 rounded-md px-3 py-1.5 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 transition-colors" />
             <button type="submit" disabled={!name.trim() || saving}
-              className="bg-stone-800 text-white text-xs px-3 py-1.5 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity">
+              className="bg-teal-500 text-white text-xs px-3 py-1.5 rounded-md hover:bg-teal-600 disabled:opacity-40 transition-colors">
               Add
             </button>
           </div>

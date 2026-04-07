@@ -120,9 +120,9 @@ export default function PhotoUploader({ collectionId, onUploadComplete }) {
   return (
     <div className="p-6">
       {pdfConfirmFiles && (
-        <div className="mb-4 border border-amber-200 bg-amber-50 rounded-xl px-4 py-3.5">
+        <div className="mb-4 border border-teal-200 bg-teal-50 rounded-xl px-4 py-3.5">
           <div className="flex items-start gap-2.5 mb-3">
-            <span className="w-5 h-5 rounded-full bg-amber-400 flex items-center justify-center text-white text-[10px] flex-shrink-0 mt-0.5 font-bold">!</span>
+            <span className="w-5 h-5 rounded-full bg-teal-400 flex items-center justify-center text-white text-[10px] flex-shrink-0 mt-0.5 font-bold">!</span>
             <div>
               <p className="text-sm font-medium text-stone-700 mb-1">
                 {pdfCount === 1 ? "1 PDF included" : `${pdfCount} PDFs included`}
@@ -141,7 +141,7 @@ export default function PhotoUploader({ collectionId, onUploadComplete }) {
             </button>
             <button
               onClick={confirmPdfs}
-              className="flex-1 text-xs py-1.5 bg-stone-700 text-white rounded-lg hover:bg-stone-800 transition-colors"
+              className="flex-1 text-xs py-1.5 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors"
             >
               Add anyway
             </button>
@@ -176,12 +176,12 @@ export default function PhotoUploader({ collectionId, onUploadComplete }) {
           {items.map((item, i) => (
             <div key={i}>
               {item.status === "duplicate" ? (
-                <div className="border border-amber-200 bg-amber-50 rounded-lg px-3 py-2.5">
+                <div className="border border-teal-200 bg-teal-50 rounded-lg px-3 py-2.5">
                   <div className="flex items-start gap-2 mb-2">
-                    <span className="w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center text-white text-[10px] flex-shrink-0 mt-0.5">!</span>
+                    <span className="w-4 h-4 rounded-full bg-teal-400 flex items-center justify-center text-white text-[10px] flex-shrink-0 mt-0.5">!</span>
                     <div className="min-w-0">
                       <p className="text-xs text-stone-700 font-medium truncate">{item.name}</p>
-                      <p className="text-xs text-amber-600 mt-0.5">Already in this collection — add again?</p>
+                      <p className="text-xs text-teal-600 mt-0.5">Already in this collection — add again?</p>
                     </div>
                   </div>
                   <div className="flex gap-1.5">
@@ -193,7 +193,7 @@ export default function PhotoUploader({ collectionId, onUploadComplete }) {
                     </button>
                     <button
                       onClick={() => resolveDuplicate(i, true)}
-                      className="flex-1 text-xs py-1 bg-stone-700 text-white rounded hover:bg-stone-800 transition-colors"
+                      className="flex-1 text-xs py-1 bg-teal-500 text-white rounded hover:bg-teal-600 transition-colors"
                     >
                       Add anyway
                     </button>

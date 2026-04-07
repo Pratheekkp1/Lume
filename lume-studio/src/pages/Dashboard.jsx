@@ -105,7 +105,7 @@ export default function Dashboard() {
           <div className="mb-8 flex items-center gap-3 flex-wrap">
             <button
               onClick={() => navigate('/posts?create=true')}
-              className="bg-stone-800 text-white text-xs font-medium px-5 py-2.5 rounded-md hover:opacity-90 transition-opacity"
+              className="bg-teal-500 text-white text-xs font-medium px-5 py-2.5 rounded-md hover:bg-teal-600 transition-colors"
             >
               + New Post
             </button>
@@ -221,7 +221,7 @@ export default function Dashboard() {
                       className={`w-full flex items-center gap-4 py-3 px-4 text-left hover:bg-stone-50 transition-colors ${i !== 0 ? 'border-t border-stone-100' : ''}`}
                     >
                       <span className={`w-7 h-7 rounded-md flex items-center justify-center text-xs flex-shrink-0 ${
-                        item.type === 'post' ? 'bg-amber-50 text-amber-600' :
+                        item.type === 'post' ? 'bg-teal-50 text-teal-600' :
                         item.type === 'album' ? 'bg-stone-100 text-stone-500' :
                         'bg-violet-50 text-violet-500'
                       }`}>
@@ -272,8 +272,8 @@ export default function Dashboard() {
                       <StorageLegend color="bg-stone-300" label="Audio" bytes={storageBytes.audio} />
                     </div>
                     {totalStorage > 500 * 1024 * 1024 && (
-                      <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                        <p className="text-xs text-amber-700">Storage is above 500 MB. Consider reviewing old albums or unused uploads.</p>
+                      <div className="mt-3 p-2 bg-coral-50 border border-coral-200 rounded-lg">
+                        <p className="text-xs text-coral-700">Storage is above 500 MB. Consider reviewing old albums or unused uploads.</p>
                       </div>
                     )}
                   </div>

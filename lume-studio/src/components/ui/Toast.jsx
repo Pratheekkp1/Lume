@@ -57,7 +57,7 @@ function ToastItem({ toast, onDismiss, onUndo }) {
       {toast.undoFn && (
         <button
           onClick={onUndo}
-          className="text-amber-300 hover:text-amber-200 text-sm font-medium px-2 py-0.5 transition-colors"
+          className="text-teal-300 hover:text-teal-200 text-sm font-medium px-2 py-0.5 transition-colors"
         >
           Undo
         </button>
@@ -70,7 +70,7 @@ function ToastItem({ toast, onDismiss, onUndo }) {
       </button>
       <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-stone-700 rounded-b-lg overflow-hidden">
         <div
-          className="h-full bg-amber-500 transition-none"
+          className="h-full bg-teal-500 transition-none"
           style={{ width: `${progress}%` }}
         />
       </div>

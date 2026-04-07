@@ -74,7 +74,7 @@ export default function UploadDestinationModal({ mode, fileCount, onSelect, onCa
             onClick={() => onItemSelect(item.id)}
             className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${
               selectedId === item.id
-                ? 'bg-amber-50 border border-amber-200 text-stone-800'
+                ? 'bg-teal-50 border border-teal-200 text-stone-800'
                 : 'hover:bg-stone-50 text-stone-600'
             }`}
           >
@@ -94,7 +94,7 @@ export default function UploadDestinationModal({ mode, fileCount, onSelect, onCa
               placeholder={type === 'album' ? 'Album name...' : 'Project name...'}
               className="flex-1 text-sm px-2 py-1.5 border border-stone-200 rounded-lg focus:outline-none focus:border-stone-400"
             />
-            <button onClick={() => handleCreate(type)} className="text-xs px-2 py-1.5 bg-stone-700 text-white rounded-lg hover:bg-stone-800">
+            <button onClick={() => handleCreate(type)} className="text-xs px-2 py-1.5 bg-teal-500 text-white rounded-lg hover:bg-teal-600">
               Add
             </button>
             <button onClick={() => { setCreating(null); setNewName('') }} className="text-xs px-2 py-1.5 text-stone-400 hover:text-stone-600">
@@ -104,7 +104,7 @@ export default function UploadDestinationModal({ mode, fileCount, onSelect, onCa
         ) : (
           <button
             onClick={() => setCreating(type)}
-            className="text-left px-3 py-2 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+            className="text-left px-3 py-2 text-xs text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
           >
             + Create new {type === 'album' ? 'album' : 'audio collection'}
           </button>
@@ -162,7 +162,7 @@ export default function UploadDestinationModal({ mode, fileCount, onSelect, onCa
             disabled={!canConfirm}
             className={`flex-1 text-sm py-2 rounded-lg transition-colors ${
               canConfirm
-                ? 'bg-stone-700 text-white hover:bg-stone-800'
+                ? 'bg-teal-500 text-white hover:bg-teal-600'
                 : 'bg-stone-100 text-stone-300 cursor-not-allowed'
             }`}
           >

@@ -69,7 +69,7 @@ export default function Sounds() {
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
+          className="bg-teal-500 text-white text-xs font-medium px-4 py-2 rounded-md hover:bg-teal-600 transition-colors"
         >
           + New Sound Project
         </button>
@@ -80,7 +80,7 @@ export default function Sounds() {
         <button
           onClick={() => setFilterStatus('all')}
           className={`px-3 py-1 rounded-full text-xs border transition-colors ${
-            filterStatus === 'all' ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'
+            filterStatus === 'all' ? 'bg-teal-500 text-white border-teal-500' : 'border-stone-200 text-stone-500 hover:border-stone-400'
           }`}
         >
           All
@@ -278,7 +278,7 @@ function CreateModal({ onSave, onClose }) {
           </Field>
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
-            <button type="submit" disabled={!name.trim() || saving} className="flex-1 bg-stone-800 text-white text-sm py-2 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity">
+            <button type="submit" disabled={!name.trim() || saving} className="flex-1 bg-teal-500 text-white text-sm py-2 rounded-md hover:bg-teal-600 disabled:opacity-40 transition-colors">
               {saving ? 'Creating…' : 'Create'}
             </button>
           </div>
@@ -347,7 +347,7 @@ function EditProjectModal({ project, onSave, onDelete, onClose }) {
             </div>
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={onClose} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
-              <button type="submit" disabled={!name.trim() || saving} className="flex-1 bg-stone-800 text-white text-sm py-2 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity">
+              <button type="submit" disabled={!name.trim() || saving} className="flex-1 bg-teal-500 text-white text-sm py-2 rounded-md hover:bg-teal-600 disabled:opacity-40 transition-colors">
                 {saving ? 'Saving…' : 'Save Changes'}
               </button>
             </div>

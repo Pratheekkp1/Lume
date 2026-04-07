@@ -155,7 +155,7 @@ export default function Topbar() {
   return (
     <header className="h-13 bg-stone-100 border-b border-stone-200 flex items-center px-4 gap-4 flex-shrink-0">
       <span
-        className="font-serif italic text-amber-700 text-xl cursor-pointer flex-shrink-0"
+        className="font-serif italic text-teal-700 text-xl cursor-pointer flex-shrink-0"
         onClick={() => navigate('/dashboard')}
       >
         lume.
@@ -172,7 +172,7 @@ export default function Topbar() {
           onFocus={handleFocus}
           onKeyDown={handleKeyDown}
           placeholder="Search…"
-          className="w-full bg-white border border-stone-200 rounded-md py-1.5 pl-6 pr-3 text-xs text-stone-700 placeholder-stone-400 outline-none focus:border-amber-600 transition-colors"
+          className="w-full bg-white border border-stone-200 rounded-md py-1.5 pl-6 pr-3 text-xs text-stone-700 placeholder-stone-400 outline-none focus:border-teal-600 transition-colors"
         />
         {query && (
           <button
@@ -242,7 +242,7 @@ export default function Topbar() {
             {query.trim() && !searching && (
               <button
                 onClick={handleViewAll}
-                className="w-full text-xs text-amber-700 hover:bg-amber-50 px-4 py-2.5 text-center border-t border-stone-100 transition-colors"
+                className="w-full text-xs text-teal-700 hover:bg-teal-50 px-4 py-2.5 text-center border-t border-stone-100 transition-colors"
               >
                 View all results for "{query.trim()}"
               </button>

@@ -1,21 +1,21 @@
 const KEY = 'lume_profile'
 
 export const AVATAR_COLORS = [
-  '#92400e', // amber
-  '#44403c', // stone
-  '#1e3a5f', // navy
-  '#115e59', // teal
-  '#7f1d1d', // rose
-  '#3b0764', // violet
-  '#14532d', // green
-  '#0c4a6e', // sky
+  '#2a9d8f', // teal
+  '#2d3748', // charcoal
+  '#1a202c', // ink
+  '#e76f51', // coral
+  '#6b7a8d', // slate
+  '#1b6960', // deep teal
+  '#4a5568', // dark slate
+  '#b2452e', // deep coral
 ]
 
 const DEFAULTS = {
   displayName: '',
   initials: '',
   email: '',
-  avatarColor: '#92400e',
+  avatarColor: '#2a9d8f',
 }
 
 export function getProfile() {
