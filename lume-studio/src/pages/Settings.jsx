@@ -24,7 +24,7 @@ export default function Settings() {
             onClick={() => setActiveSection(s.key)}
             className={`w-full text-left px-5 py-2 text-sm border-l-2 transition-all ${
               activeSection === s.key
-                ? 'text-amber-700 border-amber-700 bg-amber-50 font-medium'
+                ? 'text-teal-700 border-teal-700 bg-teal-50 font-medium'
                 : 'text-stone-500 border-transparent hover:bg-stone-50 hover:text-stone-700'
             }`}
           >
@@ -149,7 +149,7 @@ function ProfileSection() {
         <div className="flex items-center gap-3 pt-2">
           <button
             onClick={handleSave}
-            className="bg-stone-800 text-white text-xs font-medium px-5 py-2 rounded-md hover:opacity-90 transition-opacity"
+            className="bg-teal-500 text-white text-xs font-medium px-5 py-2 rounded-md hover:bg-teal-600 transition-colors"
           >
             {saved ? '✓ Saved' : 'Save Changes'}
           </button>
@@ -204,7 +204,7 @@ function AboutSection() {
 
       <div className="flex flex-col gap-5">
         <div className="bg-white border border-stone-200 rounded-xl p-5 flex items-center gap-4">
-          <span className="font-serif italic text-amber-700 text-3xl">lume.</span>
+          <span className="font-serif italic text-teal-700 text-3xl">lume.</span>
           <div>
             <p className="text-sm font-medium text-stone-700">Lume Studio</p>
             <p className="text-xs text-stone-400 mt-0.5">Your creative hub for planning and organizing content</p>
@@ -282,7 +282,7 @@ function TemplatesSection() {
         </div>
         <button
           onClick={() => setEditing({})}
-          className="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
+          className="bg-teal-500 text-white text-xs font-medium px-4 py-2 rounded-md hover:bg-teal-600 transition-colors"
         >
           + New Template
         </button>
@@ -411,7 +411,7 @@ function TemplateFormModal({ initial, onSave, onClose }) {
             <div className="flex flex-wrap gap-1.5">
               {POST_TYPES.map(t => (
                 <button key={t} type="button" onClick={() => toggleItem(types, setTypes, t)}
-                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${types.includes(t) ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
+                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${types.includes(t) ? 'bg-teal-500 text-white border-teal-500' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
                   {t}
                 </button>
               ))}
@@ -421,7 +421,7 @@ function TemplateFormModal({ initial, onSave, onClose }) {
             <div className="flex flex-wrap gap-1.5">
               {PLATFORMS.map(p => (
                 <button key={p} type="button" onClick={() => toggleItem(platforms, setPlatforms, p)}
-                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${platforms.includes(p) ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
+                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${platforms.includes(p) ? 'bg-teal-500 text-white border-teal-500' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}>
                   {p}
                 </button>
               ))}
@@ -447,7 +447,7 @@ function TemplateFormModal({ initial, onSave, onClose }) {
           </Field>
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
-            <button type="submit" disabled={!name.trim() || saving} className="flex-1 bg-stone-800 text-white text-sm py-2 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity">
+            <button type="submit" disabled={!name.trim() || saving} className="flex-1 bg-teal-500 text-white text-sm py-2 rounded-md hover:bg-teal-600 disabled:opacity-40 transition-colors">
               {saving ? 'Saving…' : initial.id ? 'Save' : 'Create'}
             </button>
           </div>
@@ -557,7 +557,7 @@ function TrashSection() {
                     </div>
                     <button
                       onClick={() => handleRestore(section.type, item.id, item.deleted_at)}
-                      className="text-xs text-amber-600 hover:text-amber-800 font-medium px-2 py-1 rounded transition-colors"
+                      className="text-xs text-teal-600 hover:text-teal-800 font-medium px-2 py-1 rounded transition-colors"
                     >
                       Restore
                     </button>

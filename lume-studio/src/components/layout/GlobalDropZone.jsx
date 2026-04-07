@@ -209,7 +209,7 @@ export default function GlobalDropZone({ children }) {
           {toast.link && (
             <button
               onClick={() => { navigate(toast.link); setToast(null) }}
-              className="text-xs text-amber-300 hover:text-amber-200 font-medium"
+              className="text-xs text-teal-300 hover:text-teal-200 font-medium"
             >
               View
             </button>

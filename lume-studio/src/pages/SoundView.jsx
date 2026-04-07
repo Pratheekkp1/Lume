@@ -395,7 +395,7 @@ export default function SoundView() {
                 onClick={() => { setSelectMode(!selectMode); if (selectMode) deselectAll(); }}
                 className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
                   selectMode
-                    ? 'bg-stone-800 text-white border-stone-800'
+                    ? 'bg-teal-500 text-white border-teal-500'
                     : 'border-stone-200 text-stone-500 hover:border-stone-300'
                 }`}
               >
@@ -403,7 +403,7 @@ export default function SoundView() {
               </button>
               <button
                 onClick={() => setShowUploader(true)}
-                className="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
+                className="bg-teal-500 text-white text-xs font-medium px-4 py-2 rounded-md hover:bg-teal-600 transition-colors"
               >
                 + Add Tracks
               </button>
@@ -429,7 +429,7 @@ export default function SoundView() {
               onClick={() => setFilter("favorites")}
               className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
                 filter === "favorites"
-                  ? "bg-amber-500 border-amber-500 text-white"
+                  ? "bg-teal-500 border-teal-500 text-white"
                   : "border-stone-200 text-stone-400 hover:border-stone-300 hover:text-stone-600"
               }`}
             >
@@ -864,7 +864,7 @@ function TrackRow({ track, index, selected, isPlaying, onClick, onFavorite, sele
       onClick={onClick}
       className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all group ${
         checked
-          ? "bg-amber-50 border border-amber-300"
+          ? "bg-teal-50 border border-teal-300"
           : selected
           ? "bg-stone-100 border border-stone-300"
           : "border border-transparent hover:bg-stone-50 hover:border-stone-200"
@@ -876,11 +876,11 @@ function TrackRow({ track, index, selected, isPlaying, onClick, onFavorite, sele
           checked={checked}
           onChange={onCheck}
           onClick={e => e.stopPropagation()}
-          className="accent-amber-500 flex-shrink-0"
+          className="accent-teal-500 flex-shrink-0"
         />
       ) : (
         <span className="text-xs text-stone-300 w-5 text-right flex-shrink-0 font-mono">
-          {isPlaying ? <span className="text-amber-500">▶</span> : index}
+          {isPlaying ? <span className="text-teal-500">▶</span> : index}
         </span>
       )}
       <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: status.color }} />
@@ -899,8 +899,8 @@ function TrackRow({ track, index, selected, isPlaying, onClick, onFavorite, sele
         <svg width="11" height="16" viewBox="0 0 11 16" fill="none">
           <path
             d="M1 1h9v14l-4.5-3.5L1 15V1z"
-            fill={track.is_favorite ? "#f59e0b" : "none"}
-            stroke={track.is_favorite ? "#f59e0b" : "#a8a29e"}
+            fill={track.is_favorite ? "#14b8a6" : "none"}
+            stroke={track.is_favorite ? "#14b8a6" : "#a8a29e"}
             strokeWidth="1.5"
             strokeLinejoin="round"
           />

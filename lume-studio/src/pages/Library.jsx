@@ -163,7 +163,7 @@ export default function Library() {
           {showAlbums && (
             <button
               onClick={() => setShowNewAlbum(true)}
-              className="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
+              className="bg-teal-500 text-white text-xs font-medium px-4 py-2 rounded-md hover:bg-teal-600 transition-colors"
             >
               + New Album
             </button>
@@ -171,7 +171,7 @@ export default function Library() {
           {showSounds && (
             <button
               onClick={() => setShowNewSound(true)}
-              className="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
+              className="bg-teal-500 text-white text-xs font-medium px-4 py-2 rounded-md hover:bg-teal-600 transition-colors"
             >
               + New Sound Project
             </button>
@@ -191,7 +191,7 @@ export default function Library() {
             onClick={() => { setTypeFilter(f.key); setFilterEvent('all') }}
             className={`px-3 py-1 rounded-full text-xs border transition-colors ${
               typeFilter === f.key
-                ? 'bg-stone-800 text-white border-stone-800'
+                ? 'bg-teal-500 text-white border-teal-500'
                 : 'border-stone-200 text-stone-500 hover:border-stone-400'
             }`}
           >
@@ -239,7 +239,7 @@ export default function Library() {
           </button>
           <button
             onClick={() => setShowManageEvents(true)}
-            className="px-2.5 py-0.5 text-[11px] text-stone-400 hover:text-amber-700 transition-colors"
+            className="px-2.5 py-0.5 text-[11px] text-stone-400 hover:text-teal-700 transition-colors"
           >
             Manage Events
           </button>
@@ -430,7 +430,7 @@ function AlbumCard({ album, onClick, onEdit }) {
         <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: status.color }} />
         <span className="text-xs text-stone-400">{status.label}</span>
         {album.event_name && (
-          <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full">
+          <span className="text-[10px] text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded-full">
             {album.event_name}
           </span>
         )}
@@ -552,8 +552,8 @@ function CreateAlbumModal({ events, albums, onSave, onClose }) {
               className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 transition-colors"
             />
             {name.trim() && albums.some(a => a.name.toLowerCase() === name.trim().toLowerCase()) && (
-              <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-600">
-                <span className="w-3.5 h-3.5 rounded-full bg-amber-400 text-white flex items-center justify-center text-[9px] flex-shrink-0 mt-px">!</span>
+              <div className="mt-2 flex items-start gap-1.5 text-xs text-teal-600">
+                <span className="w-3.5 h-3.5 rounded-full bg-teal-400 text-white flex items-center justify-center text-[9px] flex-shrink-0 mt-px">!</span>
                 An album with this name already exists — are you sure?
               </div>
             )}
@@ -615,7 +615,7 @@ function CreateAlbumModal({ events, albums, onSave, onClose }) {
           </Field>
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
-            <button type="submit" disabled={!name.trim() || saving} className="flex-1 bg-stone-800 text-white text-sm py-2 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity">
+            <button type="submit" disabled={!name.trim() || saving} className="flex-1 bg-teal-500 text-white text-sm py-2 rounded-md hover:bg-teal-600 disabled:opacity-40 transition-colors">
               {saving ? 'Creating…' : 'Create'}
             </button>
           </div>
@@ -665,8 +665,8 @@ function EditAlbumModal({ album, events, albums, onSave, onDelete, onClose }) {
                 className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 outline-none focus:border-stone-400 transition-colors"
               />
               {name.trim() && albums.some(a => a.id !== album.id && a.name.toLowerCase() === name.trim().toLowerCase()) && (
-                <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-600">
-                  <span className="w-3.5 h-3.5 rounded-full bg-amber-400 text-white flex items-center justify-center text-[9px] flex-shrink-0 mt-px">!</span>
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-teal-600">
+                  <span className="w-3.5 h-3.5 rounded-full bg-teal-400 text-white flex items-center justify-center text-[9px] flex-shrink-0 mt-px">!</span>
                   An album with this name already exists — are you sure?
                 </div>
               )}
@@ -711,7 +711,7 @@ function EditAlbumModal({ album, events, albums, onSave, onDelete, onClose }) {
             </Field>
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={onClose} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
-              <button type="submit" disabled={!name.trim() || saving} className="flex-1 bg-stone-800 text-white text-sm py-2 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity">
+              <button type="submit" disabled={!name.trim() || saving} className="flex-1 bg-teal-500 text-white text-sm py-2 rounded-md hover:bg-teal-600 disabled:opacity-40 transition-colors">
                 {saving ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
@@ -804,7 +804,7 @@ function CreateSoundModal({ onSave, onClose }) {
           </Field>
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
-            <button type="submit" disabled={!name.trim() || saving} className="flex-1 bg-stone-800 text-white text-sm py-2 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity">
+            <button type="submit" disabled={!name.trim() || saving} className="flex-1 bg-teal-500 text-white text-sm py-2 rounded-md hover:bg-teal-600 disabled:opacity-40 transition-colors">
               {saving ? 'Creating…' : 'Create'}
             </button>
           </div>
@@ -857,7 +857,7 @@ function EditSoundModal({ project, onSave, onDelete, onClose }) {
             </Field>
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={onClose} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
-              <button type="submit" disabled={!name.trim() || saving} className="flex-1 bg-stone-800 text-white text-sm py-2 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity">
+              <button type="submit" disabled={!name.trim() || saving} className="flex-1 bg-teal-500 text-white text-sm py-2 rounded-md hover:bg-teal-600 disabled:opacity-40 transition-colors">
                 {saving ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
@@ -989,7 +989,7 @@ function ManageEventsModal({ events, onClose, onUpdated }) {
             <button
               onClick={createEvent}
               disabled={!newName.trim() || saving}
-              className="self-end bg-stone-800 text-white text-xs font-medium px-4 py-1.5 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity"
+              className="self-end bg-teal-500 text-white text-xs font-medium px-4 py-1.5 rounded-md hover:bg-teal-600 disabled:opacity-40 transition-colors"
             >
               {saving ? 'Adding…' : 'Add Event'}
             </button>
@@ -1027,7 +1027,7 @@ function ManageEventsModal({ events, onClose, onUpdated }) {
                     </div>
                     <div className="flex gap-1.5">
                       <button onClick={() => setEditId(null)} className="text-xs text-stone-400 hover:text-stone-600 transition-colors">Cancel</button>
-                      <button onClick={saveEdit} className="text-xs text-amber-700 hover:text-amber-800 font-medium transition-colors">Save</button>
+                      <button onClick={saveEdit} className="text-xs text-teal-700 hover:text-teal-800 font-medium transition-colors">Save</button>
                     </div>
                   </div>
                 ) : (

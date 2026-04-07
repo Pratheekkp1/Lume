@@ -473,7 +473,7 @@ export default function PostView() {
                 onChange={e => setTitleDraft(e.target.value)}
                 onBlur={saveTitle}
                 onKeyDown={e => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') setEditingTitle(false) }}
-                className="font-serif text-3xl text-stone-800 outline-none border-b border-amber-600 bg-transparent flex-1"
+                className="font-serif text-3xl text-stone-800 outline-none border-b border-teal-600 bg-transparent flex-1"
               />
             ) : (
               <div className="flex-1" onClick={() => setEditingTitle(true)}>
@@ -529,7 +529,7 @@ export default function PostView() {
                     }`}
                   >
                     {p}
-                    {hasExclusions && <span className="ml-1 text-amber-500 text-[9px]">●</span>}
+                    {hasExclusions && <span className="ml-1 text-teal-500 text-[9px]">●</span>}
                   </button>
                 )
               })}
@@ -550,7 +550,7 @@ export default function PostView() {
               {currentVariant.caption && (
                 <button
                   onClick={() => updateVariant(currentVariant.id, { caption: null })}
-                  className="text-[10px] text-stone-400 hover:text-amber-700 transition-colors mt-1"
+                  className="text-[10px] text-stone-400 hover:text-teal-700 transition-colors mt-1"
                 >
                   Reset to base caption
                 </button>
@@ -598,7 +598,7 @@ export default function PostView() {
                 onClick={() => { setAssetSelectMode(!assetSelectMode); if (assetSelectMode) deselectAllAssets(); }}
                 className={`text-xs px-3 py-1 rounded-md border transition-colors ${
                   assetSelectMode
-                    ? 'bg-stone-800 text-white border-stone-800'
+                    ? 'bg-teal-500 text-white border-teal-500'
                     : 'border-stone-200 text-stone-500 hover:border-stone-300'
                 }`}
               >
@@ -664,7 +664,7 @@ export default function PostView() {
                       onDragEnd={handleReorderDragEnd}
                       onDragOver={e => handleReorderDragOver(e, idx)}
                       onDrop={e => handleReorderDrop(e, idx, orderedPhotos, 'photos')}
-                      className={`${assetSelectMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} ${dragOverIndex === idx && dragItem ? 'ring-2 ring-amber-400 rounded-xl' : ''}`}
+                      className={`${assetSelectMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} ${dragOverIndex === idx && dragItem ? 'ring-2 ring-teal-400 rounded-xl' : ''}`}
                     >
                       <MediaCard
                         selected={selectedItem?.kind === item.kind && selectedItem.data.id === item.data.id}
@@ -692,7 +692,7 @@ export default function PostView() {
                 </div>
                 <button
                   onClick={() => { setLibraryLinkerTab('photos'); setShowLibraryLinker(true) }}
-                  className="mt-3 text-xs text-stone-400 hover:text-amber-700 transition-colors"
+                  className="mt-3 text-xs text-stone-400 hover:text-teal-700 transition-colors"
                 >
                   + Browse Library
                 </button>
@@ -720,7 +720,7 @@ export default function PostView() {
                       onDragEnd={handleReorderDragEnd}
                       onDragOver={e => handleReorderDragOver(e, idx)}
                       onDrop={e => handleReorderDrop(e, idx, orderedVideos, 'videos')}
-                      className={`${assetSelectMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} ${dragOverIndex === idx && dragItem ? 'ring-2 ring-amber-400 rounded-xl' : ''}`}
+                      className={`${assetSelectMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} ${dragOverIndex === idx && dragItem ? 'ring-2 ring-teal-400 rounded-xl' : ''}`}
                     >
                       <MediaCard
                         selected={selectedItem?.kind === 'asset' && selectedItem.data.id === item.data.id}
@@ -775,12 +775,12 @@ export default function PostView() {
                         onDragEnd={handleReorderDragEnd}
                         onDragOver={e => handleReorderDragOver(e, idx)}
                         onDrop={e => handleReorderDrop(e, idx, orderedAudio, 'audio')}
-                        className={`${assetSelectMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} ${dragOverIndex === idx && dragItem ? 'ring-2 ring-amber-400 rounded-xl' : ''}`}
+                        className={`${assetSelectMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} ${dragOverIndex === idx && dragItem ? 'ring-2 ring-teal-400 rounded-xl' : ''}`}
                       >
                         <button
                           onClick={() => assetSelectMode ? toggleAssetSelect(item.kind, item.data.id) : selectItem(item.kind, item.data)}
                           className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all group ${
-                            audioChecked ? 'border-amber-400 bg-amber-50' : audioExcluded ? 'opacity-40 border-stone-200' : isSelected ? 'border-amber-500 bg-amber-50' : 'border-stone-200 hover:border-stone-300'
+                            audioChecked ? 'border-teal-400 bg-teal-50' : audioExcluded ? 'opacity-40 border-stone-200' : isSelected ? 'border-teal-500 bg-teal-50' : 'border-stone-200 hover:border-stone-300'
                           }`}
                         >
                           {(assetSelectMode || anyAssetSelected) ? (
@@ -789,7 +789,7 @@ export default function PostView() {
                               checked={audioChecked}
                               onChange={(e) => { e.stopPropagation(); toggleAssetSelect(item.kind, item.data.id) }}
                               onClick={e => e.stopPropagation()}
-                              className="accent-amber-500 flex-shrink-0"
+                              className="accent-teal-500 flex-shrink-0"
                             />
                           ) : currentVariant ? (
                             <button
@@ -831,12 +831,12 @@ export default function PostView() {
                   )}
                 </div>
                 <div className="flex items-center gap-3 mt-3">
-                  <button onClick={triggerUpload} className="text-xs text-stone-400 hover:text-amber-700 transition-colors">
+                  <button onClick={triggerUpload} className="text-xs text-stone-400 hover:text-teal-700 transition-colors">
                     + Upload Audio
                   </button>
                   <button
                     onClick={() => { setLibraryLinkerTab('audio'); setShowLibraryLinker(true) }}
-                    className="text-xs text-stone-400 hover:text-amber-700 transition-colors"
+                    className="text-xs text-stone-400 hover:text-teal-700 transition-colors"
                   >
                     + Browse Library
                   </button>
@@ -879,7 +879,7 @@ export default function PostView() {
             {selectedItem.kind === 'linked_photo' && selectedItem.data.collections && (
               <button
                 onClick={() => navigate(`/media/${selectedItem.data.collections.id}`)}
-                className="flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-800 transition-colors mt-2"
+                className="flex items-center gap-1.5 text-xs text-teal-700 hover:text-teal-800 transition-colors mt-2"
               >
                 <span className="text-stone-300">◻</span>
                 From: {selectedItem.data.collections.name} →
@@ -888,7 +888,7 @@ export default function PostView() {
             {selectedItem.kind === 'linked_track' && selectedItem.data.audio_projects && (
               <button
                 onClick={() => navigate(`/sounds/${selectedItem.data.audio_projects.id}`)}
-                className="flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-800 transition-colors mt-2"
+                className="flex items-center gap-1.5 text-xs text-teal-700 hover:text-teal-800 transition-colors mt-2"
               >
                 <span className="text-stone-300">♩</span>
                 From: {selectedItem.data.audio_projects.name} →
@@ -957,7 +957,7 @@ export default function PostView() {
                     }}
                     className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
                       selected
-                        ? 'bg-stone-800 text-white border-stone-800'
+                        ? 'bg-teal-500 text-white border-teal-500'
                         : 'border-stone-200 text-stone-500 hover:border-stone-400'
                     }`}
                   >
@@ -989,7 +989,7 @@ export default function PostView() {
                     }}
                     className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
                       selected
-                        ? 'bg-stone-800 text-white border-stone-800'
+                        ? 'bg-teal-500 text-white border-teal-500'
                         : 'border-stone-200 text-stone-500 hover:border-stone-400'
                     }`}
                   >
@@ -1037,7 +1037,7 @@ export default function PostView() {
               <p className="text-[10px] uppercase tracking-widest text-stone-400">Categories</p>
               <button
                 onClick={() => setShowCategoryPanel(p => !p)}
-                className="text-[10px] text-stone-400 hover:text-amber-700 transition-colors"
+                className="text-[10px] text-stone-400 hover:text-teal-700 transition-colors"
               >
                 Manage
               </button>
@@ -1151,7 +1151,7 @@ function MediaCard({ selected, onClick, onRemove, badge, excluded, onToggleInclu
     <div
       onClick={onClick}
       className={`group relative aspect-square rounded-xl overflow-hidden bg-stone-100 cursor-pointer ring-2 transition-all ${
-        checked ? 'ring-amber-400' : excluded ? 'ring-transparent opacity-40' : selected ? 'ring-amber-500' : 'ring-transparent hover:ring-stone-300'
+        checked ? 'ring-teal-400' : excluded ? 'ring-transparent opacity-40' : selected ? 'ring-teal-500' : 'ring-transparent hover:ring-stone-300'
       }`}
     >
       {children}
@@ -1169,7 +1169,7 @@ function MediaCard({ selected, onClick, onRemove, badge, excluded, onToggleInclu
             type="checkbox"
             checked={checked}
             onChange={onCheck}
-            className="accent-amber-500"
+            className="accent-teal-500"
           />
         </div>
       ) : onToggleInclude ? (
@@ -1203,7 +1203,7 @@ function EmptyTab({ icon, title, subtitle, onUpload, onLink, linkLabel }) {
       <div className="flex items-center gap-3">
         <button
           onClick={onUpload}
-          className="bg-stone-800 text-white text-xs px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
+          className="bg-teal-500 text-white text-xs px-4 py-2 rounded-md hover:bg-teal-600 transition-colors"
         >
           Upload
         </button>
@@ -1408,7 +1408,7 @@ function CategoryPanel({ categories, type, onClose, onCreate, onDelete }) {
             <button
               type="submit"
               disabled={!name.trim() || saving}
-              className="bg-stone-800 text-white text-xs px-3 py-1.5 rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity"
+              className="bg-teal-500 text-white text-xs px-3 py-1.5 rounded-md hover:bg-teal-600 disabled:opacity-40 transition-colors"
             >
               Add
             </button>
@@ -1540,13 +1540,13 @@ function LibraryLinker({ initialTab = 'photos', linkedPhotos, linkedTracks, onLi
         <div className="flex gap-1">
           <button
             onClick={() => setTab('photos')}
-            className={`text-xs px-3 py-1.5 rounded-full transition-colors ${tab === 'photos' ? 'bg-stone-800 text-white' : 'text-stone-400 hover:text-stone-600'}`}
+            className={`text-xs px-3 py-1.5 rounded-full transition-colors ${tab === 'photos' ? 'bg-teal-500 text-white' : 'text-stone-400 hover:text-stone-600'}`}
           >
             Albums
           </button>
           <button
             onClick={() => setTab('audio')}
-            className={`text-xs px-3 py-1.5 rounded-full transition-colors ${tab === 'audio' ? 'bg-stone-800 text-white' : 'text-stone-400 hover:text-stone-600'}`}
+            className={`text-xs px-3 py-1.5 rounded-full transition-colors ${tab === 'audio' ? 'bg-teal-500 text-white' : 'text-stone-400 hover:text-stone-600'}`}
           >
             Sounds
           </button>
@@ -1601,7 +1601,7 @@ function LibraryLinker({ initialTab = 'photos', linkedPhotos, linkedTracks, onLi
             <>
               <button
                 onClick={() => selectAllVisible(filteredItems, linkedIds)}
-                className="text-[10px] text-stone-400 hover:text-amber-700 transition-colors mb-2"
+                className="text-[10px] text-stone-400 hover:text-teal-700 transition-colors mb-2"
               >
                 {filteredItems.filter(i => !linkedIds.has(i.id)).every(i => selected.has(i.id)) ? 'Deselect all' : 'Select all unlinked'}
               </button>
@@ -1618,13 +1618,13 @@ function LibraryLinker({ initialTab = 'photos', linkedPhotos, linkedTracks, onLi
                         toggleSelect(photo.id)
                       }}
                       className={`relative aspect-square rounded-lg overflow-hidden bg-stone-100 ring-2 transition-all ${
-                        linked ? 'ring-green-400 opacity-70' : isSelected ? 'ring-amber-500' : 'ring-transparent hover:ring-stone-300'
+                        linked ? 'ring-green-400 opacity-70' : isSelected ? 'ring-teal-500' : 'ring-transparent hover:ring-stone-300'
                       }`}
                     >
                       <img src={url} alt={photo.name || ''} className="w-full h-full object-cover" loading="lazy" />
                       {/* Checkbox overlay */}
                       <div className={`absolute top-1 left-1 w-4 h-4 rounded border flex items-center justify-center text-[8px] ${
-                        linked ? 'bg-green-500 border-green-500 text-white' : isSelected ? 'bg-amber-500 border-amber-500 text-white' : 'border-white/70 bg-black/20'
+                        linked ? 'bg-green-500 border-green-500 text-white' : isSelected ? 'bg-teal-500 border-teal-500 text-white' : 'border-white/70 bg-black/20'
                       }`}>
                         {(linked || isSelected) && '✓'}
                       </div>
@@ -1644,7 +1644,7 @@ function LibraryLinker({ initialTab = 'photos', linkedPhotos, linkedTracks, onLi
             <>
               <button
                 onClick={() => selectAllVisible(filteredItems, linkedIds)}
-                className="text-[10px] text-stone-400 hover:text-amber-700 transition-colors mb-2"
+                className="text-[10px] text-stone-400 hover:text-teal-700 transition-colors mb-2"
               >
                 {filteredItems.filter(i => !linkedIds.has(i.id)).every(i => selected.has(i.id)) ? 'Deselect all' : 'Select all unlinked'}
               </button>
@@ -1660,11 +1660,11 @@ function LibraryLinker({ initialTab = 'photos', linkedPhotos, linkedTracks, onLi
                         toggleSelect(track.id)
                       }}
                       className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors text-left ${
-                        linked ? 'bg-green-50 text-green-700' : isSelected ? 'bg-amber-50 border border-amber-300' : 'hover:bg-stone-50 text-stone-600'
+                        linked ? 'bg-green-50 text-green-700' : isSelected ? 'bg-teal-50 border border-teal-300' : 'hover:bg-stone-50 text-stone-600'
                       }`}
                     >
                       <div className={`w-4 h-4 rounded border flex items-center justify-center text-[8px] flex-shrink-0 ${
-                        linked ? 'bg-green-500 border-green-500 text-white' : isSelected ? 'bg-amber-500 border-amber-500 text-white' : 'border-stone-300'
+                        linked ? 'bg-green-500 border-green-500 text-white' : isSelected ? 'bg-teal-500 border-teal-500 text-white' : 'border-stone-300'
                       }`}>
                         {(linked || isSelected) && '✓'}
                       </div>
@@ -1686,7 +1686,7 @@ function LibraryLinker({ initialTab = 'photos', linkedPhotos, linkedTracks, onLi
           <button
             onClick={linkSelected}
             disabled={linking}
-            className="w-full bg-amber-600 text-white text-xs py-2 rounded-lg hover:bg-amber-700 disabled:opacity-50 transition-colors font-medium"
+            className="w-full bg-teal-600 text-white text-xs py-2 rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-colors font-medium"
           >
             {linking ? 'Linking…' : `Link ${unlinkableSelected} ${unlinkableSelected === 1 ? 'item' : 'items'}`}
           </button>
