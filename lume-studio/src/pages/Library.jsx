@@ -410,7 +410,7 @@ function AlbumCard({ album, onClick, onEdit }) {
       <div className="relative w-full aspect-[4/3] mb-3">
         <div className="absolute inset-0 bg-stone-200 border border-stone-300 rounded-lg rotate-3 opacity-50" />
         <div className="absolute inset-0 bg-stone-100 border border-stone-300 rounded-lg rotate-1 opacity-70" />
-        <div className="absolute inset-0 bg-white border border-stone-200 rounded-lg overflow-hidden shadow-sm group-hover:-translate-y-1 group-hover:shadow-md transition-all duration-200">
+        <div className="absolute inset-0 bg-white border border-stone-200 rounded-lg overflow-hidden shadow-sm group-hover:-translate-y-1 group-hover:shadow-md transition duration-200">
           {album.cover_url ? (
             <img src={album.cover_url} alt={album.name} className="w-full h-full object-cover" />
           ) : (
@@ -457,7 +457,7 @@ function SoundCard({ project, onClick, onEdit, onDelete }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-4 bg-white border border-stone-200 rounded-xl px-4 py-3 hover:border-stone-300 hover:shadow-sm transition-all text-left"
+      className="flex items-center gap-4 bg-white border border-stone-200 rounded-xl px-4 py-3 hover:border-stone-300 hover:shadow-sm transition text-left"
     >
       <span className="w-9 h-9 rounded-lg bg-stone-100 flex items-center justify-center text-sm text-stone-400 flex-shrink-0 hover:bg-stone-200 transition-colors">♩</span>
       <div className="flex-1 min-w-0">

@@ -588,7 +588,7 @@ function CalendarView({ posts, calendarMonth, setCalendarMonth, onNavigate, onSc
                   draggable
                   onDragStart={(e) => handleDragStart(e, p.id)}
                   onClick={() => onNavigate(p.id)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-white border border-stone-200 cursor-pointer hover:border-stone-300 hover:shadow-sm transition-all"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-white border border-stone-200 cursor-pointer hover:border-stone-300 hover:shadow-sm transition"
                 >
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: status?.color || '#b0a090' }} />
                   <span className="text-stone-600">{p.title}</span>
@@ -685,7 +685,7 @@ function KanbanCard({ post, onDragStart, onClick, onEdit, onDelete, selectMode, 
       draggable={!selectMode}
       onDragStart={(e) => !selectMode && onDragStart(e, post.id)}
       onClick={onClick}
-      className={`bg-white border rounded-lg p-3 cursor-pointer hover:border-stone-300 hover:shadow-sm transition-all ${
+      className={`bg-white border rounded-lg p-3 cursor-pointer hover:border-stone-300 hover:shadow-sm transition ${
         checked ? 'border-teal-400 ring-1 ring-teal-200' : 'border-stone-200'
       }`}
     >
@@ -755,7 +755,7 @@ function PostCard({ post, onClick, onEdit, onDelete, selectMode, checked, anySel
   return (
     <button
       onClick={onClick}
-      className={`relative text-left bg-white border rounded-xl p-4 hover:border-stone-300 hover:shadow-sm transition-all ${
+      className={`relative text-left bg-white border rounded-xl p-4 hover:border-stone-300 hover:shadow-sm transition ${
         checked ? 'border-teal-400 ring-1 ring-teal-200' : 'border-stone-200'
       }`}
     >

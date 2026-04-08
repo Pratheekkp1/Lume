@@ -22,7 +22,7 @@ export default function Settings() {
           <button
             key={s.key}
             onClick={() => setActiveSection(s.key)}
-            className={`w-full text-left px-5 py-2 text-sm border-l-2 transition-all ${
+            className={`w-full text-left px-5 py-2 text-sm border-l-2 transition ${
               activeSection === s.key
                 ? 'text-teal-700 border-teal-700 bg-teal-50 font-medium'
                 : 'text-stone-500 border-transparent hover:bg-stone-50 hover:text-stone-700'

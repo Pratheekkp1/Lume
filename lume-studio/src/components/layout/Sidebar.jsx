@@ -8,7 +8,7 @@ export default function Sidebar() {
   const [recents, setRecents] = useState([])
 
   const navClass = ({ isActive }) =>
-    `flex items-center gap-2 px-4 py-2 text-sm border-l-2 transition-all ${
+    `flex items-center gap-2 px-4 py-2 text-sm border-l-2 transition ${
       isActive
         ? 'text-teal-700 border-teal-700 bg-teal-50 font-medium'
         : 'text-stone-500 border-transparent hover:bg-stone-200 hover:text-stone-800'
@@ -72,7 +72,7 @@ export default function Sidebar() {
         <NavLink
           to="/dashboard"
           className={({ isActive }) =>
-            `flex items-center gap-2 text-sm px-2 py-1.5 rounded-md w-full transition-all
+            `flex items-center gap-2 text-sm px-2 py-1.5 rounded-md w-full transition
             ${isActive
               ? 'text-teal-700 bg-teal-50 font-medium'
               : 'text-stone-500 hover:text-stone-700 hover:bg-stone-200'
@@ -140,7 +140,7 @@ export default function Sidebar() {
         <NavLink
           to="/settings"
           className={({ isActive }) =>
-            `flex items-center gap-2 text-sm px-2 py-1.5 rounded-md w-full transition-all
+            `flex items-center gap-2 text-sm px-2 py-1.5 rounded-md w-full transition
             ${isActive
               ? 'text-teal-700 bg-teal-50 font-medium'
               : 'text-stone-400 hover:text-stone-700 hover:bg-stone-200'
