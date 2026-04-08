@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { STATUSES, SOUND_STATUSES } from "../lib/constants";
+import { SOUND_STATUSES } from "../lib/constants";
 import AudioUploader from "../components/ui/AudioUploader";
 import { recordOpen } from "../lib/recentOpens";
 import useDebouncedSave from "../hooks/useDebouncedSave";
@@ -540,7 +540,7 @@ export default function SoundView() {
                       className="text-xs border border-stone-200 text-stone-600 bg-white px-2 py-1 rounded outline-none cursor-pointer"
                     >
                       <option value="" disabled>Set status…</option>
-                      {Object.entries(STATUSES).map(([key, val]) => (
+                      {Object.entries(SOUND_STATUSES).map(([key, val]) => (
                         <option key={key} value={key}>{val.label}</option>
                       ))}
                     </select>
@@ -699,7 +699,7 @@ export default function SoundView() {
                   onChange={(e) => updateStatus(e.target.value)}
                   className="w-full border border-stone-200 rounded-md px-3 py-2 text-xs text-stone-700 outline-none bg-white focus:border-stone-400 transition-colors"
                 >
-                  {Object.entries(STATUSES).map(([key, val]) => (
+                  {Object.entries(SOUND_STATUSES).map(([key, val]) => (
                     <option key={key} value={key}>{val.label}</option>
                   ))}
                 </select>
@@ -857,7 +857,7 @@ export default function SoundView() {
 }
 
 function TrackRow({ track, index, selected, isPlaying, onClick, onFavorite, selectMode, checked, anySelected, onCheck }) {
-  const status = STATUSES[track.status] || STATUSES.unedited;
+  const status = SOUND_STATUSES[track.status] || SOUND_STATUSES.idea;
 
   return (
     <div
