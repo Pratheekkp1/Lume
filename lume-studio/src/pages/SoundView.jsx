@@ -415,7 +415,7 @@ export default function SoundView() {
             {/* Built-in: All */}
             <button
               onClick={() => setFilter("all")}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+              className={`text-xs px-3 py-1.5 rounded-full border transition ${
                 filter === "all"
                   ? "bg-stone-800 border-stone-800 text-white"
                   : "border-stone-200 text-stone-400 hover:border-stone-300 hover:text-stone-600"
@@ -427,7 +427,7 @@ export default function SoundView() {
             {/* Built-in: Favorites — cannot be deleted */}
             <button
               onClick={() => setFilter("favorites")}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+              className={`text-xs px-3 py-1.5 rounded-full border transition ${
                 filter === "favorites"
                   ? "bg-teal-500 border-teal-500 text-white"
                   : "border-stone-200 text-stone-400 hover:border-stone-300 hover:text-stone-600"
@@ -441,7 +441,7 @@ export default function SoundView() {
               <div key={cat.id} className="flex items-center gap-0.5">
                 <button
                   onClick={() => setFilter(cat.id)}
-                  className={`text-xs px-3 py-1.5 rounded-l-full border-y border-l transition-all ${
+                  className={`text-xs px-3 py-1.5 rounded-l-full border-y border-l transition ${
                     filter === cat.id
                       ? "bg-stone-800 border-stone-800 text-white"
                       : "border-stone-200 text-stone-400 hover:border-stone-300 hover:text-stone-600"
@@ -468,7 +468,7 @@ export default function SoundView() {
                 ) : (
                   <button
                     onClick={() => setDeleteCatTarget(cat.id)}
-                    className={`text-xs px-1.5 py-1.5 rounded-r-full border-y border-r transition-all ${
+                    className={`text-xs px-1.5 py-1.5 rounded-r-full border-y border-r transition ${
                       filter === cat.id
                         ? "bg-stone-800 border-stone-800 text-white hover:bg-stone-700"
                         : "border-stone-200 text-stone-300 hover:text-red-400 hover:border-stone-300"
@@ -511,7 +511,7 @@ export default function SoundView() {
             ) : (
               <button
                 onClick={() => setShowNewCat(true)}
-                className="text-xs text-stone-400 hover:text-stone-600 border border-dashed border-stone-300 hover:border-stone-400 px-3 py-1.5 rounded-full transition-all"
+                className="text-xs text-stone-400 hover:text-stone-600 border border-dashed border-stone-300 hover:border-stone-400 px-3 py-1.5 rounded-full transition"
               >
                 + New
               </button>
@@ -677,7 +677,7 @@ export default function SoundView() {
                         <button
                           key={cat.id}
                           onClick={() => assignCategory(cat.id)}
-                          className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
+                          className={`text-xs px-2.5 py-1 rounded-full border transition ${
                             active
                               ? "bg-stone-800 border-stone-800 text-white"
                               : "border-stone-200 text-stone-400 hover:border-stone-400 hover:text-stone-600"
@@ -862,7 +862,7 @@ function TrackRow({ track, index, selected, isPlaying, onClick, onFavorite, sele
   return (
     <div
       onClick={onClick}
-      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all group ${
+      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition group ${
         checked
           ? "bg-teal-50 border border-teal-300"
           : selected

@@ -779,7 +779,7 @@ export default function PostView() {
                       >
                         <button
                           onClick={() => assetSelectMode ? toggleAssetSelect(item.kind, item.data.id) : selectItem(item.kind, item.data)}
-                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all group ${
+                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition group ${
                             audioChecked ? 'border-teal-400 bg-teal-50' : audioExcluded ? 'opacity-40 border-stone-200' : isSelected ? 'border-teal-500 bg-teal-50' : 'border-stone-200 hover:border-stone-300'
                           }`}
                         >
@@ -1150,7 +1150,7 @@ function MediaCard({ selected, onClick, onRemove, badge, excluded, onToggleInclu
   return (
     <div
       onClick={onClick}
-      className={`group relative aspect-square rounded-xl overflow-hidden bg-stone-100 cursor-pointer ring-2 transition-all ${
+      className={`group relative aspect-square rounded-xl overflow-hidden bg-stone-100 cursor-pointer ring-2 transition ${
         checked ? 'ring-teal-400' : excluded ? 'ring-transparent opacity-40' : selected ? 'ring-teal-500' : 'ring-transparent hover:ring-stone-300'
       }`}
     >
@@ -1617,7 +1617,7 @@ function LibraryLinker({ initialTab = 'photos', linkedPhotos, linkedTracks, onLi
                         if (linked) { onUnlinkPhoto(photo.id); return }
                         toggleSelect(photo.id)
                       }}
-                      className={`relative aspect-square rounded-lg overflow-hidden bg-stone-100 ring-2 transition-all ${
+                      className={`relative aspect-square rounded-lg overflow-hidden bg-stone-100 ring-2 transition ${
                         linked ? 'ring-green-400 opacity-70' : isSelected ? 'ring-teal-500' : 'ring-transparent hover:ring-stone-300'
                       }`}
                     >

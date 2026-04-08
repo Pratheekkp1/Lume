@@ -96,7 +96,7 @@ export default function AudioUploader({ projectId, onUploadComplete }) {
     <div className="p-6">
       <div
         {...getRootProps()}
-        className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${
+        className={`border-2 border-dashed rounded-xl p-12 text-center transition ${
           dropDisabled ? "pointer-events-none opacity-50" : "cursor-pointer"
         } ${
           isDragActive

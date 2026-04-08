@@ -332,7 +332,7 @@ export default function AlbumView() {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+            className={`text-xs px-3 py-1.5 rounded-full border transition ${
               filter === f ? "bg-stone-800 border-stone-800 text-white" : "border-stone-200 text-stone-400 hover:border-stone-300 hover:text-stone-600"
             }`}
           >
@@ -888,7 +888,7 @@ function PhotoCard({ photo, selected, checked, selectMode, anySelected, onCheck,
   return (
     <div
       onClick={onClick}
-      className={`cursor-pointer rounded-lg overflow-hidden border transition-all duration-150 group relative ${
+      className={`cursor-pointer rounded-lg overflow-hidden border transition duration-150 group relative ${
         selected
           ? "border-stone-600 shadow-md ring-1 ring-stone-400"
           : checked

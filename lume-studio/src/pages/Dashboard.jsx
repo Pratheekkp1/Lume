@@ -111,13 +111,13 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => navigate('/library')}
-              className="border border-stone-200 text-stone-500 text-xs font-medium px-4 py-2.5 rounded-md hover:border-stone-300 hover:text-stone-700 transition-all"
+              className="border border-stone-200 text-stone-500 text-xs font-medium px-4 py-2.5 rounded-md hover:border-stone-300 hover:text-stone-700 transition"
             >
               Browse Library
             </button>
             <button
               onClick={() => navigate('/posts?view=calendar')}
-              className="border border-stone-200 text-stone-500 text-xs font-medium px-4 py-2.5 rounded-md hover:border-stone-300 hover:text-stone-700 transition-all"
+              className="border border-stone-200 text-stone-500 text-xs font-medium px-4 py-2.5 rounded-md hover:border-stone-300 hover:text-stone-700 transition"
             >
               Calendar
             </button>
@@ -133,7 +133,7 @@ export default function Dashboard() {
                   <button
                     key={key}
                     onClick={() => navigate(`/posts?status=${key}`)}
-                    className="text-left bg-white border border-stone-200 rounded-xl p-5 hover:border-stone-300 hover:shadow-sm transition-all group"
+                    className="text-left bg-white border border-stone-200 rounded-xl p-5 hover:border-stone-300 hover:shadow-sm transition group"
                   >
                     <div className="flex items-center gap-2 mb-3">
                       <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
@@ -152,7 +152,7 @@ export default function Dashboard() {
                     return (
                       <div
                         key={key}
-                        className="h-full transition-all"
+                        className="h-full transition"
                         style={{ width: `${pct}%`, backgroundColor: s.color }}
                         title={`${s.label}: ${pipeline[key]}`}
                       />
@@ -256,13 +256,13 @@ export default function Dashboard() {
                     <div className="h-2 bg-stone-100 rounded-full overflow-hidden flex mb-2">
                       {storageBytes.photos > 0 && (
                         <div
-                          className="h-full bg-stone-400 transition-all"
+                          className="h-full bg-stone-400 transition"
                           style={{ width: `${(storageBytes.photos / totalStorage) * 100}%` }}
                         />
                       )}
                       {storageBytes.audio > 0 && (
                         <div
-                          className="h-full bg-stone-300 transition-all"
+                          className="h-full bg-stone-300 transition"
                           style={{ width: `${(storageBytes.audio / totalStorage) * 100}%` }}
                         />
                       )}
