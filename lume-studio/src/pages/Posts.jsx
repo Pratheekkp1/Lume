@@ -348,7 +348,7 @@ export default function Posts() {
           <p className="text-xs">Create a post to start planning content.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {filtered.map(post => (
             <PostCard
               key={post.id}
@@ -638,7 +638,7 @@ function KanbanBoard({ posts, onNavigate, onEdit, onDelete, onStatusChange, sele
         return (
           <div
             key={key}
-            className={`flex-1 min-w-[220px] max-w-[320px] rounded-xl p-3 transition-colors ${
+            className={`flex-1 min-w-[200px] rounded-xl p-3 transition-colors ${
               dragOverCol === key ? 'bg-stone-100 ring-2 ring-stone-300' : 'bg-stone-50'
             }`}
             onDragOver={(e) => handleDragOver(e, key)}

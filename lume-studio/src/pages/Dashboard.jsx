@@ -88,7 +88,7 @@ export default function Dashboard() {
   const totalPosts = Object.values(pipeline).reduce((s, n) => s + n, 0)
 
   return (
-    <div className="p-7 max-w-5xl">
+    <div className="p-7">
       {/* Header */}
       <div className="mb-8">
         <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Home</p>
