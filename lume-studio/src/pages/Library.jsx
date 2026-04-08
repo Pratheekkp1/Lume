@@ -26,7 +26,15 @@ export default function Library() {
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState(null)
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => {
+    fetchAll()
+    window.addEventListener('lume-media-updated', fetchAll)
+    window.addEventListener('lume-sounds-updated', fetchAll)
+    return () => {
+      window.removeEventListener('lume-media-updated', fetchAll)
+      window.removeEventListener('lume-sounds-updated', fetchAll)
+    }
+  }, [])
 
   async function fetchAll() {
     const [albumResult, soundResult, eventResult] = await Promise.all([

@@ -19,10 +19,12 @@ export default function Sidebar() {
     window.addEventListener('lume-posts-updated', loadRecents)
     window.addEventListener('lume-media-updated', loadRecents)
     window.addEventListener('lume-sounds-updated', loadRecents)
+    window.addEventListener('lume-recents-updated', loadRecents)
     return () => {
       window.removeEventListener('lume-posts-updated', loadRecents)
       window.removeEventListener('lume-media-updated', loadRecents)
       window.removeEventListener('lume-sounds-updated', loadRecents)
+      window.removeEventListener('lume-recents-updated', loadRecents)
     }
   }, [])
 
