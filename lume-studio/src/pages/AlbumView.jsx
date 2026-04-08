@@ -45,7 +45,7 @@ function isVideo(item) {
 }
 
 export default function AlbumView() {
-  const { collectionId } = useParams();
+  const { albumId: collectionId } = useParams();
   const navigate = useNavigate();
   const [collection, setCollection] = useState(null);
   const [photos, setPhotos] = useState([]);
