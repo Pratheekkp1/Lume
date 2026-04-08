@@ -5,7 +5,8 @@ import { getRecentOpens } from '../../lib/recentOpens'
 
 export default function Sidebar() {
   const navigate = useNavigate()
-  const [recents, setRecents] = useState([])
+  const [recentPosts, setRecentPosts] = useState([])
+  const [recentLibrary, setRecentLibrary] = useState([])
 
   const navClass = ({ isActive }) =>
     `flex items-center gap-2 px-4 py-2 text-sm border-l-2 transition ${
@@ -29,41 +30,42 @@ export default function Sidebar() {
   }, [])
 
   async function loadRecents() {
-    const opens = getRecentOpens().slice(0, 8)
-    if (opens.length === 0) { setRecents([]); return }
+    const opens = getRecentOpens().slice(0, 20)
+    if (opens.length === 0) { setRecentPosts([]); setRecentLibrary([]); return }
 
     const postIds = opens.filter(o => o.type === 'post').map(o => o.id)
     const albumIds = opens.filter(o => o.type === 'album').map(o => o.id)
     const soundIds = opens.filter(o => o.type === 'sound').map(o => o.id)
 
-    const promises = []
-    promises.push(postIds.length > 0
-      ? supabase.from('posts').select('id, title').in('id', postIds).is('deleted_at', null)
-      : Promise.resolve({ data: [] }))
-    promises.push(albumIds.length > 0
-      ? supabase.from('collections').select('id, name').in('id', albumIds).is('deleted_at', null)
-      : Promise.resolve({ data: [] }))
-    promises.push(soundIds.length > 0
-      ? supabase.from('audio_projects').select('id, name').in('id', soundIds).is('deleted_at', null)
-      : Promise.resolve({ data: [] }))
-
-    const [postRes, albumRes, soundRes] = await Promise.all(promises)
+    const [postRes, albumRes, soundRes] = await Promise.all([
+      postIds.length > 0
+        ? supabase.from('posts').select('id, title').in('id', postIds).is('deleted_at', null)
+        : Promise.resolve({ data: [] }),
+      albumIds.length > 0
+        ? supabase.from('collections').select('id, name').in('id', albumIds).is('deleted_at', null)
+        : Promise.resolve({ data: [] }),
+      soundIds.length > 0
+        ? supabase.from('audio_projects').select('id, name').in('id', soundIds).is('deleted_at', null)
+        : Promise.resolve({ data: [] }),
+    ])
 
     const postMap = Object.fromEntries((postRes.data || []).map(p => [p.id, p]))
     const albumMap = Object.fromEntries((albumRes.data || []).map(a => [a.id, a]))
     const soundMap = Object.fromEntries((soundRes.data || []).map(s => [s.id, s]))
 
-    const resolved = opens
-      .map(o => {
-        if (o.type === 'post' && postMap[o.id]) return { ...o, label: postMap[o.id].title, icon: '▷', link: `/posts/${o.id}` }
-        if (o.type === 'album' && albumMap[o.id]) return { ...o, label: albumMap[o.id].name, icon: '◻', link: `/media/${o.id}` }
-        if (o.type === 'sound' && soundMap[o.id]) return { ...o, label: soundMap[o.id].name, icon: '♩', link: `/sounds/${o.id}` }
-        return null
-      })
-      .filter(Boolean)
-      .slice(0, 6)
+    const posts = []
+    const library = []
+    for (const o of opens) {
+      if (o.type === 'post' && postMap[o.id] && posts.length < 5)
+        posts.push({ ...o, label: postMap[o.id].title, icon: '▷', link: `/posts/${o.id}` })
+      if (o.type === 'album' && albumMap[o.id] && library.length < 5)
+        library.push({ ...o, label: albumMap[o.id].name, icon: '◻', link: `/media/${o.id}` })
+      if (o.type === 'sound' && soundMap[o.id] && library.length < 5)
+        library.push({ ...o, label: soundMap[o.id].name, icon: '♩', link: `/sounds/${o.id}` })
+    }
 
-    setRecents(resolved)
+    setRecentPosts(posts)
+    setRecentLibrary(library)
   }
 
   return (
@@ -93,7 +95,6 @@ export default function Sidebar() {
           <span className="w-4 text-center text-xs">▷</span>
           Projects
         </NavLink>
-
         <NavLink
           to="/posts?create=true"
           className="flex items-center gap-2 px-4 py-1.5 text-xs text-stone-400 hover:text-teal-700 transition-colors w-full"
@@ -101,6 +102,16 @@ export default function Sidebar() {
           <span className="w-4 text-center">+</span>
           New Project
         </NavLink>
+        {recentPosts.map(item => (
+          <button
+            key={item.id}
+            onClick={() => navigate(item.link)}
+            className="flex items-center gap-2 px-4 py-1.5 text-xs text-stone-400 hover:text-stone-700 hover:bg-stone-200 transition-colors w-full text-left"
+          >
+            <span className="w-4 text-center text-[10px] flex-shrink-0">▷</span>
+            <span className="truncate">{item.label}</span>
+          </button>
+        ))}
       </div>
 
       <div className="border-t border-stone-200 mx-3 mb-3" />
@@ -111,31 +122,19 @@ export default function Sidebar() {
           <span className="w-4 text-center text-xs">◻</span>
           Library
         </NavLink>
+        {recentLibrary.map(item => (
+          <button
+            key={`${item.type}-${item.id}`}
+            onClick={() => navigate(item.link)}
+            className="flex items-center gap-2 px-4 py-1.5 text-xs text-stone-400 hover:text-stone-700 hover:bg-stone-200 transition-colors w-full text-left"
+          >
+            <span className="w-4 text-center text-[10px] flex-shrink-0">{item.icon}</span>
+            <span className="truncate">{item.label}</span>
+          </button>
+        ))}
       </div>
 
       <div className="border-t border-stone-200 mx-3 mb-3" />
-
-      {/* Recent Items */}
-      {recents.length > 0 && (
-        <>
-          <div className="px-4 mb-2">
-            <p className="text-[10px] font-medium text-stone-400 uppercase tracking-wider">Recent</p>
-          </div>
-          <div className="mb-4 space-y-0.5">
-            {recents.map(item => (
-              <button
-                key={`${item.type}-${item.id}`}
-                onClick={() => navigate(item.link)}
-                className="flex items-center gap-2 px-4 py-1.5 text-xs text-stone-500 hover:text-stone-700 hover:bg-stone-200 transition-colors w-full text-left truncate"
-              >
-                <span className="w-3 text-center text-[10px] text-stone-400 flex-shrink-0">{item.icon}</span>
-                <span className="truncate">{item.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="border-t border-stone-200 mx-3 mb-3" />
-        </>
-      )}
 
       {/* Settings */}
       <div className="mt-auto px-3">
