@@ -1096,6 +1096,11 @@ export default function PostView() {
             </div>
           )}
 
+          {/* Publish */}
+          {(post.platform || []).length > 0 && (
+            <PublishSection platforms={post.platform || []} />
+          )}
+
           {/* Performance Metrics */}
           <PostMetrics postId={postId} platforms={post.platform} />
 
@@ -1141,6 +1146,110 @@ export default function PostView() {
               <button onClick={() => setDeleteAssetTarget(null)} className="flex-1 border border-stone-200 text-stone-500 text-sm py-2 rounded-md hover:bg-stone-50 transition-colors">Cancel</button>
               <button onClick={handleDeleteAsset} className="flex-1 bg-red-500 text-white text-sm py-2 rounded-md hover:bg-red-600 transition-colors">Delete</button>
             </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Publish Section ─────────────────────────────────────────────────────────
+
+const PLATFORM_REQUIREMENTS = {
+  Instagram: [
+    'Square (1:1) or portrait (4:5) crop for feed posts',
+    'Caption max 2,200 characters',
+    'Up to 30 hashtags',
+    'MP4 video, max 60s for Reels',
+  ],
+  TikTok: [
+    'Vertical (9:16) aspect ratio required',
+    'Caption max 2,200 characters',
+    'MP4 or MOV, max 10 min',
+    'Min resolution 720×1280',
+  ],
+  YouTube: [
+    '16:9 thumbnail (1280×720 recommended)',
+    'Title max 100 characters',
+    'Description max 5,000 characters',
+    'Tags max 500 characters total',
+  ],
+  'Twitter/X': [
+    'Caption max 280 characters (25,000 with Premium)',
+    'Up to 4 images or 1 video per post',
+    'Video max 2:20, 512 MB',
+    'Image max 5 MB',
+  ],
+  Facebook: [
+    'Caption up to 63,206 characters',
+    'Square or landscape images preferred',
+    'MP4 video, max 240 min',
+    'Recommended image: 1200×630',
+  ],
+}
+
+function PublishSection({ platforms }) {
+  const [showComingSoon, setShowComingSoon] = useState(null) // platform name
+  const [expanded, setExpanded] = useState(null)
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[10px] uppercase tracking-widest text-stone-400">Publish</p>
+      </div>
+      <div className="space-y-2">
+        {platforms.map(platform => (
+          <div key={platform} className="border border-stone-200 rounded-xl overflow-hidden">
+            <div className="flex items-center gap-3 px-3 py-2.5">
+              <button
+                className="flex-1 flex items-center gap-2 text-left"
+                onClick={() => setExpanded(expanded === platform ? null : platform)}
+              >
+                <span className="text-stone-300 text-[10px]">{expanded === platform ? '▾' : '▸'}</span>
+                <span className="text-sm font-medium text-stone-700">{platform}</span>
+              </button>
+              <button
+                onClick={() => setShowComingSoon(platform)}
+                className="text-[10px] text-stone-400 hover:text-teal-600 border border-stone-200 hover:border-teal-300 px-2 py-1 rounded transition-all flex-shrink-0"
+              >
+                Connect account
+              </button>
+            </div>
+            {expanded === platform && PLATFORM_REQUIREMENTS[platform] && (
+              <div className="border-t border-stone-100 px-3 py-3 bg-stone-50">
+                <p className="text-[10px] uppercase tracking-widest text-stone-300 mb-2">Requirements</p>
+                <ul className="space-y-1.5">
+                  {PLATFORM_REQUIREMENTS[platform].map((req, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-stone-500">
+                      <span className="text-stone-300 mt-0.5 flex-shrink-0">◦</span>
+                      {req}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Coming soon modal */}
+      {showComingSoon && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowComingSoon(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-xl bg-stone-100 flex items-center justify-center text-2xl mb-4">🔗</div>
+            <h2 className="font-serif text-xl text-stone-800 mb-2">Connect {showComingSoon}</h2>
+            <p className="text-sm text-stone-500 mb-4">
+              Direct publishing to {showComingSoon} is coming in a future update. When available, you'll be able to authorize your account here and publish posts directly from Lume.
+            </p>
+            <div className="p-3 bg-stone-50 rounded-lg mb-5">
+              <p className="text-xs text-stone-400">For now, use the platform requirements checklist above to prepare your content before publishing manually.</p>
+            </div>
+            <button
+              onClick={() => setShowComingSoon(null)}
+              className="w-full bg-stone-100 text-stone-600 text-sm font-medium py-2.5 rounded-lg hover:bg-stone-200 transition-colors"
+            >
+              Got it
+            </button>
           </div>
         </div>
       )}
