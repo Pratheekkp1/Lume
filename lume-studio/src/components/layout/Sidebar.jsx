@@ -136,6 +136,14 @@ export default function Sidebar() {
 
       <div className="border-t border-stone-200 mx-3 mb-3" />
 
+      {/* Analytics */}
+      <div className="mb-4">
+        <NavLink to="/analytics" className={navClass}>
+          <span className="w-4 text-center text-xs">↗</span>
+          Analytics
+        </NavLink>
+      </div>
+
       {/* Campaigns */}
       <div className="mb-4">
         <NavLink to="/campaigns" className={navClass}>
