@@ -113,6 +113,16 @@ export default function Sidebar() {
 
       <div className="border-t border-stone-200 mx-3 mb-3" />
 
+      {/* Brand */}
+      <div className="mb-4">
+        <NavLink to="/brand" className={navClass}>
+          <span className="w-4 text-center text-xs">◈</span>
+          Brand
+        </NavLink>
+      </div>
+
+      <div className="border-t border-stone-200 mx-3 mb-3" />
+
       {/* Recent Items */}
       {recents.length > 0 && (
         <>
