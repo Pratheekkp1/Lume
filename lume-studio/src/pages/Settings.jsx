@@ -14,9 +14,12 @@ export default function Settings() {
         <p className="text-xs tracking-widest uppercase text-stone-400 px-5 mb-2">Settings</p>
         {[
           { key: 'profile', label: 'Profile' },
+          { key: 'goals', label: 'Goals & Cadence' },
           { key: 'shortcuts', label: 'Keyboard Shortcuts' },
           { key: 'templates', label: 'Templates' },
           { key: 'trash', label: 'Trash' },
+          { key: 'connected', label: 'Connected Accounts' },
+          { key: 'team', label: 'Team' },
           { key: 'about', label: 'About' },
         ].map((s) => (
           <button
@@ -36,9 +39,12 @@ export default function Settings() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-8 max-w-xl">
         {activeSection === 'profile' && <ProfileSection />}
+        {activeSection === 'goals' && <GoalsSection />}
         {activeSection === 'shortcuts' && <ShortcutsSection />}
         {activeSection === 'templates' && <TemplatesSection />}
         {activeSection === 'trash' && <TrashSection />}
+        {activeSection === 'connected' && <ConnectedAccountsSection />}
+        {activeSection === 'team' && <TeamSection />}
         {activeSection === 'about' && <AboutSection />}
       </div>
     </div>
@@ -614,6 +620,299 @@ function Field({ label, hint, children }) {
       <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">{label}</label>
       {children}
       {hint && <p className="text-xs text-stone-400 mt-1">{hint}</p>}
+    </div>
+  )
+}
+
+// ── Goals & Cadence ──────────────────────────────────────────────────────────
+/*
+  Supabase table required (run once):
+
+  create table posting_goals (
+    id uuid primary key default gen_random_uuid(),
+    platform text not null,
+    frequency text not null default 'weekly',
+    target_count integer not null default 1,
+    created_at timestamptz default now(),
+    updated_at timestamptz default now()
+  );
+*/
+
+function GoalsSection() {
+  const [goals, setGoals] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [adding, setAdding] = useState(false)
+  const [newPlatform, setNewPlatform] = useState(PLATFORMS[0])
+  const [newTarget, setNewTarget] = useState(3)
+  const [weekProgress, setWeekProgress] = useState({}) // platform -> published count this week
+  const [streak, setStreak] = useState(0)
+
+  useEffect(() => { loadAll() }, [])
+
+  async function loadAll() {
+    const [{ data: goalsData }, { data: posts }] = await Promise.all([
+      supabase.from('posting_goals').select('*').order('created_at'),
+      supabase.from('posts').select('platform, scheduled_date, status').is('deleted_at', null).eq('status', 'published'),
+    ])
+    setGoals(goalsData || [])
+
+    // Compute this-week progress per platform
+    const now = new Date()
+    const weekStart = new Date(now)
+    weekStart.setDate(now.getDate() - now.getDay()) // Sunday
+    weekStart.setHours(0, 0, 0, 0)
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekStart.getDate() + 7)
+
+    const progress = {}
+    ;(posts || []).forEach(p => {
+      const d = p.scheduled_date ? new Date(p.scheduled_date + 'T00:00:00') : null
+      if (!d || d < weekStart || d >= weekEnd) return
+      ;(p.platform || []).forEach(pl => {
+        progress[pl] = (progress[pl] || 0) + 1
+      })
+    })
+    setWeekProgress(progress)
+
+    // Streak: count consecutive past weeks where ALL goals were met
+    // Simplified: count backwards week by week until one is missed
+    if (goalsData && goalsData.length > 0 && posts && posts.length > 0) {
+      let s = 0
+      for (let w = 1; w <= 52; w++) {
+        const wStart = new Date(weekStart)
+        wStart.setDate(wStart.getDate() - w * 7)
+        const wEnd = new Date(wStart)
+        wEnd.setDate(wStart.getDate() + 7)
+
+        const wProgress = {}
+        posts.forEach(p => {
+          const d = p.scheduled_date ? new Date(p.scheduled_date + 'T00:00:00') : null
+          if (!d || d < wStart || d >= wEnd) return
+          ;(p.platform || []).forEach(pl => { wProgress[pl] = (wProgress[pl] || 0) + 1 })
+        })
+
+        const allMet = goalsData.every(g => (wProgress[g.platform] || 0) >= g.target_count)
+        if (allMet) s++
+        else break
+      }
+      setStreak(s)
+    }
+
+    setLoading(false)
+  }
+
+  async function addGoal() {
+    const existing = goals.find(g => g.platform === newPlatform)
+    if (existing) {
+      await supabase.from('posting_goals').update({ target_count: newTarget, updated_at: new Date().toISOString() }).eq('id', existing.id)
+      setGoals(prev => prev.map(g => g.id === existing.id ? { ...g, target_count: newTarget } : g))
+    } else {
+      const { data, error } = await supabase.from('posting_goals').insert({ platform: newPlatform, frequency: 'weekly', target_count: newTarget }).select().single()
+      if (!error && data) setGoals(prev => [...prev, data])
+    }
+    setAdding(false)
+  }
+
+  async function removeGoal(id) {
+    await supabase.from('posting_goals').delete().eq('id', id)
+    setGoals(prev => prev.filter(g => g.id !== id))
+  }
+
+  async function updateTarget(id, target) {
+    const t = Math.max(1, parseInt(target) || 1)
+    await supabase.from('posting_goals').update({ target_count: t, updated_at: new Date().toISOString() }).eq('id', id)
+    setGoals(prev => prev.map(g => g.id === id ? { ...g, target_count: t } : g))
+  }
+
+  if (loading) return <p className="text-stone-400 text-sm">Loading...</p>
+
+  return (
+    <div>
+      <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Cadence</p>
+      <h1 className="font-serif text-3xl text-stone-800 mb-2">Goals & Cadence</h1>
+      <p className="text-sm text-stone-400 mb-6">Set weekly posting targets per platform and track your consistency.</p>
+
+      {/* Streak */}
+      {goals.length > 0 && (
+        <div className="bg-white border border-stone-200 rounded-xl p-5 mb-6 flex items-center gap-5">
+          <div className="text-center">
+            <p className="text-3xl font-light text-stone-800">{streak}</p>
+            <p className="text-xs text-stone-400 mt-1">week streak</p>
+          </div>
+          <div className="w-px h-10 bg-stone-100" />
+          <div>
+            <p className="text-sm text-stone-600 font-medium">{streak === 0 ? 'Start your streak' : streak === 1 ? '1 week strong' : `${streak} weeks in a row`}</p>
+            <p className="text-xs text-stone-400 mt-0.5">Hit all goals every week to build your streak.</p>
+          </div>
+        </div>
+      )}
+
+      {/* This week */}
+      {goals.length > 0 && (
+        <div className="mb-6">
+          <p className="text-xs tracking-widest uppercase text-stone-400 mb-3">This Week</p>
+          <div className="space-y-3">
+            {goals.map(goal => {
+              const done = weekProgress[goal.platform] || 0
+              const pct = Math.min(100, Math.round((done / goal.target_count) * 100))
+              const met = done >= goal.target_count
+              return (
+                <div key={goal.id} className="bg-white border border-stone-200 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-stone-700">{goal.platform}</span>
+                    <span className={`text-xs font-medium ${met ? 'text-teal-600' : 'text-stone-400'}`}>
+                      {done}/{goal.target_count} posts {met ? '✓' : ''}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-stone-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${met ? 'bg-teal-500' : 'bg-stone-400'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-stone-300 mt-1.5">{goal.target_count}×/week target</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Goal list */}
+      <div className="mb-4">
+        <p className="text-xs tracking-widest uppercase text-stone-400 mb-3">Targets</p>
+        <div className="space-y-2">
+          {goals.map(goal => (
+            <div key={goal.id} className="flex items-center gap-3 bg-white border border-stone-200 rounded-lg px-4 py-3">
+              <span className="flex-1 text-sm text-stone-700">{goal.platform}</span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={goal.target_count}
+                  onChange={e => updateTarget(goal.id, e.target.value)}
+                  className="w-12 text-center border border-stone-200 rounded text-sm py-1 outline-none focus:border-stone-400"
+                />
+                <span className="text-xs text-stone-400">× / week</span>
+              </div>
+              <button
+                onClick={() => removeGoal(goal.id)}
+                className="text-stone-200 hover:text-red-400 transition-colors text-sm"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {adding ? (
+        <div className="flex items-center gap-2 bg-white border border-stone-200 rounded-lg px-4 py-3">
+          <select
+            autoFocus
+            value={newPlatform}
+            onChange={e => setNewPlatform(e.target.value)}
+            className="flex-1 text-sm text-stone-700 outline-none bg-transparent"
+          >
+            {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <input
+            type="number"
+            min={1}
+            max={30}
+            value={newTarget}
+            onChange={e => setNewTarget(parseInt(e.target.value) || 1)}
+            className="w-12 text-center border border-stone-200 rounded text-sm py-1 outline-none focus:border-stone-400"
+          />
+          <span className="text-xs text-stone-400">× / week</span>
+          <button onClick={addGoal} className="bg-teal-500 text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-teal-600 transition-colors">Add</button>
+          <button onClick={() => setAdding(false)} className="text-xs text-stone-400 hover:text-stone-600">Cancel</button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setAdding(true)}
+          className="flex items-center gap-2 text-sm text-stone-400 hover:text-teal-600 transition-colors"
+        >
+          <span className="text-lg leading-none">+</span> Add platform goal
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Connected Accounts (placeholder) ────────────────────────────────────────
+
+function ConnectedAccountsSection() {
+  return (
+    <div>
+      <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Integrations</p>
+      <h1 className="font-serif text-3xl text-stone-800 mb-2">Connected Accounts</h1>
+      <p className="text-sm text-stone-400 mb-6">Link your social accounts to publish directly from Lume.</p>
+
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+        <span className="text-amber-500 text-lg flex-shrink-0">◎</span>
+        <div>
+          <p className="text-sm font-medium text-amber-800">Coming soon</p>
+          <p className="text-xs text-amber-700 mt-0.5">API publishing integrations are planned for a future update. You'll be able to authorize accounts here and publish directly from Post view.</p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {PLATFORMS.map(platform => (
+          <div key={platform} className="flex items-center gap-4 bg-white border border-stone-200 rounded-xl px-5 py-4 opacity-60">
+            <div className="w-8 h-8 rounded-lg bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold flex-shrink-0">
+              {platform[0]}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-stone-700">{platform}</p>
+              <p className="text-xs text-stone-400 mt-0.5">Not connected</p>
+            </div>
+            <span className="text-[10px] text-stone-300 border border-stone-200 px-2 py-1 rounded">Coming soon</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Team & Collaboration (placeholder) ──────────────────────────────────────
+
+function TeamSection() {
+  const features = [
+    { icon: '👥', title: 'Invite collaborators', desc: 'Add teammates who can view and edit your content.' },
+    { icon: '🔒', title: 'Role-based permissions', desc: 'Control who can publish, who can only comment, and who has full access.' },
+    { icon: '💬', title: 'Comments & feedback', desc: 'Leave notes on posts and assets. Resolve threads when done.' },
+    { icon: '📋', title: 'Shared projects', desc: 'Assign posts to team members and track their progress.' },
+  ]
+
+  return (
+    <div>
+      <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Collaborate</p>
+      <h1 className="font-serif text-3xl text-stone-800 mb-2">Team & Collaboration</h1>
+      <p className="text-sm text-stone-400 mb-6">Work with others on your content — shared access, roles, and feedback.</p>
+
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+        <span className="text-amber-500 text-lg flex-shrink-0">◎</span>
+        <div>
+          <p className="text-sm font-medium text-amber-800">Coming soon</p>
+          <p className="text-xs text-amber-700 mt-0.5">Collaboration features require accounts and authentication, which are planned for a future update.</p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {features.map((f, i) => (
+          <div key={i} className="flex items-start gap-4 bg-white border border-stone-200 rounded-xl px-5 py-4 opacity-60">
+            <span className="text-xl flex-shrink-0">{f.icon}</span>
+            <div>
+              <p className="text-sm font-medium text-stone-700">{f.title}</p>
+              <p className="text-xs text-stone-400 mt-0.5">{f.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-xs text-stone-300 mt-5">Accounts and authentication will plug in here when available.</p>
     </div>
   )
 }
