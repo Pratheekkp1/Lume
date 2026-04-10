@@ -69,6 +69,10 @@ export default function AlbumView() {
   // Sort
   const [sort, setSort] = useState('newest');
 
+  // Never-used filter
+  const [showUnusedOnly, setShowUnusedOnly] = useState(false);
+  const [usedPhotoIds, setUsedPhotoIds] = useState(new Set());
+
   // Creator features
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [showAddToPost, setShowAddToPost] = useState(false);
@@ -104,7 +108,16 @@ export default function AlbumView() {
       .eq("collection_id", collectionId)
       .is("deleted_at", null)
       .order("created_at", { ascending: true });
-    if (data) setPhotos(data);
+    if (data) {
+      setPhotos(data);
+      if (data.length > 0) {
+        const { data: links } = await supabase
+          .from("post_linked_photos")
+          .select("photo_id")
+          .in("photo_id", data.map(p => p.id));
+        setUsedPhotoIds(new Set((links || []).map(l => l.photo_id)));
+      }
+    }
     setLoading(false);
   }
 
@@ -253,8 +266,11 @@ export default function AlbumView() {
     await softDeleteBulk(ENTITY_TYPES.PHOTO, ids, `${ids.length} photo${ids.length !== 1 ? 's' : ''}`);
   }
 
-  const filtered = filter === "all" ? photos : photos.filter((p) => p.status === filter);
+  const filtered = photos
+    .filter(p => filter === "all" || p.status === filter)
+    .filter(p => !showUnusedOnly || !usedPhotoIds.has(p.id));
   const sorted = applySort(filtered, sort);
+  const unusedCount = photos.filter(p => !usedPhotoIds.has(p.id)).length;
   const anySelected = selectedIds.size > 0;
 
   const currentIndex = selectedPhoto ? sorted.findIndex((p) => p.id === selectedPhoto.id) : -1;
@@ -340,6 +356,18 @@ export default function AlbumView() {
             {f !== "all" && <span className="ml-1 opacity-60">{photos.filter((p) => p.status === f).length}</span>}
           </button>
         ))}
+        {unusedCount > 0 && (
+          <button
+            onClick={() => setShowUnusedOnly(p => !p)}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+              showUnusedOnly
+                ? 'bg-amber-500 border-amber-500 text-white'
+                : 'border-amber-200 text-amber-600 hover:border-amber-400'
+            }`}
+          >
+            Unused ({unusedCount})
+          </button>
+        )}
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => { setSelectMode(!selectMode); if (selectMode) deselectAll(); }}

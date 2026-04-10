@@ -5,6 +5,7 @@ import { POST_STATUSES, POST_TYPES, PLATFORMS } from '../lib/constants'
 import { recordOpen } from '../lib/recentOpens'
 import useDebouncedSave from '../hooks/useDebouncedSave'
 import PostMetrics from '../components/ui/PostMetrics'
+import RepurposeTracker from '../components/ui/RepurposeTracker'
 
 const BUCKET = 'Photos'
 
@@ -1100,6 +1101,9 @@ export default function PostView() {
           {(post.platform || []).length > 0 && (
             <PublishSection platforms={post.platform || []} />
           )}
+
+          {/* Repurposing */}
+          <RepurposeTracker postId={postId} />
 
           {/* Performance Metrics */}
           <PostMetrics postId={postId} platforms={post.platform} />
