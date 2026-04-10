@@ -2,25 +2,6 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { PLATFORMS } from '../lib/constants'
 
-/*
-  Supabase tables required (run once):
-
-  create table brand_kit (
-    id uuid primary key default gen_random_uuid(),
-    key text unique not null,
-    value jsonb not null,
-    updated_at timestamptz default now()
-  );
-
-  create table hashtag_groups (
-    id uuid primary key default gen_random_uuid(),
-    name text not null,
-    platform text,
-    hashtags text[] default '{}',
-    created_at timestamptz default now(),
-    updated_at timestamptz default now()
-  );
-*/
 
 const TABS = [
   { key: 'colors', label: 'Colors' },

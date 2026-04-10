@@ -625,18 +625,6 @@ function Field({ label, hint, children }) {
 }
 
 // ── Goals & Cadence ──────────────────────────────────────────────────────────
-/*
-  Supabase table required (run once):
-
-  create table posting_goals (
-    id uuid primary key default gen_random_uuid(),
-    platform text not null,
-    frequency text not null default 'weekly',
-    target_count integer not null default 1,
-    created_at timestamptz default now(),
-    updated_at timestamptz default now()
-  );
-*/
 
 function GoalsSection() {
   const [goals, setGoals] = useState([])
