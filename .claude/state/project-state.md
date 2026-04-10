@@ -1,11 +1,9 @@
 # Project State
 
 ## Last Updated
-2026-04-10 — Session: Content creator hub — lead session
+2026-04-10 — Both sessions merged into main
 
-## What Was Accomplished This Session
-
-### New Features (Lead Session)
+## What Was Accomplished (Lead Session)
 1. **Campaigns / Series** — full feature built
    - `src/pages/Campaigns.jsx` — list page with status filters, color-coded cards, progress bars, create/delete modal
    - `src/pages/CampaignView.jsx` — detail page with post list, add-posts modal, edit, campaign progress breakdown, remove posts
@@ -16,17 +14,28 @@
 2. **Performance Metrics** — PostView side panel now has collapsible "Performance" section
    - `src/components/ui/PostMetrics.jsx` — self-contained component, fetches/saves per-platform metrics (views, likes, comments, saves, shares)
    - Manual entry per platform, shows aggregated summary
-   - Plugged into PostView with one import + one line
 
 3. **Elevated Calendar** — `Posts.jsx` CalendarView enhanced
-   - Platform filter pills (filter calendar by Instagram, TikTok, YouTube, etc.)
-   - Monthly stats bar (scheduled count, published count, unscheduled count)
-   - Content gap warning if any weeks have zero posts
-   - Gap weeks highlighted with subtle amber tint
+   - Platform filter pills, monthly stats bar, content gap warning, gap week amber tint
 
-## Requires: Supabase SQL
-Run this in Supabase SQL Editor before using Campaigns/Metrics:
+## What Was Accomplished (Support Session)
+
+1. **Brand Kit page** (`/brand`) — `src/pages/Brand.jsx`
+   - 4 tabs: Colors, Tone of Voice, Caption Blocks, Hashtags
+   - Supabase tables: `brand_kit`, `hashtag_groups`
+
+2. **Hashtag Manager** — 4th tab inside Brand Kit, named groups with platform tags, one-click copy
+
+3. **Publishing workflow stubs** — `PublishSection` in PostView, per-platform "Coming soon" accordion with requirements checklist
+
+4. **Goals & Cadence Tracker** — `GoalsSection` in Settings, weekly targets per platform, progress bars, streak counter
+
+5. **Connected Accounts + Team stubs** — Settings placeholders for future OAuth and collaboration features
+
+## All Supabase Tables Needed
+Run in Supabase SQL Editor:
 ```sql
+-- Lead session tables
 CREATE TABLE campaigns (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -57,32 +66,43 @@ CREATE TABLE post_metrics (
   recorded_at date DEFAULT CURRENT_DATE,
   created_at timestamptz DEFAULT now()
 );
+
+-- Support session tables
+CREATE TABLE brand_kit (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key text UNIQUE NOT NULL,
+  value jsonb NOT NULL,
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE hashtag_groups (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  platform text,
+  hashtags text[] DEFAULT '{}',
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE posting_goals (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  platform text NOT NULL,
+  frequency text NOT NULL DEFAULT 'weekly',
+  target_count integer NOT NULL DEFAULT 1,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
 ```
 
-## Support Session (Other Chat) Is Building
-- Brand Kit page (`/brand`)
-- Hashtag Manager
-- Platform publishing workflow stubs in PostView
-- Posting Goals & Cadence Tracker (Dashboard + Settings)
-- Settings scaffolding for Connected Accounts + Team (placeholders)
-
-## Files Owned by Lead Session (do not touch in support session)
-- `src/pages/Campaigns.jsx`
-- `src/pages/CampaignView.jsx`
-- `src/components/ui/PostMetrics.jsx`
-- `src/pages/Dashboard.jsx` (added campaigns widget + analytics)
-- `src/pages/Posts.jsx` (calendar elevation)
-- `src/App.jsx` (added campaign routes)
-- `src/components/layout/Sidebar.jsx` (added Campaigns nav)
-
-## Next Steps (Future Sessions)
-1. Content repurposing tracker (mark posts as "repurposed from" another post/album, highlight unused library assets)
-2. Deeper analytics — charts/graphs across time for published posts
-3. Account system (auth, collaboration, mutual permissions) — later phase
+## Next Steps
+1. Content repurposing tracker
+2. Deeper analytics (charts over time)
+3. Account system / auth / collaboration — later phase
 4. Platform API integrations (YouTube, Instagram, TikTok) — final phase
 
 ## Decisions Log
-- Metrics are manual entry (no API) — per user preference, APIs come last
-- Campaign delete is soft-delete on campaigns table; posts are unaffected
-- Calendar gap detection is per-week (not per-day) to avoid noise
-- PostMetrics is a standalone component to keep PostView.jsx minimal
+- Metrics are manual entry (no API) — APIs come last per user preference
+- Campaign delete is soft-delete; posts unaffected
+- Calendar gap detection is per-week
+- PostMetrics is standalone component to keep PostView minimal
+- Publishing section and Goals tracker are UI stubs — no real API calls
