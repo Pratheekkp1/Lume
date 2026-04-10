@@ -4,6 +4,13 @@ import { supabase } from '../lib/supabase'
 import { POST_STATUSES } from '../lib/constants'
 import { getProfile } from '../lib/profile'
 
+const CAMPAIGN_STATUSES = {
+  planning: { label: 'Planning', color: '#9ca5b2' },
+  active:   { label: 'Active',   color: '#2a9d8f' },
+  complete: { label: 'Complete', color: '#68b5a0' },
+  paused:   { label: 'Paused',   color: '#e76f51' },
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const [pipeline, setPipeline] = useState({})
@@ -12,6 +19,7 @@ export default function Dashboard() {
   const [activity, setActivity] = useState([])
   const [libraryCounts, setLibraryCounts] = useState({ collections: 0, photos: 0, audioProjects: 0, tracks: 0 })
   const [storageBytes, setStorageBytes] = useState({ photos: 0, audio: 0 })
+  const [activeCampaigns, setActiveCampaigns] = useState([])
   const [loading, setLoading] = useState(true)
 
   const profile = getProfile()
@@ -33,6 +41,7 @@ export default function Dashboard() {
       { data: trackSizes },
       { data: recentAlbums },
       { data: recentTracks },
+      { data: campaignData },
     ] = await Promise.all([
       supabase.from('posts').select('id, title, type, status, platform, caption, created_at, updated_at').is('deleted_at', null).order('created_at', { ascending: false }),
       supabase.from('posts').select('id, title, status, platform, scheduled_date').is('deleted_at', null).gte('scheduled_date', today).order('scheduled_date', { ascending: true }).limit(10),
@@ -44,6 +53,7 @@ export default function Dashboard() {
       supabase.from('audio_tracks').select('file_size').is('deleted_at', null),
       supabase.from('collections').select('id, name, created_at').is('deleted_at', null).order('created_at', { ascending: false }).limit(5),
       supabase.from('audio_tracks').select('id, name, created_at, project_id').is('deleted_at', null).order('created_at', { ascending: false }).limit(5),
+      supabase.from('campaigns').select('id, name, status, color, start_date, end_date').is('deleted_at', null).in('status', ['planning', 'active']).order('created_at', { ascending: false }).limit(4),
     ])
 
     // Pipeline counts
@@ -68,6 +78,8 @@ export default function Dashboard() {
     }))
     activityItems.sort((a, b) => new Date(b.date) - new Date(a.date))
     setActivity(activityItems.slice(0, 8))
+
+    setActiveCampaigns(campaignData || [])
 
     setLibraryCounts({
       collections: collectionCount || 0,
@@ -121,7 +133,52 @@ export default function Dashboard() {
             >
               Calendar
             </button>
+            <button
+              onClick={() => navigate('/campaigns')}
+              className="border border-stone-200 text-stone-500 text-xs font-medium px-4 py-2.5 rounded-md hover:border-stone-300 hover:text-stone-700 transition"
+            >
+              Campaigns
+            </button>
           </div>
+
+          {/* Active Campaigns */}
+          {activeCampaigns.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs tracking-widest uppercase text-stone-400">Active Campaigns</p>
+                <button onClick={() => navigate('/campaigns')} className="text-xs text-teal-600 hover:text-teal-700 transition-colors">View all →</button>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {activeCampaigns.map(c => {
+                  const cs = CAMPAIGN_STATUSES[c.status] || CAMPAIGN_STATUSES.planning
+                  function fmtDate(d) {
+                    if (!d) return null
+                    return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                  }
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => navigate(`/campaigns/${c.id}`)}
+                      className="text-left bg-white border border-stone-200 rounded-xl p-4 hover:border-stone-300 hover:shadow-sm transition relative overflow-hidden group"
+                    >
+                      <div className="absolute top-0 left-0 right-0 h-1" style={{ backgroundColor: c.color }} />
+                      <div className="mt-1">
+                        <p className="text-xs font-medium text-stone-700 truncate mb-1">{c.name}</p>
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ backgroundColor: cs.color + '25', color: cs.color }}>
+                          {cs.label}
+                        </span>
+                        {(c.start_date || c.end_date) && (
+                          <p className="text-[10px] text-stone-400 mt-1.5">
+                            {fmtDate(c.start_date)}{c.start_date && c.end_date ? ' → ' : ''}{fmtDate(c.end_date)}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Top row: Pipeline + Upcoming */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">

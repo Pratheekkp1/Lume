@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { POST_STATUSES, POST_TYPES, PLATFORMS } from '../lib/constants'
 import { recordOpen } from '../lib/recentOpens'
 import useDebouncedSave from '../hooks/useDebouncedSave'
+import PostMetrics from '../components/ui/PostMetrics'
 
 const BUCKET = 'Photos'
 
@@ -1094,6 +1095,9 @@ export default function PostView() {
               </div>
             </div>
           )}
+
+          {/* Performance Metrics */}
+          <PostMetrics postId={postId} platforms={post.platform} />
 
           {/* Dates */}
           <div className="text-xs text-stone-300 pt-2 border-t border-stone-100">

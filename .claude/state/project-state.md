@@ -1,84 +1,88 @@
-# Lume Studio — Project State
+# Project State
 
-**Last updated**: 2026-04-08
-**Current phase**: Phase 3 COMPLETE — all planned features done (see roadmap.md)
+## Last Updated
+2026-04-10 — Session: Content creator hub — lead session
 
----
+## What Was Accomplished This Session
 
-## What's Built (Complete)
-- [x] Dashboard with stats, recent posts, quick actions
-- [x] Posts management (CRUD, status pipeline, asset uploads, linked media)
-- [x] Media/Albums (CRUD, event grouping, photo grid, upload, categories)
-- [x] Sounds (project CRUD, track upload, audio player with speed control)
-- [x] Settings (profile, keyboard shortcuts, about)
-- [x] Navigation (sidebar with recent posts, topbar)
-- [x] Category system (colors, many-to-many for photos/posts/tracks)
-- [x] Favorites system across all media types
-- [x] Cross-linking (photos & tracks linked to posts, "used in" references)
+### New Features (Lead Session)
+1. **Campaigns / Series** — full feature built
+   - `src/pages/Campaigns.jsx` — list page with status filters, color-coded cards, progress bars, create/delete modal
+   - `src/pages/CampaignView.jsx` — detail page with post list, add-posts modal, edit, campaign progress breakdown, remove posts
+   - Route: `/campaigns` and `/campaigns/:campaignId`
+   - Sidebar nav item added ("◈ Campaigns")
+   - Dashboard widget: active campaigns shown as cards between Quick Actions and Pipeline
 
-## Phase 1 — Completed (2026-03-24 to 2026-03-25)
-- [x] 1.1 Auto-save notes (debounced save on PostView, AlbumView, SoundView)
-- [x] 1.2 Multi-select Type & Platform (text[] arrays in DB, toggle UI)
-- [x] 1.3 Visible UI actions (three-dot menus, always-visible controls)
-- [x] 1.4 Caption field on Posts (auto-saving textarea between header and tabs)
-- [x] 1.5 Consistent delete confirmations (category delete dialogs)
-- [x] 1.6 Consistent create modals (Name + Status + Notes on all three, plus section-specific fields)
-- [x] 1.7 Auto-save status/metadata (inline status pills on AlbumView & SoundView headers)
+2. **Performance Metrics** — PostView side panel now has collapsible "Performance" section
+   - `src/components/ui/PostMetrics.jsx` — self-contained component, fetches/saves per-platform metrics (views, likes, comments, saves, shares)
+   - Manual entry per platform, shows aggregated summary
+   - Plugged into PostView with one import + one line
 
-## Phase 2 — Complete
-- [x] 2.1 Kanban board view for Posts (board default, grid toggle, drag-to-change-status, localStorage preference)
-- [x] 2.2 Unified Library concept (new Library.jsx, merged Media+Sounds into single page with type filters, sidebar updated, routes redirected)
-- [x] 2.3 Asset reordering in PostView (drag-to-reorder with HTML5 DnD, order_index persistence)
-- [x] 2.4 Improved linking UX (slide-in drawer replaces modal, search, photo thumbnails, multi-select with batch link)
-- [x] 2.5 Global drag-and-drop upload
-- [x] 2.6 Sidebar update
+3. **Elevated Calendar** — `Posts.jsx` CalendarView enhanced
+   - Platform filter pills (filter calendar by Instagram, TikTok, YouTube, etc.)
+   - Monthly stats bar (scheduled count, published count, unscheduled count)
+   - Content gap warning if any weeks have zero posts
+   - Gap weeks highlighted with subtle amber tint
 
-## Phase 3 — Complete
-- [x] 3.1 Multi-platform variants (post_variants table, platform tabs in PostView, per-variant caption/crop notes/asset inclusion)
-- [x] 3.2 Calendar/schedule view (scheduled_date field, drag-to-reschedule, month navigation)
-- [x] 3.3 Undo/trash system (soft delete, 30-day trash, toast with undo)
-- [x] 3.4 Batch operations everywhere (multi-select + bulk actions on Posts, SoundView, PostView)
-- [x] 3.5 Templates (post_templates CRUD in Settings, split-button "New Post" with template picker)
-- [x] 3.6 Enhanced search (already implemented: full-text across notes/captions/categories, recent searches, full-page /search view)
-- [x] 3.7 Dashboard overhaul (greeting, upcoming scheduled posts, pipeline summary bar, recent activity feed, storage alerts, updated quick actions)
+## Requires: Supabase SQL
+Run this in Supabase SQL Editor before using Campaigns/Metrics:
+```sql
+CREATE TABLE campaigns (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  description text,
+  status text DEFAULT 'planning',
+  start_date date,
+  end_date date,
+  color text DEFAULT '#6366f1',
+  created_at timestamptz DEFAULT now(),
+  deleted_at timestamptz
+);
 
-## Post-Phase 3 Improvements (2026-04-08)
-- [x] Responsive layout: removed max-width caps so content fills all screen sizes (Dashboard, Kanban, Posts grid)
-- [x] Codebase cleanup: removed dead files (Media.jsx, Sounds.jsx, App.css, react.svg) left over from old routes and Vite scaffold
+CREATE TABLE campaign_posts (
+  campaign_id uuid REFERENCES campaigns(id) ON DELETE CASCADE,
+  post_id uuid REFERENCES posts(id) ON DELETE CASCADE,
+  PRIMARY KEY (campaign_id, post_id)
+);
 
-## What's Next
-**Phase 3 COMPLETE.** All creator workflow features done. Future considerations: theming, team collaboration, platform API integrations, analytics, export/backup, mobile.
+CREATE TABLE post_metrics (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id uuid REFERENCES posts(id) ON DELETE CASCADE,
+  platform text NOT NULL,
+  views int DEFAULT 0,
+  likes int DEFAULT 0,
+  comments int DEFAULT 0,
+  saves int DEFAULT 0,
+  shares int DEFAULT 0,
+  recorded_at date DEFAULT CURRENT_DATE,
+  created_at timestamptz DEFAULT now()
+);
+```
 
-## DB Migrations Applied
-- `ALTER TABLE posts ADD COLUMN caption text`
-- `ALTER TABLE posts ALTER COLUMN type TYPE text[]`
-- `ALTER TABLE posts ALTER COLUMN platform TYPE text[]`
-- `ALTER TABLE audio_projects ADD COLUMN description text`
-- `ALTER TABLE audio_projects ADD COLUMN project_date date`
-- `collections.description` already existed
-- `CREATE TABLE post_variants (id uuid PK, post_id FK->posts ON DELETE CASCADE, platform text, caption text, crop_notes text, included_asset_ids jsonb, included_linked_photo_ids jsonb, included_linked_track_ids jsonb, created_at timestamptz)`
+## Support Session (Other Chat) Is Building
+- Brand Kit page (`/brand`)
+- Hashtag Manager
+- Platform publishing workflow stubs in PostView
+- Posting Goals & Cadence Tracker (Dashboard + Settings)
+- Settings scaffolding for Connected Accounts + Team (placeholders)
 
-## Decisions Made
-| Decision | Rationale | Date |
-|----------|-----------|------|
-| No auth | Personal-use tool, no need for login | Initial |
-| Direct Supabase queries | Simple architecture for single-user app | Initial |
-| Component-level state | No need for Redux/Zustand at this scale | Initial |
-| Events merged into Media | Simplified navigation, events as album metadata | 2026-03 |
-| CustomEvent for cross-component updates | Lightweight, no extra dependencies | Initial |
-| Content-first restructure | App should center on projects, not storage silos | 2026-03-24 |
-| Unified library (Phase 2) | Merge Media + Sounds into one browsable library | 2026-03-24 |
-| Three-phase roadmap | Phase 1: usability, Phase 2: restructure, Phase 3: creator features | 2026-03-24 |
-| text[] arrays for type/platform | Simpler than junction tables for multi-select on single-user app | 2026-03-24 |
-| Native HTML5 DnD for kanban | No extra dependencies, sufficient for single-user app | 2026-03-25 |
-| localStorage for view preference | Simple persistence without DB overhead for UI preferences | 2026-03-25 |
-| "Posted" instead of "Published" | User preference for post status label | 2026-03-25 |
+## Files Owned by Lead Session (do not touch in support session)
+- `src/pages/Campaigns.jsx`
+- `src/pages/CampaignView.jsx`
+- `src/components/ui/PostMetrics.jsx`
+- `src/pages/Dashboard.jsx` (added campaigns widget + analytics)
+- `src/pages/Posts.jsx` (calendar elevation)
+- `src/App.jsx` (added campaign routes)
+- `src/components/layout/Sidebar.jsx` (added Campaigns nav)
 
-## Open Questions
-- Export/backup strategy for Supabase data?
-- Theming (deferred to after Phase 3)
+## Next Steps (Future Sessions)
+1. Content repurposing tracker (mark posts as "repurposed from" another post/album, highlight unused library assets)
+2. Deeper analytics — charts/graphs across time for published posts
+3. Account system (auth, collaboration, mutual permissions) — later phase
+4. Platform API integrations (YouTube, Instagram, TikTok) — final phase
 
-## Defect Log
-| Issue | Root Cause | Fix | Date |
-|-------|-----------|-----|------|
-| AirPod play/pause desyncs UI | AudioPlayer only tracked state via React, not native audio events | Added onPlay/onPause handlers on <audio> element | 2026-03-24 |
+## Decisions Log
+- Metrics are manual entry (no API) — per user preference, APIs come last
+- Campaign delete is soft-delete on campaigns table; posts are unaffected
+- Calendar gap detection is per-week (not per-day) to avoid noise
+- PostMetrics is a standalone component to keep PostView.jsx minimal
