@@ -139,6 +139,12 @@ export default function Dashboard() {
             >
               Campaigns
             </button>
+            <button
+              onClick={() => navigate('/analytics')}
+              className="border border-stone-200 text-stone-500 text-xs font-medium px-4 py-2.5 rounded-md hover:border-stone-300 hover:text-stone-700 transition"
+            >
+              Analytics
+            </button>
           </div>
 
           {/* Active Campaigns */}

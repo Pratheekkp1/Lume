@@ -1,0 +1,357 @@
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import { POST_STATUSES } from '../lib/constants'
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const PLATFORM_COLORS = {
+  Instagram: '#e1306c',
+  TikTok:    '#010101',
+  YouTube:   '#ff0000',
+  'Twitter/X': '#1da1f2',
+  Facebook:  '#1877f2',
+}
+const TYPE_COLORS = ['#2a9d8f', '#e76f51', '#f4a261', '#e9c46a', '#264653', '#6366f1']
+
+export default function Analytics() {
+  const navigate = useNavigate()
+  const [posts, setPosts] = useState([])
+  const [metrics, setMetrics] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [timeRange, setTimeRange] = useState(12) // months
+
+  useEffect(() => { fetchAll() }, [])
+
+  async function fetchAll() {
+    const [{ data: postData }, { data: metricData }] = await Promise.all([
+      supabase
+        .from('posts')
+        .select('id, title, type, status, platform, scheduled_date, created_at')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('post_metrics')
+        .select('post_id, platform, views, likes, comments, saves, shares, recorded_at'),
+    ])
+    setPosts(postData || [])
+    setMetrics(metricData || [])
+    setLoading(false)
+  }
+
+  if (loading) return <div className="p-7 text-stone-400 text-sm">Loading...</div>
+
+  // ── Derived data ───────────────────────────────────────────
+
+  const published = posts.filter(p => p.status === 'published')
+  const now = new Date()
+  const cutoff = new Date(now.getFullYear(), now.getMonth() - timeRange + 1, 1)
+
+  // Monthly published posts (last N months)
+  const monthlyData = buildMonthlyData(published, timeRange)
+
+  // Weekly cadence (last 12 weeks)
+  const weeklyData = buildWeeklyData(posts, 12)
+
+  // Platform breakdown (all posts with platforms)
+  const platformCounts = {}
+  posts.forEach(p => (p.platform || []).forEach(pl => {
+    platformCounts[pl] = (platformCounts[pl] || 0) + 1
+  }))
+  const platformEntries = Object.entries(platformCounts).sort((a, b) => b[1] - a[1])
+
+  // Post type breakdown
+  const typeCounts = {}
+  posts.forEach(p => (p.type || []).forEach(t => {
+    typeCounts[t] = (typeCounts[t] || 0) + 1
+  }))
+  const typeEntries = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])
+
+  // Status funnel
+  const statusCounts = {}
+  Object.keys(POST_STATUSES).forEach(k => statusCounts[k] = 0)
+  posts.forEach(p => { if (statusCounts[p.status] !== undefined) statusCounts[p.status]++ })
+
+  // Performance metrics aggregation
+  const metricsByPost = {}
+  metrics.forEach(m => {
+    if (!metricsByPost[m.post_id]) metricsByPost[m.post_id] = { views: 0, likes: 0, comments: 0, saves: 0, shares: 0 }
+    metricsByPost[m.post_id].views    += m.views    || 0
+    metricsByPost[m.post_id].likes    += m.likes    || 0
+    metricsByPost[m.post_id].comments += m.comments || 0
+    metricsByPost[m.post_id].saves    += m.saves    || 0
+    metricsByPost[m.post_id].shares   += m.shares   || 0
+  })
+
+  const totalViews    = Object.values(metricsByPost).reduce((s, m) => s + m.views, 0)
+  const totalLikes    = Object.values(metricsByPost).reduce((s, m) => s + m.likes, 0)
+  const totalComments = Object.values(metricsByPost).reduce((s, m) => s + m.comments, 0)
+  const totalSaves    = Object.values(metricsByPost).reduce((s, m) => s + m.saves, 0)
+  const totalShares   = Object.values(metricsByPost).reduce((s, m) => s + m.shares, 0)
+  const hasMetrics    = metrics.length > 0
+
+  // Top posts by engagement
+  const topPosts = posts
+    .filter(p => metricsByPost[p.id])
+    .map(p => ({
+      ...p,
+      engagement: Object.values(metricsByPost[p.id]).reduce((s, v) => s + v, 0),
+      metrics: metricsByPost[p.id],
+    }))
+    .sort((a, b) => b.engagement - a.engagement)
+    .slice(0, 5)
+
+  return (
+    <div className="p-7 max-w-6xl">
+      {/* Header */}
+      <div className="mb-8">
+        <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Insights</p>
+        <h1 className="font-serif text-3xl text-stone-800">Analytics</h1>
+        <p className="text-xs text-stone-400 mt-1">{posts.length} posts total · {published.length} published</p>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+        <SummaryCard label="Total Posts" value={posts.length} sub={`${published.length} published`} />
+        <SummaryCard label="This Month" value={monthlyData[monthlyData.length - 1]?.count || 0} sub="published" />
+        <SummaryCard label="Avg / Month" value={monthlyData.length ? Math.round(monthlyData.reduce((s, m) => s + m.count, 0) / monthlyData.length) : 0} sub={`over ${timeRange}mo`} />
+        <SummaryCard label="Platforms" value={platformEntries.length} sub="active" />
+      </div>
+
+      {/* Published over time */}
+      <div className="bg-white border border-stone-200 rounded-xl p-6 mb-6">
+        <div className="flex items-center justify-between mb-5">
+          <p className="text-xs tracking-widest uppercase text-stone-400">Published Over Time</p>
+          <div className="flex gap-1">
+            {[3, 6, 12].map(n => (
+              <button
+                key={n}
+                onClick={() => setTimeRange(n)}
+                className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${timeRange === n ? 'bg-teal-500 text-white border-teal-500' : 'border-stone-200 text-stone-500 hover:border-stone-300'}`}
+              >
+                {n}mo
+              </button>
+            ))}
+          </div>
+        </div>
+        <BarChart data={monthlyData} color="#2a9d8f" height={140} valueKey="count" labelKey="label" />
+      </div>
+
+      {/* Weekly cadence */}
+      <div className="bg-white border border-stone-200 rounded-xl p-6 mb-6">
+        <p className="text-xs tracking-widest uppercase text-stone-400 mb-5">Weekly Cadence (last 12 weeks)</p>
+        <BarChart data={weeklyData} color="#6366f1" height={100} valueKey="count" labelKey="label" />
+        <p className="text-xs text-stone-400 mt-3">
+          Avg {weeklyData.length ? (weeklyData.reduce((s, w) => s + w.count, 0) / weeklyData.length).toFixed(1) : 0} posts/week
+        </p>
+      </div>
+
+      {/* Platform + Type row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Platform breakdown */}
+        <div className="bg-white border border-stone-200 rounded-xl p-6">
+          <p className="text-xs tracking-widest uppercase text-stone-400 mb-5">By Platform</p>
+          {platformEntries.length === 0 ? (
+            <p className="text-sm text-stone-400">No platform data yet.</p>
+          ) : (
+            <HorizontalBars entries={platformEntries} colorMap={PLATFORM_COLORS} total={posts.length} />
+          )}
+        </div>
+
+        {/* Post type breakdown */}
+        <div className="bg-white border border-stone-200 rounded-xl p-6">
+          <p className="text-xs tracking-widest uppercase text-stone-400 mb-5">By Type</p>
+          {typeEntries.length === 0 ? (
+            <p className="text-sm text-stone-400">No type data yet.</p>
+          ) : (
+            <HorizontalBars entries={typeEntries} colorList={TYPE_COLORS} total={posts.length} />
+          )}
+        </div>
+      </div>
+
+      {/* Status funnel */}
+      <div className="bg-white border border-stone-200 rounded-xl p-6 mb-6">
+        <p className="text-xs tracking-widest uppercase text-stone-400 mb-5">Pipeline Funnel</p>
+        <div className="flex items-end gap-3 h-24">
+          {Object.entries(POST_STATUSES).map(([key, s]) => {
+            const count = statusCounts[key] || 0
+            const maxCount = Math.max(...Object.values(statusCounts), 1)
+            const pct = (count / maxCount) * 100
+            return (
+              <div key={key} className="flex-1 flex flex-col items-center gap-1">
+                <span className="text-xs font-medium text-stone-600">{count}</span>
+                <div className="w-full rounded-t-md" style={{ height: `${Math.max(pct, 4)}%`, backgroundColor: s.color }} />
+                <span className="text-[10px] text-stone-400 text-center leading-tight">{s.label}</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Performance metrics */}
+      {hasMetrics && (
+        <div className="bg-white border border-stone-200 rounded-xl p-6 mb-6">
+          <p className="text-xs tracking-widest uppercase text-stone-400 mb-5">Total Engagement</p>
+          <div className="grid grid-cols-5 gap-4">
+            {[
+              { label: 'Views',    value: totalViews },
+              { label: 'Likes',    value: totalLikes },
+              { label: 'Comments', value: totalComments },
+              { label: 'Saves',    value: totalSaves },
+              { label: 'Shares',   value: totalShares },
+            ].map(({ label, value }) => (
+              <div key={label} className="text-center">
+                <p className="text-2xl font-light text-stone-800">{fmtNum(value)}</p>
+                <p className="text-xs text-stone-400 mt-0.5">{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Top posts */}
+      {topPosts.length > 0 && (
+        <div className="bg-white border border-stone-200 rounded-xl p-6 mb-6">
+          <p className="text-xs tracking-widest uppercase text-stone-400 mb-5">Top Posts by Engagement</p>
+          <div className="space-y-3">
+            {topPosts.map((post, i) => (
+              <div key={post.id} className="flex items-center gap-4">
+                <span className="text-xl font-light text-stone-300 w-6 flex-shrink-0">{i + 1}</span>
+                <button
+                  onClick={() => navigate(`/posts/${post.id}`)}
+                  className="flex-1 text-left text-sm text-stone-700 hover:text-teal-700 transition-colors truncate"
+                >
+                  {post.title || 'Untitled'}
+                </button>
+                <div className="flex items-center gap-4 flex-shrink-0 text-xs text-stone-400">
+                  <span>👁 {fmtNum(post.metrics.views)}</span>
+                  <span>♥ {fmtNum(post.metrics.likes)}</span>
+                  <span className="font-medium text-stone-600">{fmtNum(post.engagement)} total</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!hasMetrics && (
+        <div className="bg-stone-50 border border-stone-200 rounded-xl p-6 text-center text-stone-400">
+          <p className="text-sm mb-1">No performance data yet</p>
+          <p className="text-xs">Open a published post and add metrics in the Performance section of the side panel.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Chart components ────────────────────────────────────────
+
+function BarChart({ data, color, height, valueKey, labelKey }) {
+  if (!data.length) return <p className="text-sm text-stone-400">No data yet.</p>
+  const max = Math.max(...data.map(d => d[valueKey]), 1)
+  const barW = Math.max(8, Math.min(40, Math.floor(600 / data.length) - 4))
+
+  return (
+    <div className="flex items-end gap-1" style={{ height }}>
+      {data.map((d, i) => {
+        const h = Math.max((d[valueKey] / max) * (height - 28), d[valueKey] > 0 ? 4 : 0)
+        return (
+          <div key={i} className="flex flex-col items-center gap-1 flex-1">
+            {d[valueKey] > 0 && (
+              <span className="text-[10px] text-stone-500 leading-none">{d[valueKey]}</span>
+            )}
+            <div
+              className="w-full rounded-t-sm transition-all"
+              style={{ height: h || 2, backgroundColor: d[valueKey] > 0 ? color : '#e7e5e4', minHeight: 2 }}
+            />
+            <span className="text-[9px] text-stone-400 leading-none text-center">{d[labelKey]}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function HorizontalBars({ entries, colorMap = {}, colorList = [], total }) {
+  const max = entries[0]?.[1] || 1
+  return (
+    <div className="space-y-3">
+      {entries.map(([label, count], i) => {
+        const color = colorMap[label] || colorList[i % colorList.length] || '#9ca5b2'
+        const pct = Math.round((count / total) * 100)
+        return (
+          <div key={label}>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                <span className="text-xs text-stone-600">{label}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-stone-700">{count}</span>
+                <span className="text-[10px] text-stone-400 w-8 text-right">{pct}%</span>
+              </div>
+            </div>
+            <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${(count / max) * 100}%`, backgroundColor: color }}
+              />
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function SummaryCard({ label, value, sub }) {
+  return (
+    <div className="bg-white border border-stone-200 rounded-xl p-5">
+      <p className="text-3xl font-light text-stone-800 mb-1">{value}</p>
+      <p className="text-xs text-stone-500">{label}</p>
+      {sub && <p className="text-[10px] text-stone-400 mt-0.5">{sub}</p>}
+    </div>
+  )
+}
+
+// ── Helpers ─────────────────────────────────────────────────
+
+function buildMonthlyData(publishedPosts, months) {
+  const now = new Date()
+  const result = []
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const y = d.getFullYear()
+    const m = d.getMonth()
+    const count = publishedPosts.filter(p => {
+      const pd = new Date(p.scheduled_date || p.created_at)
+      return pd.getFullYear() === y && pd.getMonth() === m
+    }).length
+    result.push({ label: MONTH_NAMES[m], count, year: y, month: m })
+  }
+  return result
+}
+
+function buildWeeklyData(posts, weeks) {
+  const now = new Date()
+  const result = []
+  for (let i = weeks - 1; i >= 0; i--) {
+    const weekStart = new Date(now)
+    weekStart.setDate(now.getDate() - i * 7 - now.getDay())
+    weekStart.setHours(0, 0, 0, 0)
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekStart.getDate() + 7)
+    const count = posts.filter(p => {
+      const pd = new Date(p.scheduled_date || p.created_at)
+      return pd >= weekStart && pd < weekEnd
+    }).length
+    const label = `${weekStart.getMonth() + 1}/${weekStart.getDate()}`
+    result.push({ label, count })
+  }
+  return result
+}
+
+function fmtNum(n) {
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`
+  return (n || 0).toString()
+}

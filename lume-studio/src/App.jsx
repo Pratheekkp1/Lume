@@ -15,6 +15,7 @@ import SearchResults from './pages/SearchResults'
 import Campaigns from './pages/Campaigns'
 import CampaignView from './pages/CampaignView'
 import Brand from './pages/Brand'
+import Analytics from './pages/Analytics'
 import { purgeExpired } from './lib/trash'
 
 function AlbumRedirect() {
@@ -47,6 +48,7 @@ export default function App() {
               <Route path="/sounds/:projectId" element={<SoundView />} />
               <Route path="/search" element={<SearchResults />} />
               <Route path="/brand" element={<Brand />} />
+              <Route path="/analytics" element={<Analytics />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/campaigns" element={<Campaigns />} />
               <Route path="/campaigns/:campaignId" element={<CampaignView />} />
