@@ -18,6 +18,7 @@ export default function Posts() {
     const now = new Date()
     return { year: now.getFullYear(), month: now.getMonth() }
   })
+  const [calendarPlatform, setCalendarPlatform] = useState('all')
 
   // Templates
   const [templates, setTemplates] = useState([])
@@ -329,6 +330,8 @@ export default function Posts() {
           setCalendarMonth={setCalendarMonth}
           onNavigate={(id) => navigate(`/posts/${id}`)}
           onScheduleChange={handleScheduleChange}
+          platformFilter={calendarPlatform}
+          onPlatformFilterChange={setCalendarPlatform}
         />
       ) : viewMode === 'board' ? (
         <KanbanBoard
@@ -416,7 +419,7 @@ function toDateStr(date) {
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-function CalendarView({ posts, calendarMonth, setCalendarMonth, onNavigate, onScheduleChange }) {
+function CalendarView({ posts, calendarMonth, setCalendarMonth, onNavigate, onScheduleChange, platformFilter, onPlatformFilterChange }) {
   const [dragOverDate, setDragOverDate] = useState(null)
   const [expandedDate, setExpandedDate] = useState(null)
 
@@ -424,8 +427,17 @@ function CalendarView({ posts, calendarMonth, setCalendarMonth, onNavigate, onSc
   const cells = generateCalendarGrid(year, month)
   const todayStr = toDateStr(new Date())
 
-  const scheduled = posts.filter(p => p.scheduled_date)
-  const unscheduled = posts.filter(p => !p.scheduled_date)
+  // Apply platform filter
+  const filteredPosts = platformFilter === 'all'
+    ? posts
+    : posts.filter(p => (p.platform || []).includes(platformFilter))
+
+  const scheduled = filteredPosts.filter(p => p.scheduled_date)
+  const unscheduled = filteredPosts.filter(p => !p.scheduled_date)
+
+  // Posts in this calendar month (only current-month scheduled)
+  const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`
+  const thisMonthScheduled = scheduled.filter(p => p.scheduled_date.startsWith(monthStr))
 
   const postsByDate = {}
   scheduled.forEach(p => {
@@ -433,6 +445,17 @@ function CalendarView({ posts, calendarMonth, setCalendarMonth, onNavigate, onSc
     if (!postsByDate[key]) postsByDate[key] = []
     postsByDate[key].push(p)
   })
+
+  // Compute which weeks have no posts (for gap highlighting)
+  const weekHasPost = {}
+  cells.forEach((cell, i) => {
+    const weekIdx = Math.floor(i / 7)
+    const dateStr = toDateStr(cell.date)
+    if (cell.isCurrentMonth && postsByDate[dateStr]?.length > 0) weekHasPost[weekIdx] = true
+  })
+
+  // All platforms used across all posts
+  const allPlatforms = [...new Set(posts.flatMap(p => p.platform || []))].sort()
 
   function prevMonth() {
     setCalendarMonth(prev => prev.month === 0 ? { year: prev.year - 1, month: 11 } : { year: prev.year, month: prev.month - 1 })
@@ -459,9 +482,7 @@ function CalendarView({ posts, calendarMonth, setCalendarMonth, onNavigate, onSc
   }
 
   function handleDragLeave(e) {
-    if (!e.currentTarget.contains(e.relatedTarget)) {
-      setDragOverDate(null)
-    }
+    if (!e.currentTarget.contains(e.relatedTarget)) setDragOverDate(null)
   }
 
   function handleDrop(e, dateStr) {
@@ -479,15 +500,57 @@ function CalendarView({ posts, calendarMonth, setCalendarMonth, onNavigate, onSc
   }
 
   const MAX_VISIBLE = 2
+  const publishedThisMonth = thisMonthScheduled.filter(p => p.status === 'published').length
 
   return (
     <div>
-      {/* Calendar header */}
-      <div className="flex items-center gap-3 mb-4">
-        <button onClick={prevMonth} className="w-7 h-7 rounded-md border border-stone-200 text-stone-500 hover:bg-stone-50 flex items-center justify-center text-sm transition-colors">←</button>
-        <h2 className="text-sm font-semibold text-stone-700 w-40 text-center">{MONTH_NAMES[month]} {year}</h2>
-        <button onClick={nextMonth} className="w-7 h-7 rounded-md border border-stone-200 text-stone-500 hover:bg-stone-50 flex items-center justify-center text-sm transition-colors">→</button>
-        <button onClick={goToday} className="text-xs text-stone-400 hover:text-teal-700 transition-colors ml-1">Today</button>
+      {/* Calendar controls row */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <button onClick={prevMonth} className="w-7 h-7 rounded-md border border-stone-200 text-stone-500 hover:bg-stone-50 flex items-center justify-center text-sm transition-colors">←</button>
+          <h2 className="text-sm font-semibold text-stone-700 w-40 text-center">{MONTH_NAMES[month]} {year}</h2>
+          <button onClick={nextMonth} className="w-7 h-7 rounded-md border border-stone-200 text-stone-500 hover:bg-stone-50 flex items-center justify-center text-sm transition-colors">→</button>
+          <button onClick={goToday} className="text-xs text-stone-400 hover:text-teal-700 transition-colors ml-1">Today</button>
+        </div>
+
+        {/* Platform filter */}
+        {allPlatforms.length > 0 && (
+          <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+            <button
+              onClick={() => onPlatformFilterChange('all')}
+              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${platformFilter === 'all' ? 'bg-teal-500 text-white border-teal-500' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}
+            >
+              All platforms
+            </button>
+            {allPlatforms.map(p => (
+              <button
+                key={p}
+                onClick={() => onPlatformFilterChange(p)}
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${platformFilter === p ? 'bg-teal-500 text-white border-teal-500' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Monthly stats */}
+      <div className="flex items-center gap-6 mb-4 px-1">
+        <div className="text-xs text-stone-500">
+          <span className="font-medium text-stone-700">{thisMonthScheduled.length}</span> scheduled
+        </div>
+        <div className="text-xs text-stone-500">
+          <span className="font-medium text-stone-700">{publishedThisMonth}</span> published
+        </div>
+        <div className="text-xs text-stone-500">
+          <span className="font-medium text-stone-700">{unscheduled.length}</span> unscheduled
+        </div>
+        {Object.values(weekHasPost).filter(Boolean).length < Math.ceil(cells.filter(c => c.isCurrentMonth).length / 7) && (
+          <div className="text-xs text-amber-600 flex items-center gap-1">
+            <span>⚠</span> Content gaps this month
+          </div>
+        )}
       </div>
 
       {/* Day headers */}
@@ -504,19 +567,21 @@ function CalendarView({ posts, calendarMonth, setCalendarMonth, onNavigate, onSc
           const dayPosts = postsByDate[dateStr] || []
           const isToday = dateStr === todayStr
           const isOver = dragOverDate === dateStr
+          const weekIdx = Math.floor(i / 7)
+          const isGapWeek = cell.isCurrentMonth && !weekHasPost[weekIdx]
 
           return (
             <div
               key={i}
               className={`border-r border-b border-stone-200 min-h-[100px] p-1.5 transition-colors ${
-                !cell.isCurrentMonth ? 'bg-stone-50' : ''
+                !cell.isCurrentMonth ? 'bg-stone-50' : isGapWeek ? 'bg-amber-50/40' : ''
               } ${isOver ? 'bg-teal-50 ring-2 ring-inset ring-teal-300' : ''}`}
               onDragOver={(e) => handleDragOver(e, dateStr)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, dateStr)}
             >
-              <div className={`text-xs mb-1 ${
-                isToday ? 'bg-teal-600 text-white w-5 h-5 rounded-full flex items-center justify-center font-medium' :
+              <div className={`text-xs mb-1 w-5 h-5 flex items-center justify-center rounded-full ${
+                isToday ? 'bg-teal-600 text-white font-medium' :
                 cell.isCurrentMonth ? 'text-stone-600' : 'text-stone-300'
               }`}>
                 {cell.date.getDate()}

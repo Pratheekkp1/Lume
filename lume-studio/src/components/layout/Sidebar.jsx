@@ -136,6 +136,16 @@ export default function Sidebar() {
 
       <div className="border-t border-stone-200 mx-3 mb-3" />
 
+      {/* Campaigns */}
+      <div className="mb-4">
+        <NavLink to="/campaigns" className={navClass}>
+          <span className="w-4 text-center text-xs">◈</span>
+          Campaigns
+        </NavLink>
+      </div>
+
+      <div className="border-t border-stone-200 mx-3 mb-3" />
+
       {/* Settings */}
       <div className="mt-auto px-3">
         <NavLink
