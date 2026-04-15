@@ -73,6 +73,9 @@ export default function AlbumView() {
   const [showUnusedOnly, setShowUnusedOnly] = useState(false);
   const [usedPhotoIds, setUsedPhotoIds] = useState(new Set());
 
+  // Favorites filter
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
   // Creator features
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [showAddToPost, setShowAddToPost] = useState(false);
@@ -255,6 +258,13 @@ export default function AlbumView() {
     if (selectedPhoto && selectedIds.has(selectedPhoto.id)) setSelectedPhoto((prev) => ({ ...prev, status }));
   }
 
+  async function bulkToggleFavorite(value) {
+    const ids = [...selectedIds];
+    await supabase.from('photos').update({ is_favorite: value }).in('id', ids);
+    setPhotos(prev => prev.map(p => selectedIds.has(p.id) ? { ...p, is_favorite: value } : p));
+    if (selectedPhoto && selectedIds.has(selectedPhoto.id)) setSelectedPhoto(prev => ({ ...prev, is_favorite: value }));
+  }
+
   async function bulkDelete() {
     setBulkProcessing(true);
     const ids = [...selectedIds];
@@ -268,7 +278,8 @@ export default function AlbumView() {
 
   const filtered = photos
     .filter(p => filter === "all" || p.status === filter)
-    .filter(p => !showUnusedOnly || !usedPhotoIds.has(p.id));
+    .filter(p => !showUnusedOnly || !usedPhotoIds.has(p.id))
+    .filter(p => !showFavoritesOnly || p.is_favorite);
   const sorted = applySort(filtered, sort);
   const unusedCount = photos.filter(p => !usedPhotoIds.has(p.id)).length;
   const anySelected = selectedIds.size > 0;
@@ -356,6 +367,18 @@ export default function AlbumView() {
             {f !== "all" && <span className="ml-1 opacity-60">{photos.filter((p) => p.status === f).length}</span>}
           </button>
         ))}
+        {photos.some(p => p.is_favorite) && (
+          <button
+            onClick={() => setShowFavoritesOnly(p => !p)}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+              showFavoritesOnly
+                ? 'bg-amber-400 border-amber-400 text-white'
+                : 'border-stone-200 text-stone-400 hover:border-stone-300'
+            }`}
+          >
+            ★ Favorites ({photos.filter(p => p.is_favorite).length})
+          </button>
+        )}
         {unusedCount > 0 && (
           <button
             onClick={() => setShowUnusedOnly(p => !p)}
@@ -433,6 +456,18 @@ export default function AlbumView() {
                   className="border border-stone-200 text-stone-600 px-3 py-1 rounded hover:bg-stone-50 transition-colors"
                 >
                   Add to Post
+                </button>
+                <button
+                  onClick={() => bulkToggleFavorite(true)}
+                  className="border border-amber-200 text-amber-600 px-3 py-1 rounded hover:bg-amber-50 transition-colors"
+                >
+                  ★ Star
+                </button>
+                <button
+                  onClick={() => bulkToggleFavorite(false)}
+                  className="border border-stone-200 text-stone-500 px-3 py-1 rounded hover:bg-stone-50 transition-colors"
+                >
+                  ☆ Unstar
                 </button>
                 <button
                   onClick={() => setConfirmBulkDelete(true)}
@@ -619,6 +654,21 @@ export default function AlbumView() {
                   className="w-full border border-stone-200 text-stone-500 text-xs font-medium py-1.5 rounded-md hover:bg-stone-100 transition-colors"
                 >
                   Rename
+                </button>
+                <button
+                  onClick={async () => {
+                    const newVal = !selectedPhoto.is_favorite;
+                    await supabase.from('photos').update({ is_favorite: newVal }).eq('id', selectedPhoto.id);
+                    setPhotos(prev => prev.map(p => p.id === selectedPhoto.id ? { ...p, is_favorite: newVal } : p));
+                    setSelectedPhoto(prev => ({ ...prev, is_favorite: newVal }));
+                  }}
+                  className={`w-full border text-xs font-medium py-1.5 rounded-md transition-colors ${
+                    selectedPhoto.is_favorite
+                      ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                      : 'border-stone-200 text-stone-500 hover:bg-stone-100'
+                  }`}
+                >
+                  {selectedPhoto.is_favorite ? '★ Favorited' : '☆ Add to Favorites'}
                 </button>
                 {!isVideo(selectedPhoto) && (
                   <>

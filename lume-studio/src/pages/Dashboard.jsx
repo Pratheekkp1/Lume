@@ -20,6 +20,12 @@ export default function Dashboard() {
   const [libraryCounts, setLibraryCounts] = useState({ collections: 0, photos: 0, audioProjects: 0, tracks: 0 })
   const [storageBytes, setStorageBytes] = useState({ photos: 0, audio: 0 })
   const [activeCampaigns, setActiveCampaigns] = useState([])
+  const [todayPosts, setTodayPosts] = useState([])
+  const [overdueCount, setOverdueCount] = useState(0)
+  const [readyIdeasCount, setReadyIdeasCount] = useState(0)
+  const [staleDraftsCount, setStaleDraftsCount] = useState(0)
+  const [publishedThisMonth, setPublishedThisMonth] = useState(0)
+  const [ideasCount, setIdeasCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   const profile = getProfile()
@@ -29,6 +35,8 @@ export default function Dashboard() {
 
   async function fetchAll() {
     const today = new Date().toISOString().split('T')[0]
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
 
     const [
       { data: posts },
@@ -42,6 +50,12 @@ export default function Dashboard() {
       { data: recentAlbums },
       { data: recentTracks },
       { data: campaignData },
+      { data: todayScheduled },
+      { data: overduePosts },
+      { data: readyIdeas },
+      { data: staleDrafts },
+      { count: publishedCount },
+      { count: allIdeasCount },
     ] = await Promise.all([
       supabase.from('posts').select('id, title, type, status, platform, caption, created_at, updated_at').is('deleted_at', null).order('created_at', { ascending: false }),
       supabase.from('posts').select('id, title, status, platform, scheduled_date').is('deleted_at', null).gte('scheduled_date', today).order('scheduled_date', { ascending: true }).limit(10),
@@ -54,6 +68,12 @@ export default function Dashboard() {
       supabase.from('collections').select('id, name, created_at').is('deleted_at', null).order('created_at', { ascending: false }).limit(5),
       supabase.from('audio_tracks').select('id, name, created_at, project_id').is('deleted_at', null).order('created_at', { ascending: false }).limit(5),
       supabase.from('campaigns').select('id, name, status, color, start_date, end_date').is('deleted_at', null).in('status', ['planning', 'active']).order('created_at', { ascending: false }).limit(4),
+      supabase.from('posts').select('id, title').is('deleted_at', null).eq('scheduled_date', today),
+      supabase.from('posts').select('id').is('deleted_at', null).lt('scheduled_date', today).neq('status', 'published'),
+      supabase.from('ideas').select('id').eq('status', 'ready'),
+      supabase.from('posts').select('id').is('deleted_at', null).eq('status', 'in_progress').lt('updated_at', sevenDaysAgo),
+      supabase.from('posts').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('status', 'published').gte('updated_at', monthStart),
+      supabase.from('ideas').select('*', { count: 'exact', head: true }),
     ])
 
     // Pipeline counts
@@ -80,6 +100,12 @@ export default function Dashboard() {
     setActivity(activityItems.slice(0, 8))
 
     setActiveCampaigns(campaignData || [])
+    setTodayPosts(todayScheduled || [])
+    setOverdueCount((overduePosts || []).length)
+    setReadyIdeasCount((readyIdeas || []).length)
+    setStaleDraftsCount((staleDrafts || []).length)
+    setPublishedThisMonth(publishedCount || 0)
+    setIdeasCount(allIdeasCount || 0)
 
     setLibraryCounts({
       collections: collectionCount || 0,
@@ -113,39 +139,109 @@ export default function Dashboard() {
         <p className="text-stone-400 text-sm">Loading...</p>
       ) : (
         <>
+          {/* Today's Scheduled Posts Banner */}
+          {todayPosts.length > 0 && (
+            <div className="mb-6 flex items-center gap-3 flex-wrap bg-teal-50 border border-teal-200 rounded-xl px-4 py-3">
+              <span className="text-xs font-semibold text-teal-700 flex-shrink-0">
+                {todayPosts.length} post{todayPosts.length !== 1 ? 's' : ''} scheduled today
+              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                {todayPosts.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => navigate(`/posts/${p.id}`)}
+                    className="text-[11px] font-medium bg-teal-100 hover:bg-teal-200 text-teal-800 px-2.5 py-1 rounded-full transition-colors truncate max-w-[160px]"
+                  >
+                    {p.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Quick Actions */}
-          <div className="mb-8 flex items-center gap-3 flex-wrap">
-            <button
-              onClick={() => navigate('/posts?create=true')}
-              className="bg-teal-500 text-white text-xs font-medium px-5 py-2.5 rounded-md hover:bg-teal-600 transition-colors"
-            >
-              + New Post
-            </button>
-            <button
-              onClick={() => navigate('/library')}
-              className="border border-stone-200 text-stone-500 text-xs font-medium px-4 py-2.5 rounded-md hover:border-stone-300 hover:text-stone-700 transition"
-            >
-              Browse Library
-            </button>
-            <button
-              onClick={() => navigate('/posts?view=calendar')}
-              className="border border-stone-200 text-stone-500 text-xs font-medium px-4 py-2.5 rounded-md hover:border-stone-300 hover:text-stone-700 transition"
-            >
-              Calendar
-            </button>
-            <button
-              onClick={() => navigate('/campaigns')}
-              className="border border-stone-200 text-stone-500 text-xs font-medium px-4 py-2.5 rounded-md hover:border-stone-300 hover:text-stone-700 transition"
-            >
-              Campaigns
-            </button>
-            <button
-              onClick={() => navigate('/analytics')}
-              className="border border-stone-200 text-stone-500 text-xs font-medium px-4 py-2.5 rounded-md hover:border-stone-300 hover:text-stone-700 transition"
-            >
-              Analytics
-            </button>
+          <div className="mb-8 flex items-center justify-between gap-4 flex-wrap">
+            {/* Stat chips */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5 bg-stone-100 rounded-full px-3 py-1.5">
+                <span className="text-xs font-semibold text-stone-700">{publishedThisMonth}</span>
+                <span className="text-xs text-stone-400">published this month</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-stone-100 rounded-full px-3 py-1.5">
+                <span className="text-xs font-semibold text-stone-700">{ideasCount}</span>
+                <span className="text-xs text-stone-400">total ideas</span>
+              </div>
+            </div>
+            {/* Action buttons */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={() => navigate('/posts?create=true')}
+                className="bg-teal-500 text-white text-xs font-medium px-5 py-2.5 rounded-md hover:bg-teal-600 transition-colors"
+              >
+                + New Post
+              </button>
+              <button
+                onClick={() => navigate('/library')}
+                className="border border-stone-200 text-stone-500 text-xs font-medium px-4 py-2.5 rounded-md hover:border-stone-300 hover:text-stone-700 transition"
+              >
+                Browse Library
+              </button>
+              <button
+                onClick={() => navigate('/posts?view=calendar')}
+                className="border border-stone-200 text-stone-500 text-xs font-medium px-4 py-2.5 rounded-md hover:border-stone-300 hover:text-stone-700 transition"
+              >
+                Calendar
+              </button>
+              <button
+                onClick={() => navigate('/campaigns')}
+                className="border border-stone-200 text-stone-500 text-xs font-medium px-4 py-2.5 rounded-md hover:border-stone-300 hover:text-stone-700 transition"
+              >
+                Campaigns
+              </button>
+              <button
+                onClick={() => navigate('/analytics')}
+                className="border border-stone-200 text-stone-500 text-xs font-medium px-4 py-2.5 rounded-md hover:border-stone-300 hover:text-stone-700 transition"
+              >
+                Analytics
+              </button>
+            </div>
           </div>
+
+          {/* Needs Attention */}
+          {(overdueCount > 0 || readyIdeasCount > 0 || staleDraftsCount > 0) && (
+            <div className="mb-6">
+              <p className="text-xs tracking-widest uppercase text-stone-400 mb-3">Needs Attention</p>
+              <div className="flex flex-wrap gap-3">
+                {overdueCount > 0 && (
+                  <button
+                    onClick={() => navigate('/posts?status=ready')}
+                    className="flex-1 min-w-[160px] text-left px-4 py-3 bg-white rounded-xl border border-stone-200 border-l-4 border-l-amber-400 hover:shadow-sm transition"
+                  >
+                    <p className="text-sm font-semibold text-amber-700">{overdueCount} overdue</p>
+                    <p className="text-xs text-stone-400 mt-0.5">Past scheduled date, not published</p>
+                  </button>
+                )}
+                {readyIdeasCount > 0 && (
+                  <button
+                    onClick={() => navigate('/ideas')}
+                    className="flex-1 min-w-[160px] text-left px-4 py-3 bg-white rounded-xl border border-stone-200 border-l-4 border-l-teal-400 hover:shadow-sm transition"
+                  >
+                    <p className="text-sm font-semibold text-teal-700">{readyIdeasCount} idea{readyIdeasCount !== 1 ? 's' : ''} ready to promote</p>
+                    <p className="text-xs text-stone-400 mt-0.5">Ideas marked as ready</p>
+                  </button>
+                )}
+                {staleDraftsCount > 0 && (
+                  <button
+                    onClick={() => navigate('/posts?status=in_progress')}
+                    className="flex-1 min-w-[160px] text-left px-4 py-3 bg-white rounded-xl border border-stone-200 border-l-4 border-l-stone-400 hover:shadow-sm transition"
+                  >
+                    <p className="text-sm font-semibold text-stone-600">{staleDraftsCount} stale draft{staleDraftsCount !== 1 ? 's' : ''}</p>
+                    <p className="text-xs text-stone-400 mt-0.5">In progress, not updated in 7+ days</p>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Active Campaigns */}
           {activeCampaigns.length > 0 && (

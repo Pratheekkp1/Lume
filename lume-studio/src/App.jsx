@@ -18,6 +18,7 @@ import Brand from './pages/Brand'
 import Analytics from './pages/Analytics'
 import Ideas from './pages/Ideas'
 import Inspiration from './pages/Inspiration'
+import Notes from './pages/Notes'
 import { purgeExpired } from './lib/trash'
 
 function AlbumRedirect() {
@@ -56,6 +57,7 @@ export default function App() {
               <Route path="/campaigns" element={<Campaigns />} />
               <Route path="/campaigns/:campaignId" element={<CampaignView />} />
               <Route path="/ideas" element={<Ideas />} />
+              <Route path="/notes" element={<Notes />} />
 
               {/* Redirects from old routes */}
               <Route path="/media" element={<Navigate to="/library" replace />} />
