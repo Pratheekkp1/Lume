@@ -37,7 +37,7 @@ export default function Library() {
   }, [])
 
   async function fetchAll() {
-    const [albumResult, soundResult, eventResult] = await Promise.all([
+    const [albumResult, soundResult, eventResult, linkedResult] = await Promise.all([
       supabase
         .from('collections')
         .select('*, photos!collection_id(id, file_size), events(id, name)')
@@ -52,7 +52,13 @@ export default function Library() {
         .from('events')
         .select('id, name, date, location')
         .order('created_at', { ascending: false }),
+      supabase
+        .from('post_linked_photos')
+        .select('photo_id'),
     ])
+
+    // Build set of used photo IDs
+    const usedPhotoIds = new Set((linkedResult.data || []).map(r => r.photo_id))
 
     // Process albums with cover photos
     if (!albumResult.error && albumResult.data) {
@@ -69,11 +75,16 @@ export default function Library() {
           })
         }
       }
-      setAlbums(albumResult.data.map(c => ({
-        ...c,
-        cover_url: c.cover_photo_id ? coverMap[c.cover_photo_id] || null : null,
-        event_name: c.events?.name || null,
-      })))
+      setAlbums(albumResult.data.map(c => {
+        const photos = c.photos || []
+        const unusedCount = photos.filter(p => !usedPhotoIds.has(p.id)).length
+        return {
+          ...c,
+          cover_url: c.cover_photo_id ? coverMap[c.cover_photo_id] || null : null,
+          event_name: c.events?.name || null,
+          unused_count: unusedCount,
+        }
+      }))
     }
 
     setSoundProjects(soundResult.data || [])
@@ -390,6 +401,7 @@ function AlbumCard({ album, onClick, onEdit }) {
   const photoCount = album.photos?.length || 0
   const totalSize = (album.photos || []).reduce((sum, p) => sum + (p.file_size || 0), 0)
   const sizeLabel = fmtBytes(totalSize)
+  const unusedCount = album.unused_count ?? 0
 
   return (
     <div className="cursor-pointer group relative" onClick={onClick}>
@@ -451,6 +463,11 @@ function AlbumCard({ album, onClick, onEdit }) {
           <span className="text-xs text-stone-300">· {sizeLabel}</span>
         )}
       </div>
+      {photoCount > 0 && unusedCount > 0 && (
+        <p className="text-[10px] text-amber-500 mt-1">
+          {unusedCount} unused
+        </p>
+      )}
     </div>
   )
 }
