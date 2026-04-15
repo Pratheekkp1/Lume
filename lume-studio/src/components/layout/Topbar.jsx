@@ -251,7 +251,10 @@ export default function Topbar() {
         )}
       </div>
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-3">
+        <kbd className="hidden sm:flex items-center gap-1 px-1.5 py-0.5 bg-stone-200 border border-stone-300 rounded text-[10px] text-stone-500 font-mono cursor-default select-none" title="Open command palette">
+          <span>⌘</span><span>K</span>
+        </kbd>
         <div
           className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-medium cursor-pointer flex-shrink-0 transition-colors"
           style={{ backgroundColor: profile.avatarColor }}
