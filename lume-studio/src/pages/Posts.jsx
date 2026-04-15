@@ -26,6 +26,9 @@ export default function Posts() {
   const [templateInitial, setTemplateInitial] = useState({})
   const templatePickerRef = useRef(null)
 
+  // Cover images for grid view
+  const [coverMap, setCoverMap] = useState({})
+
   // Multi-select
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
@@ -36,6 +39,8 @@ export default function Posts() {
   useEffect(() => {
     fetchPosts()
     fetchTemplates()
+    window.addEventListener('lume-templates-updated', fetchTemplates)
+    return () => window.removeEventListener('lume-templates-updated', fetchTemplates)
   }, [])
 
   useEffect(() => {
@@ -64,6 +69,23 @@ export default function Posts() {
       .order('created_at', { ascending: false })
     setPosts(data || [])
     setLoading(false)
+    fetchCovers((data || []).map(p => p.id))
+  }
+
+  async function fetchCovers(postIds) {
+    if (!postIds.length) return
+    const { data: assets } = await supabase
+      .from('post_assets')
+      .select('post_id, file_path, file_type')
+      .in('post_id', postIds)
+      .in('file_type', ['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'image/gif'])
+      .order('order_index')
+      .order('created_at')
+    const map = {}
+    for (const a of (assets || [])) {
+      if (!map[a.post_id]) map[a.post_id] = supabase.storage.from('Photos').getPublicUrl(a.file_path).data.publicUrl
+    }
+    setCoverMap(map)
   }
 
   async function fetchTemplates() {
@@ -379,6 +401,7 @@ export default function Posts() {
             <PostCard
               key={post.id}
               post={post}
+              coverUrl={coverMap[post.id] || null}
               onClick={() => selectMode ? toggleSelect(post.id) : navigate(`/posts/${post.id}`)}
               onEdit={(e) => { e.stopPropagation(); setEditTarget(post) }}
               onDelete={(e) => { e.stopPropagation(); setDeleteTarget(post) }}
@@ -927,7 +950,7 @@ function KanbanCard({ post, onDragStart, onClick, onEdit, onDelete, selectMode, 
   )
 }
 
-function PostCard({ post, onClick, onEdit, onDelete, selectMode, checked, anySelected, onCheck }) {
+function PostCard({ post, onClick, onEdit, onDelete, selectMode, checked, anySelected, onCheck, coverUrl }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const status = POST_STATUSES[post.status]
   const cats = (post.post_categories || []).map(pc => pc.category).filter(Boolean)
@@ -948,6 +971,11 @@ function PostCard({ post, onClick, onEdit, onDelete, selectMode, checked, anySel
             onClick={e => e.stopPropagation()}
             className="accent-teal-500"
           />
+        </div>
+      )}
+      {coverUrl && (
+        <div className="w-full h-28 rounded-lg overflow-hidden mb-3 bg-stone-100">
+          <img src={coverUrl} alt="" className="w-full h-full object-cover" />
         </div>
       )}
       <div className="flex items-start justify-between mb-2">

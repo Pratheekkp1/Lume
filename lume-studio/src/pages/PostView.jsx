@@ -25,6 +25,10 @@ export default function PostView() {
   const [allPillars, setAllPillars] = useState([])
   const [showRepurpose, setShowRepurpose] = useState(false)
   const [repurposing, setRepurposing] = useState(false)
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false)
+  const [savingTemplate, setSavingTemplate] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+  const [templateSaved, setTemplateSaved] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
   const [deleteAssetTarget, setDeleteAssetTarget] = useState(null)
@@ -513,12 +517,93 @@ export default function PostView() {
             >
               ← All Posts
             </button>
-            <button
-              onClick={() => setShowRepurpose(true)}
-              className="text-xs text-stone-400 hover:text-teal-600 border border-stone-200 hover:border-teal-300 px-2.5 py-1 rounded-md transition-all inline-flex items-center gap-1.5"
-            >
-              ↗ Repurpose
-            </button>
+            <div className="flex items-center gap-2 relative">
+              <button
+                onClick={() => setShowRepurpose(true)}
+                className="text-xs text-stone-400 hover:text-teal-600 border border-stone-200 hover:border-teal-300 px-2.5 py-1 rounded-md transition-all inline-flex items-center gap-1.5"
+              >
+                ↗ Repurpose
+              </button>
+              <button
+                onClick={() => { setTemplateName(post?.title || ''); setShowSaveTemplate(v => !v); setTemplateSaved(false) }}
+                className="text-xs text-stone-400 hover:text-stone-700 border border-stone-200 hover:border-stone-300 px-2.5 py-1 rounded-md transition-all inline-flex items-center gap-1.5"
+              >
+                ⊞ Save as template
+              </button>
+              {showSaveTemplate && (
+                <div className="absolute top-full right-0 mt-2 w-72 bg-white border border-stone-200 rounded-xl shadow-lg z-40 p-4">
+                  {templateSaved ? (
+                    <p className="text-sm text-teal-600 font-medium text-center py-1">Template saved!</p>
+                  ) : (
+                    <>
+                      <p className="text-xs font-medium text-stone-700 mb-3">Save as template</p>
+                      <input
+                        autoFocus
+                        type="text"
+                        value={templateName}
+                        onChange={e => setTemplateName(e.target.value)}
+                        placeholder="Template name"
+                        className="w-full text-sm border border-stone-200 rounded-md px-3 py-1.5 outline-none focus:border-stone-400 mb-3"
+                      />
+                      <div className="bg-stone-50 rounded-lg p-3 mb-3 space-y-1">
+                        {post?.type && (
+                          <p className="text-xs text-stone-500">
+                            <span className="text-stone-400">Type:</span> {post.type}
+                          </p>
+                        )}
+                        {(post?.platform || []).length > 0 && (
+                          <p className="text-xs text-stone-500">
+                            <span className="text-stone-400">Platforms:</span> {(post.platform || []).join(', ')}
+                          </p>
+                        )}
+                        {(currentVariant?.caption || post?.caption) && (
+                          <p className="text-xs text-stone-500">
+                            <span className="text-stone-400">Caption:</span>{' '}
+                            {(currentVariant?.caption || post?.caption || '').slice(0, 80)}
+                            {(currentVariant?.caption || post?.caption || '').length > 80 ? '…' : ''}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setShowSaveTemplate(false)}
+                          className="flex-1 text-xs text-stone-400 hover:text-stone-600 border border-stone-200 py-1.5 rounded-md transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          disabled={savingTemplate || !templateName.trim()}
+                          onClick={async () => {
+                            if (!templateName.trim()) return
+                            setSavingTemplate(true)
+                            const { error } = await supabase.from('post_templates').insert({
+                              name: templateName.trim(),
+                              type: post?.type || null,
+                              platform: post?.platform || null,
+                              status: post?.status || null,
+                              description: post?.description || null,
+                              caption: currentVariant?.caption || post?.caption || null,
+                            })
+                            setSavingTemplate(false)
+                            if (!error) {
+                              setTemplateSaved(true)
+                              window.dispatchEvent(new CustomEvent('lume-templates-updated'))
+                              setTimeout(() => {
+                                setShowSaveTemplate(false)
+                                setTemplateSaved(false)
+                              }, 1500)
+                            }
+                          }}
+                          className="flex-1 text-xs bg-stone-800 text-white py-1.5 rounded-md hover:bg-stone-700 transition-colors disabled:opacity-50"
+                        >
+                          {savingTemplate ? 'Saving…' : 'Save'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-start gap-2">
             {editingTitle ? (

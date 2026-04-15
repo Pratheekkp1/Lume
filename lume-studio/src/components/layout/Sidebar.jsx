@@ -178,6 +178,14 @@ export default function Sidebar() {
         </NavLink>
       </div>
 
+      {/* Notes */}
+      <div className="mb-4">
+        <NavLink to="/notes" className={navClass}>
+          <span className="w-4 text-center text-xs">✎</span>
+          Notes
+        </NavLink>
+      </div>
+
       <div className="border-t border-stone-200 mx-3 mb-3" />
 
       {/* Settings */}
