@@ -8,6 +8,7 @@ const TABS = [
   { key: 'tone', label: 'Tone of Voice' },
   { key: 'captions', label: 'Caption Blocks' },
   { key: 'hashtags', label: 'Hashtags' },
+  { key: 'pillars', label: 'Content Pillars' },
 ]
 
 export default function Brand() {
@@ -42,6 +43,7 @@ export default function Brand() {
       {activeTab === 'tone' && <ToneTab />}
       {activeTab === 'captions' && <CaptionsTab />}
       {activeTab === 'hashtags' && <HashtagsTab />}
+      {activeTab === 'pillars' && <PillarsTab />}
     </div>
   )
 }
@@ -570,6 +572,207 @@ function HashtagsTab() {
           className="flex items-center gap-2 text-sm text-stone-400 hover:text-teal-600 transition-colors"
         >
           <span className="text-lg leading-none">+</span> New hashtag group
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Content Pillars ──────────────────────────────────────────────────────────
+
+const PILLAR_COLORS = [
+  '#2a9d8f', '#e76f51', '#e9c46a', '#264653', '#6366f1',
+  '#ec4899', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444',
+]
+
+const PILLAR_EMOJIS = ['📚', '🎯', '💡', '🔥', '✨', '🎬', '📸', '🎵', '🌱', '💪', '🛍', '❤️']
+
+function PillarsTab() {
+  const [pillars, setPillars] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [adding, setAdding] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newDesc, setNewDesc] = useState('')
+  const [newColor, setNewColor] = useState(PILLAR_COLORS[0])
+  const [newEmoji, setNewEmoji] = useState(PILLAR_EMOJIS[0])
+  const [postCounts, setPostCounts] = useState({}) // pillar_id -> count
+
+  useEffect(() => { load() }, [])
+
+  async function load() {
+    const [{ data: pillarData }, { data: postData }] = await Promise.all([
+      supabase.from('content_pillars').select('*').order('created_at'),
+      supabase.from('posts').select('pillar_id').is('deleted_at', null).not('pillar_id', 'is', null),
+    ])
+    setPillars(pillarData || [])
+    const counts = {}
+    ;(postData || []).forEach(p => { counts[p.pillar_id] = (counts[p.pillar_id] || 0) + 1 })
+    setPostCounts(counts)
+    setLoading(false)
+  }
+
+  async function createPillar() {
+    const name = newName.trim()
+    if (!name) return
+    const { data, error } = await supabase.from('content_pillars').insert({
+      name, description: newDesc.trim() || null, color: newColor, emoji: newEmoji,
+    }).select().single()
+    if (!error && data) setPillars(prev => [...prev, data])
+    setNewName(''); setNewDesc(''); setNewColor(PILLAR_COLORS[0]); setNewEmoji(PILLAR_EMOJIS[0])
+    setAdding(false)
+  }
+
+  async function deletePillar(id) {
+    await supabase.from('content_pillars').delete().eq('id', id)
+    setPillars(prev => prev.filter(p => p.id !== id))
+  }
+
+  async function updatePillar(id, fields) {
+    await supabase.from('content_pillars').update(fields).eq('id', id)
+    setPillars(prev => prev.map(p => p.id === id ? { ...p, ...fields } : p))
+  }
+
+  const totalTagged = Object.values(postCounts).reduce((s, n) => s + n, 0)
+
+  if (loading) return <p className="text-stone-400 text-sm">Loading...</p>
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="text-sm text-stone-500">Define your content themes — the recurring topics your audience expects from you.</p>
+        {totalTagged > 0 && (
+          <p className="text-xs text-stone-400 mt-1">{totalTagged} post{totalTagged !== 1 ? 's' : ''} assigned to a pillar</p>
+        )}
+      </div>
+
+      {/* Balance bar */}
+      {pillars.length > 0 && totalTagged > 0 && (
+        <div>
+          <p className="text-xs tracking-widest uppercase text-stone-400 mb-2">Balance</p>
+          <div className="h-3 bg-stone-100 rounded-full overflow-hidden flex">
+            {pillars.map(p => {
+              const count = postCounts[p.id] || 0
+              if (count === 0) return null
+              const pct = (count / totalTagged) * 100
+              return (
+                <div
+                  key={p.id}
+                  className="h-full transition-all"
+                  style={{ width: `${pct}%`, backgroundColor: p.color }}
+                  title={`${p.name}: ${count} post${count !== 1 ? 's' : ''}`}
+                />
+              )
+            })}
+          </div>
+          <div className="flex flex-wrap gap-3 mt-2">
+            {pillars.filter(p => (postCounts[p.id] || 0) > 0).map(p => (
+              <div key={p.id} className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+                <span className="text-xs text-stone-500">{p.name}</span>
+                <span className="text-xs text-stone-300">{postCounts[p.id]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Pillar cards */}
+      <div className="space-y-3">
+        {pillars.map(pillar => (
+          <div key={pillar.id} className="bg-white border border-stone-200 rounded-xl p-4 flex items-start gap-4 group">
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0"
+              style={{ backgroundColor: pillar.color + '20' }}
+            >
+              {pillar.emoji || '📌'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <input
+                type="text"
+                value={pillar.name}
+                onChange={e => updatePillar(pillar.id, { name: e.target.value })}
+                className="text-sm font-medium text-stone-700 bg-transparent outline-none w-full"
+              />
+              <input
+                type="text"
+                value={pillar.description || ''}
+                onChange={e => updatePillar(pillar.id, { description: e.target.value })}
+                placeholder="Short description..."
+                className="text-xs text-stone-400 bg-transparent outline-none w-full mt-0.5 placeholder-stone-200"
+              />
+              <p className="text-xs text-stone-300 mt-1.5">
+                {postCounts[pillar.id] || 0} post{(postCounts[pillar.id] || 0) !== 1 ? 's' : ''}
+              </p>
+            </div>
+            <button
+              onClick={() => deletePillar(pillar.id)}
+              className="text-stone-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 text-sm flex-shrink-0"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Add form */}
+      {adding ? (
+        <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            {/* Emoji picker */}
+            <div className="relative group/emoji">
+              <button className="w-10 h-10 rounded-lg bg-stone-50 border border-stone-200 flex items-center justify-center text-xl hover:bg-stone-100 transition-colors">
+                {newEmoji}
+              </button>
+              <div className="absolute top-12 left-0 bg-white border border-stone-200 rounded-xl shadow-lg p-2 z-10 hidden group-hover/emoji:flex flex-wrap w-44 gap-1">
+                {PILLAR_EMOJIS.map(e => (
+                  <button key={e} onClick={() => setNewEmoji(e)} className="w-8 h-8 hover:bg-stone-100 rounded flex items-center justify-center text-base">
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <input
+              autoFocus
+              type="text"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') createPillar(); if (e.key === 'Escape') setAdding(false) }}
+              placeholder="Pillar name (e.g. Behind the Scenes)"
+              className="flex-1 border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400"
+            />
+          </div>
+          <input
+            type="text"
+            value={newDesc}
+            onChange={e => setNewDesc(e.target.value)}
+            placeholder="Description (optional)"
+            className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400"
+          />
+          {/* Color picker */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-stone-400">Color:</span>
+            {PILLAR_COLORS.map(c => (
+              <button
+                key={c}
+                onClick={() => setNewColor(c)}
+                className="w-6 h-6 rounded-full transition-transform hover:scale-110 flex items-center justify-center"
+                style={{ backgroundColor: c }}
+              >
+                {newColor === c && <span className="text-white text-[10px]">✓</span>}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={createPillar} className="bg-teal-500 text-white text-xs font-medium px-4 py-2 rounded-md hover:bg-teal-600 transition-colors">Create Pillar</button>
+            <button onClick={() => setAdding(false)} className="text-xs text-stone-400 hover:text-stone-600 px-2 py-2">Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setAdding(true)}
+          className="flex items-center gap-2 text-sm text-stone-400 hover:text-teal-600 transition-colors"
+        >
+          <span className="text-lg leading-none">+</span> Add content pillar
         </button>
       )}
     </div>

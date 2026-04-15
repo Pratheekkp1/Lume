@@ -22,6 +22,9 @@ export default function PostView() {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [showCategoryPanel, setShowCategoryPanel] = useState(false)
+  const [allPillars, setAllPillars] = useState([])
+  const [showRepurpose, setShowRepurpose] = useState(false)
+  const [repurposing, setRepurposing] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
   const [deleteAssetTarget, setDeleteAssetTarget] = useState(null)
@@ -58,7 +61,7 @@ export default function PostView() {
   })
 
   async function fetchAll() {
-    const [{ data: postData }, { data: assetData }, { data: catJoins }, { data: allCats }, { data: photoLinks }, { data: trackLinks }, { data: variantData }] = await Promise.all([
+    const [{ data: postData }, { data: assetData }, { data: catJoins }, { data: allCats }, { data: photoLinks }, { data: trackLinks }, { data: variantData }, { data: pillarData }] = await Promise.all([
       supabase.from('posts').select('*').eq('id', postId).single(),
       supabase.from('post_assets').select('*').eq('post_id', postId).order('order_index').order('created_at'),
       supabase.from('post_categories').select('category:categories(*)').eq('post_id', postId),
@@ -66,6 +69,7 @@ export default function PostView() {
       supabase.from('post_linked_photos').select('order_index, photo_id, photo:photos(id, name, file_path, collection_id, collections(id, name))').eq('post_id', postId).order('order_index'),
       supabase.from('post_linked_tracks').select('order_index, track_id, track:audio_tracks(id, name, project_id, audio_projects(id, name))').eq('post_id', postId).order('order_index'),
       supabase.from('post_variants').select('*').eq('post_id', postId),
+      supabase.from('content_pillars').select('*').order('name'),
     ])
     setPost(postData)
     setTitleDraft(postData?.title || '')
@@ -75,6 +79,7 @@ export default function PostView() {
     setLinkedPhotos((photoLinks || []).map(l => l.photo ? { ...l.photo, _order_index: l.order_index ?? 0 } : null).filter(Boolean))
     setLinkedTracks((trackLinks || []).map(l => l.track ? { ...l.track, _order_index: l.order_index ?? 0 } : null).filter(Boolean))
     setVariants(variantData || [])
+    setAllPillars(pillarData || [])
     setLoading(false)
   }
 
@@ -153,6 +158,46 @@ export default function PostView() {
     // If all are included, store null (meaning "include all")
     const val = included.length === allIds.length ? null : included
     await updateVariant(currentVariant.id, { [field]: val })
+  }
+
+  // ── Repurpose ────────────────────────────────────────────────────────────────
+
+  async function handleRepurpose(targetPlatform) {
+    setRepurposing(true)
+    const newTitle = `[Repurpose] ${post.title} — ${targetPlatform}`
+    const { data, error } = await supabase.from('posts').insert({
+      title: newTitle,
+      type: post.type,
+      status: 'idea',
+      platform: [targetPlatform],
+      caption: post.caption || null,
+      description: post.description ? `Repurposed from: ${post.title}\n\n${post.description}` : `Repurposed from: ${post.title}`,
+      pillar_id: post.pillar_id || null,
+    }).select('id').single()
+    if (!error && data) {
+      // Copy linked photos
+      if (linkedPhotos.length > 0) {
+        await supabase.from('post_linked_photos').insert(
+          linkedPhotos.map((p, i) => ({ post_id: data.id, photo_id: p.id, order_index: i }))
+        )
+      }
+      // Copy linked tracks
+      if (linkedTracks.length > 0) {
+        await supabase.from('post_linked_tracks').insert(
+          linkedTracks.map((t, i) => ({ post_id: data.id, track_id: t.id, order_index: i }))
+        )
+      }
+      // Copy categories
+      if (categories.length > 0) {
+        await supabase.from('post_categories').insert(
+          categories.map(c => ({ post_id: data.id, category_id: c.id }))
+        )
+      }
+      window.dispatchEvent(new CustomEvent('lume-posts-updated'))
+      setShowRepurpose(false)
+      navigate(`/posts/${data.id}`)
+    }
+    setRepurposing(false)
   }
 
   // ── Categories ──────────────────────────────────────────────────────────────
@@ -461,12 +506,20 @@ export default function PostView() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="px-7 pt-6 pb-4 border-b border-stone-200 bg-white flex-shrink-0">
-          <button
-            onClick={() => navigate('/posts')}
-            className="text-xs text-stone-400 hover:text-stone-600 transition-colors mb-3 inline-flex items-center gap-1"
-          >
-            ← All Posts
-          </button>
+          <div className="flex items-center justify-between mb-3">
+            <button
+              onClick={() => navigate('/posts')}
+              className="text-xs text-stone-400 hover:text-stone-600 transition-colors inline-flex items-center gap-1"
+            >
+              ← All Posts
+            </button>
+            <button
+              onClick={() => setShowRepurpose(true)}
+              className="text-xs text-stone-400 hover:text-teal-600 border border-stone-200 hover:border-teal-300 px-2.5 py-1 rounded-md transition-all inline-flex items-center gap-1.5"
+            >
+              ↗ Repurpose
+            </button>
+          </div>
           <div className="flex items-start gap-2">
             {editingTitle ? (
               <input
@@ -1034,6 +1087,39 @@ export default function PostView() {
             />
           </div>
 
+          {/* Content Pillar */}
+          {allPillars.length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">Content Pillar</p>
+              <div className="flex flex-col gap-1">
+                {/* None option */}
+                <button
+                  onClick={() => updateField('pillar_id', null)}
+                  className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors ${
+                    !post.pillar_id ? 'bg-stone-100' : 'hover:bg-stone-50'
+                  }`}
+                >
+                  <span className="w-3 h-3 rounded-full bg-stone-200 flex-shrink-0" />
+                  <span className="flex-1 text-left text-stone-400 italic">None</span>
+                  {!post.pillar_id && <span className="text-stone-400">✓</span>}
+                </button>
+                {allPillars.map(pillar => (
+                  <button
+                    key={pillar.id}
+                    onClick={() => updateField('pillar_id', pillar.id)}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors ${
+                      post.pillar_id === pillar.id ? 'bg-stone-100' : 'hover:bg-stone-50'
+                    }`}
+                  >
+                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: pillar.color }} />
+                    <span className="flex-1 text-left text-stone-600">{pillar.emoji && `${pillar.emoji} `}{pillar.name}</span>
+                    {post.pillar_id === pillar.id && <span className="text-stone-400">✓</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Categories */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -1139,6 +1225,42 @@ export default function PostView() {
           onUnlinkTrack={unlinkTrack}
           onClose={() => setShowLibraryLinker(false)}
         />
+      )}
+
+      {/* Repurpose modal */}
+      {showRepurpose && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowRepurpose(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6" onClick={e => e.stopPropagation()}>
+            <div className="text-2xl mb-3">↗</div>
+            <h2 className="font-serif text-xl text-stone-800 mb-1">Repurpose post</h2>
+            <p className="text-sm text-stone-400 mb-5">
+              Clone this post for a different platform. Linked assets, caption, and categories will be copied. Status resets to Idea.
+            </p>
+            <p className="text-xs uppercase tracking-widest text-stone-400 mb-2">Choose platform</p>
+            <div className="space-y-2">
+              {PLATFORMS.filter(p => !(post.platform || []).includes(p)).map(platform => (
+                <button
+                  key={platform}
+                  onClick={() => !repurposing && handleRepurpose(platform)}
+                  disabled={repurposing}
+                  className="w-full text-left flex items-center gap-3 px-4 py-3 border border-stone-200 rounded-xl hover:border-teal-300 hover:bg-teal-50 transition-all disabled:opacity-50"
+                >
+                  <span className="text-sm font-medium text-stone-700">{platform}</span>
+                  <span className="ml-auto text-xs text-stone-300">→</span>
+                </button>
+              ))}
+              {PLATFORMS.filter(p => !(post.platform || []).includes(p)).length === 0 && (
+                <p className="text-sm text-stone-400 text-center py-3">This post already targets all platforms.</p>
+              )}
+            </div>
+            <button
+              onClick={() => setShowRepurpose(false)}
+              className="w-full mt-4 text-xs text-stone-400 hover:text-stone-600 transition-colors py-2"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Delete asset confirm */}
