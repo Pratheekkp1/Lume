@@ -20,6 +20,7 @@ import Ideas from './pages/Ideas'
 import Inspiration from './pages/Inspiration'
 import Notes from './pages/Notes'
 import { purgeExpired } from './lib/trash'
+import CommandPalette from './components/ui/CommandPalette'
 
 function AlbumRedirect() {
   const { collectionId } = useParams()
@@ -72,6 +73,7 @@ export default function App() {
           </main>
         </div>
       </GlobalDropZone>
+      <CommandPalette />
       <Toast />
     </BrowserRouter>
   )

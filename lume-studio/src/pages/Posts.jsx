@@ -240,6 +240,12 @@ export default function Posts() {
               Grid
             </button>
             <button
+              onClick={() => { setViewMode('list'); localStorage.setItem('lume-posts-view', 'list') }}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'list' ? 'bg-teal-500 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
+            >
+              List
+            </button>
+            <button
               onClick={() => { setViewMode('calendar'); localStorage.setItem('lume-posts-view', 'calendar') }}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'calendar' ? 'bg-teal-500 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
             >
@@ -292,8 +298,8 @@ export default function Posts() {
         </div>
       </div>
 
-      {/* Status filter — only in grid view */}
-      {viewMode === 'grid' && (
+      {/* Status filter — only in grid and list view */}
+      {(viewMode === 'grid' || viewMode === 'list') && (
         <div className="flex items-center gap-2 mb-6 flex-wrap">
           <button
             onClick={() => setFilterStatus('all')}
@@ -389,6 +395,17 @@ export default function Posts() {
           selectedIds={selectedIds}
           onToggleSelect={toggleSelect}
         />
+      ) : viewMode === 'list' ? (
+        <PostListView
+          posts={filtered}
+          onOpen={post => navigate(`/posts/${post.id}`)}
+          onEdit={post => setEditTarget(post)}
+          onDelete={post => setDeleteTarget(post)}
+          selectMode={selectMode}
+          selectedIds={selectedIds}
+          toggleSelect={toggleSelect}
+          anySelected={anySelected}
+        />
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-stone-400">
           <p className="text-4xl mb-4">▷</p>
@@ -438,6 +455,79 @@ export default function Posts() {
           onConfirm={handleBatchSchedule}
           onClose={() => setShowBatchSchedule(false)}
         />
+      )}
+    </div>
+  )
+}
+
+/* ── List View ───────────────────────────────────────────── */
+
+function PostListView({ posts, onOpen, onEdit, onDelete, selectMode, selectedIds, toggleSelect, anySelected }) {
+  return (
+    <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+      {/* Header row */}
+      <div className="grid grid-cols-[1fr_120px_100px_120px_80px] gap-4 px-4 py-2 bg-stone-50 border-b border-stone-200">
+        <span className="text-[10px] uppercase tracking-widest text-stone-400">Title</span>
+        <span className="text-[10px] uppercase tracking-widest text-stone-400">Status</span>
+        <span className="text-[10px] uppercase tracking-widest text-stone-400">Type</span>
+        <span className="text-[10px] uppercase tracking-widest text-stone-400">Scheduled</span>
+        <span className="text-[10px] uppercase tracking-widest text-stone-400">Platform</span>
+      </div>
+      {posts.length === 0 ? (
+        <p className="px-4 py-8 text-sm text-stone-400 text-center">No posts.</p>
+      ) : (
+        posts.map((post, i) => {
+          const status = POST_STATUSES[post.status]
+          const cats = (post.post_categories || []).map(pc => pc.category).filter(Boolean)
+          const isChecked = selectedIds.has(post.id)
+          return (
+            <div
+              key={post.id}
+              onClick={() => onOpen(post)}
+              className={`grid grid-cols-[1fr_120px_100px_120px_80px] gap-4 px-4 py-3 cursor-pointer hover:bg-stone-50 transition-colors items-center ${i !== 0 ? 'border-t border-stone-100' : ''} ${isChecked ? 'bg-teal-50' : ''}`}
+            >
+              {/* Title + cats */}
+              <div className="flex items-center gap-2 min-w-0">
+                {(selectMode || anySelected) && (
+                  <input type="checkbox" checked={isChecked}
+                    onChange={e => { e.stopPropagation(); toggleSelect(post.id) }}
+                    onClick={e => e.stopPropagation()}
+                    className="accent-teal-500 flex-shrink-0"
+                  />
+                )}
+                <span className="text-sm text-stone-700 truncate">{post.title}</span>
+                {cats.slice(0, 3).map(cat => (
+                  <span key={cat.id} className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                ))}
+              </div>
+              {/* Status */}
+              <div>
+                {status && (
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: status.color + '30', color: status.color }}>
+                    {status.label}
+                  </span>
+                )}
+              </div>
+              {/* Type */}
+              <span className="text-xs text-stone-400 truncate">{post.type?.join(', ') || '—'}</span>
+              {/* Scheduled */}
+              <span className="text-xs text-stone-400">
+                {post.scheduled_date
+                  ? new Date(post.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                  : '—'}
+              </span>
+              {/* Platform + actions */}
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs text-stone-300 truncate">{post.platform?.join(', ') || '—'}</span>
+                <button
+                  onClick={e => { e.stopPropagation(); onEdit(post) }}
+                  className="opacity-0 group-hover:opacity-100 text-xs text-stone-400 hover:text-stone-700 px-1 transition-colors"
+                >⋮</button>
+              </div>
+            </div>
+          )
+        })
       )}
     </div>
   )
