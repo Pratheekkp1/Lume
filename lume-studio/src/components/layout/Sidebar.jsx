@@ -136,6 +136,14 @@ export default function Sidebar() {
 
       <div className="border-t border-stone-200 mx-3 mb-3" />
 
+      {/* Ideas */}
+      <div className="mb-4">
+        <NavLink to="/ideas" className={navClass}>
+          <span className="w-4 text-center text-xs">✦</span>
+          Ideas
+        </NavLink>
+      </div>
+
       {/* Analytics */}
       <div className="mb-4">
         <NavLink to="/analytics" className={navClass}>
@@ -161,28 +169,6 @@ export default function Sidebar() {
       </div>
 
       <div className="border-t border-stone-200 mx-3 mb-3" />
-
-      {/* Recent Items */}
-      {recents.length > 0 && (
-        <>
-          <div className="px-4 mb-2">
-            <p className="text-[10px] font-medium text-stone-400 uppercase tracking-wider">Recent</p>
-          </div>
-          <div className="mb-4 space-y-0.5">
-            {recents.map(item => (
-              <button
-                key={`${item.type}-${item.id}`}
-                onClick={() => navigate(item.link)}
-                className="flex items-center gap-2 px-4 py-1.5 text-xs text-stone-500 hover:text-stone-700 hover:bg-stone-200 transition-colors w-full text-left truncate"
-              >
-                <span className="w-3 text-center text-[10px] text-stone-400 flex-shrink-0">{item.icon}</span>
-                <span className="truncate">{item.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="border-t border-stone-200 mx-3 mb-3" />
-        </>
-      )}
 
       {/* Settings */}
       <div className="mt-auto px-3">

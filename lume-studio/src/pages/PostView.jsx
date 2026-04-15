@@ -548,6 +548,7 @@ export default function PostView() {
                 value={currentVariant.caption || ''}
                 placeholder={post.caption || 'Write your caption…'}
                 onSave={val => updateVariant(currentVariant.id, { caption: val })}
+                platform={currentVariant.platform}
               />
               {currentVariant.caption && (
                 <button
@@ -1394,12 +1395,41 @@ function DescriptionEditor({ value, onSave }) {
 
 // ── Caption editor ──────────────────────────────────────────────────────────
 
-function CaptionEditor({ value, onSave, placeholder = 'Write your caption…' }) {
+const PLATFORM_CHAR_LIMITS = {
+  'Instagram':  2200,
+  'TikTok':     2200,
+  'YouTube':    5000,
+  'Twitter/X':   280,
+  'Facebook':  63206,
+}
+
+function CaptionEditor({ value, onSave, placeholder = 'Write your caption…', platform = null }) {
   const [draft, setDraft] = useState(value)
+  const [showHashtags, setShowHashtags] = useState(false)
+  const [hashtagGroups, setHashtagGroups] = useState([])
   const saveFn = useCallback(async (val) => { await onSave(val) }, [onSave])
   const { saved, triggerSave, flush } = useDebouncedSave(saveFn)
 
   useEffect(() => { setDraft(value) }, [value])
+
+  useEffect(() => {
+    supabase.from('hashtag_groups').select('*').order('name').then(({ data }) => {
+      setHashtagGroups(data || [])
+    })
+  }, [])
+
+  function insertHashtags(group) {
+    const tags = (group.hashtags || []).join(' ')
+    const newVal = draft ? `${draft}\n${tags}` : tags
+    setDraft(newVal)
+    triggerSave(newVal)
+    setShowHashtags(false)
+  }
+
+  const limit = platform ? PLATFORM_CHAR_LIMITS[platform] : null
+  const count = draft.length
+  const over = limit && count > limit
+  const nearLimit = limit && count > limit * 0.9
 
   return (
     <div className="relative">
@@ -1411,7 +1441,43 @@ function CaptionEditor({ value, onSave, placeholder = 'Write your caption…' })
         className="w-full text-sm text-stone-700 placeholder-stone-300 outline-none resize-none bg-transparent leading-relaxed"
         placeholder={placeholder}
       />
-      <p className={`text-[10px] text-green-600 transition-opacity duration-300 ${saved ? 'opacity-100' : 'opacity-0'}`}>Saved</p>
+      <div className="flex items-center justify-between mt-1">
+        <div className="flex items-center gap-2">
+          {hashtagGroups.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowHashtags(p => !p)}
+                className="text-[10px] text-stone-400 hover:text-teal-600 transition-colors"
+              >
+                # Hashtags
+              </button>
+              {showHashtags && (
+                <div className="absolute left-0 top-full mt-1 bg-white border border-stone-200 rounded-lg shadow-lg min-w-[180px] py-1 z-20">
+                  <p className="text-[10px] uppercase tracking-widest text-stone-400 px-3 py-1.5">Insert group</p>
+                  {hashtagGroups.map(g => (
+                    <button
+                      key={g.id}
+                      onClick={() => insertHashtags(g)}
+                      className="w-full text-left px-3 py-2 text-xs text-stone-700 hover:bg-stone-50 transition-colors flex items-center justify-between gap-3"
+                    >
+                      <span>{g.name}</span>
+                      {g.platform && <span className="text-[10px] text-stone-400">{g.platform}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          <p className={`text-[10px] text-green-600 transition-opacity duration-300 ${saved ? 'opacity-100' : 'opacity-0'}`}>Saved</p>
+        </div>
+        {limit ? (
+          <span className={`text-[10px] tabular-nums ${over ? 'text-red-500 font-medium' : nearLimit ? 'text-amber-500' : 'text-stone-300'}`}>
+            {count}/{limit}
+          </span>
+        ) : (
+          <span className="text-[10px] text-stone-300 tabular-nums">{count}</span>
+        )}
+      </div>
     </div>
   )
 }
