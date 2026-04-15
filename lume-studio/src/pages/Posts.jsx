@@ -31,6 +31,7 @@ export default function Posts() {
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [bulkProcessing, setBulkProcessing] = useState(false)
+  const [showBatchSchedule, setShowBatchSchedule] = useState(false)
 
   useEffect(() => {
     fetchPosts()
@@ -159,6 +160,22 @@ export default function Posts() {
     setConfirmBulkDelete(false)
     setBulkProcessing(false)
     await softDeleteBulk(ENTITY_TYPES.POST, ids, `${ids.length} post${ids.length !== 1 ? 's' : ''}`)
+    window.dispatchEvent(new CustomEvent('lume-posts-updated'))
+  }
+
+  async function handleBatchSchedule(assignments) {
+    // assignments: [{ postId, date }]
+    await Promise.all(
+      assignments.map(({ postId, date }) =>
+        supabase.from('posts').update({ scheduled_date: date }).eq('id', postId)
+      )
+    )
+    setPosts(prev => prev.map(p => {
+      const a = assignments.find(x => x.postId === p.id)
+      return a ? { ...p, scheduled_date: a.date } : p
+    }))
+    deselectAll()
+    setShowBatchSchedule(false)
     window.dispatchEvent(new CustomEvent('lume-posts-updated'))
   }
 
@@ -310,6 +327,12 @@ export default function Posts() {
                   ))}
                 </select>
                 <button
+                  onClick={() => setShowBatchSchedule(true)}
+                  className="border border-stone-200 text-stone-500 px-3 py-1 rounded hover:bg-stone-50 transition-colors"
+                >
+                  Schedule
+                </button>
+                <button
                   onClick={() => setConfirmBulkDelete(true)}
                   className="border border-red-200 text-red-400 px-3 py-1 rounded hover:bg-red-50 hover:text-red-500 transition-colors"
                 >
@@ -386,6 +409,98 @@ export default function Posts() {
           onClose={() => setEditTarget(null)}
         />
       )}
+      {showBatchSchedule && (
+        <BatchScheduleModal
+          posts={posts.filter(p => selectedIds.has(p.id))}
+          onConfirm={handleBatchSchedule}
+          onClose={() => setShowBatchSchedule(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+/* ── Batch Schedule Modal ────────────────────────────────── */
+
+function BatchScheduleModal({ posts, onConfirm, onClose }) {
+  const today = new Date().toISOString().split('T')[0]
+  const [startDate, setStartDate] = useState(today)
+  const [interval, setInterval] = useState('daily')
+  const [assignments, setAssignments] = useState(() =>
+    posts.map((p, i) => ({ postId: p.id, title: p.title, date: '' }))
+  )
+
+  useEffect(() => { computeDates() }, [startDate, interval])
+
+  function computeDates() {
+    const start = new Date(startDate + 'T00:00:00')
+    const gaps = { daily: 1, every2: 2, every3: 3, weekly: 7 }
+    const gap = gaps[interval] || 1
+    setAssignments(prev => prev.map((a, i) => {
+      const d = new Date(start)
+      d.setDate(d.getDate() + i * gap)
+      return { ...a, date: d.toISOString().split('T')[0] }
+    }))
+  }
+
+  function updateDate(postId, date) {
+    setAssignments(prev => prev.map(a => a.postId === postId ? { ...a, date } : a))
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg flex flex-col max-h-[85vh]">
+        <div className="p-5 border-b border-stone-100">
+          <h3 className="font-medium text-stone-800 mb-4">Batch Schedule {posts.length} Posts</h3>
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <label className="block text-xs text-stone-500 mb-1">Start date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                className="w-full text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs text-stone-500 mb-1">Interval</label>
+              <select
+                value={interval}
+                onChange={e => setInterval(e.target.value)}
+                className="w-full text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400"
+              >
+                <option value="daily">Every day</option>
+                <option value="every2">Every 2 days</option>
+                <option value="every3">Every 3 days</option>
+                <option value="weekly">Every week</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {assignments.map((a, i) => (
+            <div key={a.postId} className="flex items-center gap-3">
+              <span className="text-xs text-stone-400 w-4 text-right flex-shrink-0">{i + 1}</span>
+              <span className="flex-1 text-sm text-stone-700 truncate">{a.title || 'Untitled'}</span>
+              <input
+                type="date"
+                value={a.date}
+                onChange={e => updateDate(a.postId, e.target.value)}
+                className="text-xs border border-stone-200 rounded-md px-2 py-1.5 focus:outline-none focus:border-teal-400"
+              />
+            </div>
+          ))}
+        </div>
+        <div className="p-4 border-t border-stone-100 flex gap-3 justify-end">
+          <button onClick={onClose} className="text-sm text-stone-500 px-4 py-2 border border-stone-200 rounded-md hover:border-stone-300 transition-colors">Cancel</button>
+          <button
+            onClick={() => onConfirm(assignments.filter(a => a.date))}
+            className="text-sm bg-teal-500 text-white px-4 py-2 rounded-md hover:bg-teal-600 transition-colors"
+          >
+            Schedule {assignments.filter(a => a.date).length} Posts
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
