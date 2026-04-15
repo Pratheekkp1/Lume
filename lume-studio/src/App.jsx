@@ -13,6 +13,7 @@ import Library from './pages/Library'
 import Settings from './pages/Settings'
 import SearchResults from './pages/SearchResults'
 import Brand from './pages/Brand'
+import Inspiration from './pages/Inspiration'
 import { purgeExpired } from './lib/trash'
 
 function AlbumRedirect() {
@@ -45,6 +46,7 @@ export default function App() {
               <Route path="/sounds/:projectId" element={<SoundView />} />
               <Route path="/search" element={<SearchResults />} />
               <Route path="/brand" element={<Brand />} />
+              <Route path="/inspiration" element={<Inspiration />} />
               <Route path="/settings" element={<Settings />} />
 
               {/* Redirects from old routes */}
