@@ -9,6 +9,108 @@ import RepurposeTracker from '../components/ui/RepurposeTracker'
 
 const BUCKET = 'Photos'
 
+const PLATFORM_SPECS = {
+  Instagram: {
+    color: '#E1306C',
+    formats: ['Feed (1:1, 4:5)', 'Story (9:16)', 'Reel (9:16)'],
+    caption: '2,200 chars',
+    fileSize: 'Images ≤ 8 MB · Videos ≤ 650 MB',
+    duration: 'Reels: 15s–90s · Feed video: up to 60 min',
+    tips: 'First 125 chars show before "more". Use 3–5 hashtags.',
+  },
+  TikTok: {
+    color: '#010101',
+    formats: ['Vertical 9:16'],
+    caption: '2,200 chars',
+    fileSize: 'Video ≤ 287.6 MB',
+    duration: '15s–10 min (3min sweet spot)',
+    tips: 'Hook in first 2s. Use trending sounds.',
+  },
+  YouTube: {
+    color: '#FF0000',
+    formats: ['16:9 recommended', 'Shorts: 9:16'],
+    caption: '5,000 chars description',
+    fileSize: 'Video ≤ 256 GB or 12 hrs',
+    duration: 'Shorts: ≤ 60s · Long-form: unlimited',
+    tips: 'Thumbnail drives CTR. First 150 chars of description in search.',
+  },
+  'Twitter/X': {
+    color: '#1DA1F2',
+    formats: ['16:9 or 1:1'],
+    caption: '280 chars',
+    fileSize: 'Images ≤ 5 MB · Video ≤ 512 MB',
+    duration: 'Video: 0.5s–2 min 20s',
+    tips: 'Threads for long content. Images increase engagement ~35%.',
+  },
+  Facebook: {
+    color: '#1877F2',
+    formats: ['16:9, 1:1, 4:5'],
+    caption: '63,206 chars',
+    fileSize: 'Video ≤ 10 GB',
+    duration: 'Up to 240 min',
+    tips: 'Native video gets 10x more reach. Post when audience is active.',
+  },
+  LinkedIn: {
+    color: '#0A66C2',
+    formats: ['1.91:1 or 1:1'],
+    caption: '3,000 chars',
+    fileSize: 'Images ≤ 10 MB · Video ≤ 5 GB',
+    duration: 'Video: 3s–10 min',
+    tips: 'Personal posts outperform company posts. Use 3–5 hashtags.',
+  },
+  Pinterest: {
+    color: '#E60023',
+    formats: ['2:3 vertical preferred'],
+    caption: '500 chars',
+    fileSize: 'Images ≤ 32 MB',
+    duration: 'Video: 4s–15 min',
+    tips: 'Vertical images get more saves. Add text overlay.',
+  },
+}
+
+function PlatformRequirements({ platforms }) {
+  const [open, setOpen] = useState(false)
+  const relevant = (platforms || []).filter(p => PLATFORM_SPECS[p])
+  if (relevant.length === 0) return null
+
+  return (
+    <div className="border border-stone-200 rounded-xl overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-stone-700 hover:bg-stone-50 transition-colors"
+      >
+        <span className="flex items-center gap-2">
+          <span className="text-stone-400">📋</span>
+          Platform Specs
+        </span>
+        <span className="text-stone-400 text-xs">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="border-t border-stone-100 divide-y divide-stone-100">
+          {relevant.map(platform => {
+            const spec = PLATFORM_SPECS[platform]
+            return (
+              <div key={platform} className="px-4 py-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: spec.color }} />
+                  <span className="text-xs font-semibold text-stone-700">{platform}</span>
+                </div>
+                <div className="space-y-1 text-[11px] text-stone-500">
+                  <div><span className="text-stone-400">Format: </span>{spec.formats.join(' · ')}</div>
+                  <div><span className="text-stone-400">Caption: </span>{spec.caption}</div>
+                  <div><span className="text-stone-400">File size: </span>{spec.fileSize}</div>
+                  <div><span className="text-stone-400">Duration: </span>{spec.duration}</div>
+                  <div className="text-teal-600 italic mt-1">{spec.tips}</div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function PostView() {
   const { postId } = useParams()
   const navigate = useNavigate()
@@ -32,6 +134,11 @@ export default function PostView() {
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
   const [deleteAssetTarget, setDeleteAssetTarget] = useState(null)
+
+  // Activity log
+  const [activityLog, setActivityLog] = useState([])
+  const [activityInput, setActivityInput] = useState('')
+  const [savingActivity, setSavingActivity] = useState(false)
 
   // Multi-select for assets
   const [assetSelectMode, setAssetSelectMode] = useState(false)
@@ -84,7 +191,30 @@ export default function PostView() {
     setLinkedTracks((trackLinks || []).map(l => l.track ? { ...l.track, _order_index: l.order_index ?? 0 } : null).filter(Boolean))
     setVariants(variantData || [])
     setAllPillars(pillarData || [])
+    const { data: activityData } = await supabase
+      .from('brand_kit')
+      .select('value')
+      .eq('key', `post_log_${postId}`)
+      .maybeSingle()
+    setActivityLog(activityData?.value || [])
     setLoading(false)
+  }
+
+  // ── Activity Log ────────────────────────────────────────────────────────────
+
+  async function addActivityEntry() {
+    const text = activityInput.trim()
+    if (!text) return
+    setSavingActivity(true)
+    const entry = { id: crypto.randomUUID(), text, created_at: new Date().toISOString() }
+    const updated = [entry, ...activityLog]
+    setActivityLog(updated)
+    setActivityInput('')
+    await supabase.from('brand_kit').upsert(
+      { key: `post_log_${postId}`, value: updated, updated_at: new Date().toISOString() },
+      { onConflict: 'key' }
+    )
+    setSavingActivity(false)
   }
 
   // ── Metadata ────────────────────────────────────────────────────────────────
@@ -734,6 +864,16 @@ export default function PostView() {
                 {tab.count > 0 && <span className="ml-1 text-stone-300">{tab.count}</span>}
               </button>
             ))}
+            <button
+              onClick={() => setActiveTab('activity')}
+              className={`pb-2.5 pt-3 text-xs font-medium border-b-2 transition-colors ${
+                activeTab === 'activity'
+                  ? 'border-stone-800 text-stone-800'
+                  : 'border-transparent text-stone-400 hover:text-stone-600'
+              }`}
+            >
+              Activity
+            </button>
             <div className="ml-auto pb-1.5 pt-2">
               <button
                 onClick={() => { setAssetSelectMode(!assetSelectMode); if (assetSelectMode) deselectAllAssets(); }}
@@ -984,6 +1124,47 @@ export default function PostView() {
                 </div>
               </>
             )
+          )}
+
+          {/* ── Activity tab ── */}
+          {activeTab === 'activity' && (
+            <div className="space-y-3">
+              {/* Input */}
+              <div className="flex gap-2">
+                <input
+                  value={activityInput}
+                  onChange={e => setActivityInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && addActivityEntry()}
+                  placeholder="Log a note, change, or update…"
+                  className="flex-1 text-xs border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400 text-stone-700 placeholder-stone-300"
+                />
+                <button
+                  onClick={addActivityEntry}
+                  disabled={!activityInput.trim() || savingActivity}
+                  className="text-xs bg-teal-500 text-white px-3 py-2 rounded-lg hover:bg-teal-600 disabled:opacity-40 transition-colors"
+                >
+                  Log
+                </button>
+              </div>
+              {/* Log entries */}
+              {activityLog.length === 0 ? (
+                <p className="text-xs text-stone-400 text-center py-6">No activity logged yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {activityLog.map(entry => (
+                    <div key={entry.id} className="flex gap-3 items-start">
+                      <div className="w-1.5 h-1.5 rounded-full bg-teal-400 mt-1.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-stone-700">{entry.text}</p>
+                        <p className="text-[10px] text-stone-400 mt-0.5">
+                          {new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           <input
@@ -1276,6 +1457,9 @@ export default function PostView() {
 
           {/* Repurposing */}
           <RepurposeTracker postId={postId} />
+
+          {/* Platform Requirements */}
+          <PlatformRequirements platforms={post?.platform} />
 
           {/* Performance Metrics */}
           <PostMetrics postId={postId} platforms={post.platform} />
