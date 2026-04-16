@@ -9,6 +9,56 @@ const IDEA_STATUSES = {
   promoted:   { label: 'Promoted',   color: '#68b5a0' },
 }
 
+const PRIORITY_OPTIONS = [
+  { value: 'high',   label: 'High',   dotClass: 'bg-red-500' },
+  { value: 'normal', label: 'Normal', dotClass: 'bg-stone-400' },
+  { value: 'low',    label: 'Low',    dotClass: 'bg-stone-300' },
+]
+
+const PRIORITY_ORDER = { high: 0, normal: 1, low: 2 }
+
+const SORT_OPTIONS = [
+  { value: 'newest',   label: 'Newest first' },
+  { value: 'due_date', label: 'Due date (soonest)' },
+  { value: 'priority', label: 'Priority (high → low)' },
+  { value: 'title',    label: 'Title A–Z' },
+]
+
+function formatDueDate(dateStr) {
+  if (!dateStr) return null
+  // dateStr is YYYY-MM-DD
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const due = new Date(year, month - 1, day)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const isOverdue = due < today
+  const formatted = due.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return { formatted, isOverdue }
+}
+
+function applySort(ideas, sortBy) {
+  const arr = [...ideas]
+  if (sortBy === 'newest') {
+    arr.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  } else if (sortBy === 'due_date') {
+    arr.sort((a, b) => {
+      if (!a.due_by && !b.due_by) return 0
+      if (!a.due_by) return 1
+      if (!b.due_by) return -1
+      return new Date(a.due_by) - new Date(b.due_by)
+    })
+  } else if (sortBy === 'priority') {
+    arr.sort((a, b) => {
+      const pa = PRIORITY_ORDER[a.priority] ?? PRIORITY_ORDER.normal
+      const pb = PRIORITY_ORDER[b.priority] ?? PRIORITY_ORDER.normal
+      return pa - pb
+    })
+  } else if (sortBy === 'title') {
+    arr.sort((a, b) => a.title.localeCompare(b.title))
+  }
+  return arr
+}
+
 export default function Ideas() {
   const navigate = useNavigate()
   const [ideas, setIdeas] = useState([])
@@ -20,6 +70,7 @@ export default function Ideas() {
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState('newest')
 
   useEffect(() => { fetchIdeas() }, [])
 
@@ -86,8 +137,10 @@ export default function Ideas() {
     await supabase.from('ideas').delete().in('id', ids)
   }
 
-  const filtered = (filterStatus === 'all' ? ideas : ideas.filter(i => i.status === filterStatus))
+  const baseFiltered = (filterStatus === 'all' ? ideas : ideas.filter(i => i.status === filterStatus))
     .filter(i => !search.trim() || i.title.toLowerCase().includes(search.toLowerCase()) || (i.notes || '').toLowerCase().includes(search.toLowerCase()))
+
+  const filtered = applySort(baseFiltered, sortBy)
 
   return (
     <div className="p-7">
@@ -114,13 +167,24 @@ export default function Ideas() {
         </div>
       </div>
 
-      {/* Search */}
-      <input
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        placeholder="Search ideas…"
-        className="mb-3 w-full max-w-xs text-xs border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400 text-stone-700 placeholder-stone-300"
-      />
+      {/* Search + Sort row */}
+      <div className="flex items-center gap-3 mb-3">
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search ideas…"
+          className="w-full max-w-xs text-xs border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400 text-stone-700 placeholder-stone-300"
+        />
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value)}
+          className="text-xs border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400 text-stone-600 bg-white"
+        >
+          {SORT_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
 
       {/* Status filters */}
       <div className="flex items-center gap-2 mb-6 flex-wrap">
@@ -238,8 +302,10 @@ function IdeaCard({ idea, onEdit, onDelete, onPromote, onStatusChange, selectMod
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const s = IDEA_STATUSES[idea.status] || IDEA_STATUSES.raw
   const isPromoted = idea.status === 'promoted'
+  const priority = PRIORITY_OPTIONS.find(p => p.value === (idea.priority || 'normal')) || PRIORITY_OPTIONS[1]
+  const dueInfo = formatDueDate(idea.due_by)
 
-  function handleCardClick(e) {
+  function handleCardClick() {
     if (selectMode) {
       onSelect()
     }
@@ -263,30 +329,38 @@ function IdeaCard({ idea, onEdit, onDelete, onPromote, onStatusChange, selectMod
         </div>
       )}
 
-      {/* Status + menu row */}
+      {/* Status + priority + menu row */}
       <div className={`flex items-center justify-between ${selectMode ? 'pl-6' : ''}`}>
-        <div className="relative">
-          <button
-            onClick={e => { if (selectMode) { e.stopPropagation(); return; } setShowStatusMenu(p => !p) }}
-            className="text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors"
-            style={{ backgroundColor: s.color + '25', color: s.color }}
-          >
-            {s.label} {!selectMode && '▾'}
-          </button>
-          {showStatusMenu && !selectMode && (
-            <div className="absolute left-0 top-full mt-1 bg-white border border-stone-200 rounded-lg shadow-lg py-1 z-10 min-w-[120px]">
-              {Object.entries(IDEA_STATUSES).map(([key, st]) => key !== 'promoted' && (
-                <button
-                  key={key}
-                  onClick={() => { onStatusChange(key); setShowStatusMenu(false) }}
-                  className="w-full text-left px-3 py-1.5 text-xs text-stone-700 hover:bg-stone-50 flex items-center gap-2"
-                >
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: st.color }} />
-                  {st.label}
-                </button>
-              ))}
-            </div>
-          )}
+        <div className="flex items-center gap-2">
+          {/* Priority dot */}
+          <span
+            className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${priority.dotClass}`}
+            title={`Priority: ${priority.label}`}
+          />
+          {/* Status badge */}
+          <div className="relative">
+            <button
+              onClick={e => { if (selectMode) { e.stopPropagation(); return; } setShowStatusMenu(p => !p) }}
+              className="text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors"
+              style={{ backgroundColor: s.color + '25', color: s.color }}
+            >
+              {s.label} {!selectMode && '▾'}
+            </button>
+            {showStatusMenu && !selectMode && (
+              <div className="absolute left-0 top-full mt-1 bg-white border border-stone-200 rounded-lg shadow-lg py-1 z-10 min-w-[120px]">
+                {Object.entries(IDEA_STATUSES).map(([key, st]) => key !== 'promoted' && (
+                  <button
+                    key={key}
+                    onClick={() => { onStatusChange(key); setShowStatusMenu(false) }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-stone-700 hover:bg-stone-50 flex items-center gap-2"
+                  >
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: st.color }} />
+                    {st.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         {!selectMode && (
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -298,6 +372,13 @@ function IdeaCard({ idea, onEdit, onDelete, onPromote, onStatusChange, selectMod
 
       {/* Title */}
       <p className="text-sm font-medium text-stone-800 leading-snug">{idea.title}</p>
+
+      {/* Due date */}
+      {dueInfo && (
+        <p className={`text-xs ${dueInfo.isOverdue ? 'text-red-500' : 'text-stone-500'}`}>
+          {dueInfo.isOverdue ? '⚠ overdue · ' : 'Due '}{dueInfo.formatted}
+        </p>
+      )}
 
       {/* Notes */}
       {idea.notes && (
@@ -339,6 +420,8 @@ function IdeaModal({ initial = {}, onSave, onClose }) {
   const [notes, setNotes] = useState(initial.notes || '')
   const [url, setUrl] = useState(initial.inspiration_url || '')
   const [status, setStatus] = useState(initial.status || 'raw')
+  const [priority, setPriority] = useState(initial.priority || 'normal')
+  const [dueBy, setDueBy] = useState(initial.due_by || '')
   const [saving, setSaving] = useState(false)
 
   async function handleSubmit(e) {
@@ -350,6 +433,8 @@ function IdeaModal({ initial = {}, onSave, onClose }) {
       notes: notes.trim() || null,
       inspiration_url: url.trim() || null,
       status,
+      priority,
+      due_by: dueBy || null,
     })
     setSaving(false)
   }
@@ -389,6 +474,32 @@ function IdeaModal({ initial = {}, onSave, onClose }) {
               className="w-full text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400"
             />
           </div>
+
+          {/* Priority + Due date row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-stone-500 mb-1">Priority</label>
+              <select
+                value={priority}
+                onChange={e => setPriority(e.target.value)}
+                className="w-full text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400 bg-white text-stone-700"
+              >
+                {PRIORITY_OPTIONS.map(p => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-stone-500 mb-1">Due date</label>
+              <input
+                type="date"
+                value={dueBy}
+                onChange={e => setDueBy(e.target.value)}
+                className="w-full text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400 text-stone-700"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs text-stone-500 mb-1">Status</label>
             <div className="flex gap-2 flex-wrap">
