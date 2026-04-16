@@ -132,6 +132,7 @@ export default function Dashboard() {
 
   const totalStorage = storageBytes.photos + storageBytes.audio
   const totalPosts = Object.values(pipeline).reduce((s, n) => s + n, 0)
+  const nextGap = findNextGap(recentPosts)
 
   return (
     <div className="p-7">
@@ -293,6 +294,9 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Quick Capture */}
+          <QuickCapture onCapture={fetchAll} />
+
           {/* Top row: Pipeline + Upcoming */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             {/* Content Pipeline */}
@@ -372,6 +376,13 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
+              {nextGap && (
+                <div className="mt-3 flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <span className="text-amber-500 text-sm">⚠</span>
+                  <p className="text-xs text-amber-700">Next content gap: week of <span className="font-medium">{nextGap}</span></p>
+                  <button onClick={() => navigate('/posts?view=calendar')} className="ml-auto text-xs text-amber-600 hover:text-amber-700 font-medium transition-colors">Schedule →</button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -453,6 +464,66 @@ export default function Dashboard() {
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+function findNextGap(posts) {
+  const today = new Date()
+  const scheduled = new Set(posts.filter(p => p.scheduled_date).map(p => {
+    const d = new Date(p.scheduled_date + 'T00:00:00')
+    return `${d.getFullYear()}-W${Math.ceil((d - new Date(d.getFullYear(),0,1)) / 604800000)}`
+  }))
+  for (let w = 0; w < 12; w++) {
+    const d = new Date(today)
+    d.setDate(today.getDate() + w * 7)
+    const key = `${d.getFullYear()}-W${Math.ceil((d - new Date(d.getFullYear(),0,1)) / 604800000)}`
+    if (!scheduled.has(key)) {
+      const start = new Date(d)
+      start.setDate(d.getDate() - d.getDay())
+      return start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    }
+  }
+  return null
+}
+
+function QuickCapture({ onCapture }) {
+  const [text, setText] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  async function handleCapture(e) {
+    e.preventDefault()
+    if (!text.trim()) return
+    setSaving(true)
+    const { error } = await supabase.from('ideas').insert({ title: text.trim(), status: 'raw' })
+    if (!error) {
+      setText('')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+      onCapture?.()
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div className="mb-6">
+      <p className="text-xs tracking-widest uppercase text-stone-400 mb-3">Quick Capture</p>
+      <form onSubmit={handleCapture} className="flex gap-2">
+        <input
+          value={text}
+          onChange={e => setText(e.target.value)}
+          placeholder="💡 Capture an idea before it escapes…"
+          className="flex-1 text-sm border border-stone-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-teal-400 text-stone-700 placeholder-stone-300 bg-white"
+        />
+        <button
+          type="submit"
+          disabled={!text.trim() || saving}
+          className="bg-teal-500 text-white text-xs font-medium px-4 py-2.5 rounded-xl hover:bg-teal-600 disabled:opacity-40 transition-colors"
+        >
+          {saved ? '✓ Saved!' : saving ? '…' : 'Capture'}
+        </button>
+      </form>
     </div>
   )
 }

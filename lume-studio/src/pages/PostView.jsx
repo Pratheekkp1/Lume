@@ -111,6 +111,52 @@ function PlatformRequirements({ platforms }) {
   )
 }
 
+function PublishChecklist({ post, assets, linkedPhotos, variants, categories }) {
+  const hasCaption = !!(post?.caption?.trim() || variants?.some(v => v.caption?.trim()))
+  const hasMedia = assets?.length > 0 || linkedPhotos?.length > 0
+  const hasPlatform = post?.platform?.length > 0
+  const hasDate = !!post?.scheduled_date
+  const hasType = post?.type?.length > 0
+  const hasCategory = categories?.length > 0
+
+  const items = [
+    { label: 'Platform selected',    done: hasPlatform },
+    { label: 'Content type set',     done: hasType },
+    { label: 'Caption written',      done: hasCaption },
+    { label: 'Media attached',       done: hasMedia },
+    { label: 'Scheduled date set',   done: hasDate },
+    { label: 'Category tagged',      done: hasCategory },
+  ]
+  const doneCount = items.filter(i => i.done).length
+  const allDone = doneCount === items.length
+
+  return (
+    <div className="border border-stone-200 rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100">
+        <span className="text-sm font-medium text-stone-700">Publish Checklist</span>
+        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${allDone ? 'bg-teal-100 text-teal-700' : 'bg-stone-100 text-stone-500'}`}>
+          {doneCount}/{items.length}
+        </span>
+      </div>
+      <div className="px-4 py-3 space-y-2">
+        {items.map(item => (
+          <div key={item.label} className="flex items-center gap-2.5">
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${item.done ? 'bg-teal-500' : 'bg-stone-100 border border-stone-300'}`}>
+              {item.done && <span className="text-white text-[10px]">✓</span>}
+            </div>
+            <span className={`text-xs ${item.done ? 'text-stone-500 line-through decoration-stone-300' : 'text-stone-600'}`}>
+              {item.label}
+            </span>
+          </div>
+        ))}
+        {allDone && (
+          <p className="text-xs text-teal-600 font-medium pt-1">✨ Ready to publish!</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function PostView() {
   const { postId } = useParams()
   const navigate = useNavigate()
@@ -1457,6 +1503,15 @@ export default function PostView() {
 
           {/* Repurposing */}
           <RepurposeTracker postId={postId} />
+
+          {/* Publish Checklist */}
+          <PublishChecklist
+            post={post}
+            assets={assets}
+            linkedPhotos={linkedPhotos}
+            variants={variants}
+            categories={categories}
+          />
 
           {/* Platform Requirements */}
           <PlatformRequirements platforms={post?.platform} />
