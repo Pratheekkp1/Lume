@@ -26,6 +26,7 @@ export default function Notes() {
   const [selectedId, setSelectedId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [noteSearch, setNoteSearch] = useState('')
 
   const debounceTimer = useRef(null)
   const textareaRef = useRef(null)
@@ -50,7 +51,9 @@ export default function Notes() {
         console.error('Failed to load notes:', error)
       }
 
-      const loaded = Array.isArray(data?.value) ? data.value : []
+      const raw = Array.isArray(data?.value) ? data.value : []
+      // Migrate old notes that lack a tags field
+      const loaded = raw.map((n) => ({ tags: [], ...n }))
       setNotes(loaded)
       if (loaded.length > 0) {
         setSelectedId(loaded[0].id)
@@ -97,6 +100,7 @@ export default function Notes() {
     const newNote = {
       id: crypto.randomUUID(),
       content: '',
+      tags: [],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
@@ -139,7 +143,39 @@ export default function Notes() {
     }
   }
 
+  function addTag(tag) {
+    const updated = notes.map((n) => {
+      if (n.id !== selectedId) return n
+      const existingTags = n.tags || []
+      if (existingTags.includes(tag)) return n
+      return { ...n, tags: [...existingTags, tag], updated_at: new Date().toISOString() }
+    })
+    setNotes(updated)
+    scheduleSave(updated)
+  }
+
+  function removeTag(tag) {
+    const updated = notes.map((n) => {
+      if (n.id !== selectedId) return n
+      return { ...n, tags: (n.tags || []).filter((t) => t !== tag), updated_at: new Date().toISOString() }
+    })
+    setNotes(updated)
+    scheduleSave(updated)
+  }
+
   const selectedNote = notes.find((n) => n.id === selectedId) ?? null
+
+  // Word / character counts for the selected note
+  const wordCount = (selectedNote?.content || '').trim().split(/\s+/).filter(Boolean).length
+  const charCount = (selectedNote?.content || '').length
+
+  // Filtered note list for search
+  const displayedNotes = notes.filter(
+    (n) =>
+      !noteSearch.trim() ||
+      n.content.toLowerCase().includes(noteSearch.toLowerCase()) ||
+      (n.tags || []).some((t) => t.toLowerCase().includes(noteSearch.toLowerCase()))
+  )
 
   return (
     <div className="p-7 h-full flex flex-col">
@@ -172,13 +208,24 @@ export default function Notes() {
         <div className="flex-1 flex gap-5 min-h-0">
           {/* Left: Note list */}
           <div className="w-64 flex-shrink-0 flex flex-col min-h-0">
+            {/* Search input */}
+            <input
+              value={noteSearch}
+              onChange={(e) => setNoteSearch(e.target.value)}
+              placeholder="Search notes…"
+              className="w-full text-xs border border-stone-200 rounded-lg px-3 py-2 mb-2 focus:outline-none focus:border-teal-400"
+            />
+
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-              {notes.length === 0 ? (
-                <p className="text-stone-400 text-sm text-center mt-10">No notes yet</p>
+              {displayedNotes.length === 0 ? (
+                <p className="text-stone-400 text-sm text-center mt-10">
+                  {noteSearch.trim() ? 'No matching notes' : 'No notes yet'}
+                </p>
               ) : (
-                notes.map((note) => {
+                displayedNotes.map((note) => {
                   const isSelected = note.id === selectedId
                   const firstLine = note.content.split('\n')[0] || 'Empty note'
+                  const tags = note.tags || []
                   return (
                     <div
                       key={note.id}
@@ -195,6 +242,19 @@ export default function Notes() {
                       <p className="text-[10px] text-stone-400 mt-1">
                         {formatTimestamp(note.updated_at)}
                       </p>
+                      {/* Tag pills in sidebar */}
+                      {tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="text-[10px] bg-teal-50 text-teal-600 border border-teal-200 px-1.5 py-0.5 rounded-full leading-none"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       {/* Delete button */}
                       <button
                         onClick={(e) => handleDeleteNote(e, note.id)}
@@ -225,9 +285,44 @@ export default function Notes() {
                   onChange={handleContentChange}
                   placeholder="Start writing…"
                 />
-                <p className="text-xs text-stone-400 mt-2 text-right">
-                  Last edited {timeAgo(selectedNote.updated_at)}
-                </p>
+
+                {/* Tag input row */}
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  {(selectedNote.tags || []).map((tag) => (
+                    <span
+                      key={tag}
+                      className="flex items-center gap-1 text-[10px] bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full border border-teal-200"
+                    >
+                      {tag}
+                      <button
+                        onClick={() => removeTag(tag)}
+                        className="text-teal-400 hover:text-teal-600"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    placeholder="Add tag…"
+                    className="text-[10px] border-b border-stone-200 outline-none text-stone-500 w-20 focus:border-teal-400"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && e.target.value.trim()) {
+                        addTag(e.target.value.trim())
+                        e.target.value = ''
+                      }
+                    }}
+                  />
+                </div>
+
+                {/* Word / char count + last edited */}
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-xs text-stone-400">
+                    Last edited {timeAgo(selectedNote.updated_at)}
+                  </p>
+                  <p className="text-xs text-stone-400">
+                    {wordCount} {wordCount === 1 ? 'word' : 'words'} · {charCount} chars
+                  </p>
+                </div>
               </div>
             )}
           </div>

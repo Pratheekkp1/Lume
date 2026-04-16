@@ -13,6 +13,7 @@ export default function Library() {
   const [loading, setLoading] = useState(true)
   const [typeFilter, setTypeFilter] = useState(searchParams.get('type') || 'all')
   const [filterEvent, setFilterEvent] = useState('all')
+  const [density, setDensity] = useState(() => localStorage.getItem('lume-lib-density') || 'normal')
 
   // Album CRUD state
   const [showNewAlbum, setShowNewAlbum] = useState(false)
@@ -168,6 +169,12 @@ export default function Library() {
 
   const totalCount = albums.length + soundProjects.length
 
+  const gridCols = {
+    compact: 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8',
+    normal:  'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5',
+    large:   'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+  }
+
   return (
     <div className="p-7">
       {/* Header */}
@@ -179,6 +186,16 @@ export default function Library() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {showAlbums && (
+            <div className="flex border border-stone-200 rounded-md overflow-hidden">
+              {[['compact','⊞'],['normal','⊟'],['large','⊡']].map(([d, icon]) => (
+                <button key={d} onClick={() => { setDensity(d); localStorage.setItem('lume-lib-density', d) }}
+                  className={`px-2.5 py-1.5 text-xs transition-colors ${density === d ? 'bg-teal-500 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
+                  title={d.charAt(0).toUpperCase() + d.slice(1)}
+                >{icon}</button>
+              ))}
+            </div>
+          )}
           {showAlbums && (
             <button
               onClick={() => setShowNewAlbum(true)}
@@ -281,7 +298,7 @@ export default function Library() {
               {typeFilter === 'all' && (
                 <h2 className="text-xs uppercase tracking-widest text-stone-400 mb-3">Albums</h2>
               )}
-              <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              <div className={`grid gap-6 ${gridCols[density]}`}>
                 {filteredAlbums.map(album => (
                   <AlbumCard
                     key={album.id}
@@ -450,7 +467,7 @@ function AlbumCard({ album, onClick, onEdit }) {
         <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: status.color }} />
         <span className="text-xs text-stone-400">{status.label}</span>
         {album.event_name && (
-          <span className="text-[10px] text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded-full">
+          <span className="text-[10px] text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded-full font-medium">
             {album.event_name}
           </span>
         )}
@@ -458,6 +475,9 @@ function AlbumCard({ album, onClick, onEdit }) {
           <span className="text-xs text-stone-300">
             · {new Date(album.event_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
           </span>
+        )}
+        {album.location && (
+          <span className="text-xs text-stone-300">📍 {album.location}</span>
         )}
         {sizeLabel && (
           <span className="text-xs text-stone-300">· {sizeLabel}</span>
