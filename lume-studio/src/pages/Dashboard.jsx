@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [libraryCounts, setLibraryCounts] = useState({ collections: 0, photos: 0, audioProjects: 0, tracks: 0 })
   const [storageBytes, setStorageBytes] = useState({ photos: 0, audio: 0 })
   const [activeCampaigns, setActiveCampaigns] = useState([])
+  const [weekPosts, setWeekPosts] = useState([])
   const [todayPosts, setTodayPosts] = useState([])
   const [overdueCount, setOverdueCount] = useState(0)
   const [readyIdeasCount, setReadyIdeasCount] = useState(0)
@@ -56,6 +57,7 @@ export default function Dashboard() {
       { data: staleDrafts },
       { count: publishedCount },
       { count: allIdeasCount },
+      weekResult,
     ] = await Promise.all([
       supabase.from('posts').select('id, title, type, status, platform, caption, created_at, updated_at').is('deleted_at', null).order('created_at', { ascending: false }),
       supabase.from('posts').select('id, title, status, platform, scheduled_date').is('deleted_at', null).gte('scheduled_date', today).order('scheduled_date', { ascending: true }).limit(10),
@@ -74,6 +76,11 @@ export default function Dashboard() {
       supabase.from('posts').select('id').is('deleted_at', null).eq('status', 'in_progress').lt('updated_at', sevenDaysAgo),
       supabase.from('posts').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('status', 'published').gte('updated_at', monthStart),
       supabase.from('ideas').select('*', { count: 'exact', head: true }),
+      supabase.from('posts').select('id, title, status, platform, scheduled_date')
+        .is('deleted_at', null)
+        .gte('scheduled_date', (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return d.toISOString().split('T')[0] })())
+        .lte('scheduled_date', (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay() + 6); return d.toISOString().split('T')[0] })())
+        .order('scheduled_date'),
     ])
 
     // Pipeline counts
@@ -99,6 +106,7 @@ export default function Dashboard() {
     activityItems.sort((a, b) => new Date(b.date) - new Date(a.date))
     setActivity(activityItems.slice(0, 8))
 
+    setWeekPosts(weekResult.data || [])
     setActiveCampaigns(campaignData || [])
     setTodayPosts(todayScheduled || [])
     setOverdueCount((overduePosts || []).length)
@@ -158,6 +166,9 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+
+          {/* Week Strip */}
+          <WeekStrip weekPosts={weekPosts} navigate={navigate} />
 
           {/* Quick Actions */}
           <div className="mb-8 flex items-center justify-between gap-4 flex-wrap">
@@ -485,6 +496,60 @@ function StorageLegend({ color, label, bytes }) {
       <span className={`w-2 h-2 rounded-full flex-shrink-0 ${color}`} />
       <span className="text-xs text-stone-400">{label}</span>
       <span className="text-xs text-stone-300">{fmtBytes(bytes)}</span>
+    </div>
+  )
+}
+
+function WeekStrip({ weekPosts, navigate }) {
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+  const today = new Date()
+  const todayStr = today.toISOString().split('T')[0]
+  const sunday = new Date(today)
+  sunday.setDate(today.getDate() - today.getDay())
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs tracking-widest uppercase text-stone-400">This Week</p>
+        <button onClick={() => navigate('/posts?view=calendar')} className="text-xs text-teal-600 hover:text-teal-700 transition-colors">Full calendar →</button>
+      </div>
+      <div className="grid grid-cols-7 gap-1.5">
+        {days.map((day, i) => {
+          const d = new Date(sunday)
+          d.setDate(sunday.getDate() + i)
+          const dateStr = d.toISOString().split('T')[0]
+          const dayPosts = weekPosts.filter(p => p.scheduled_date === dateStr)
+          const isToday = dateStr === todayStr
+          return (
+            <div
+              key={day}
+              className={`rounded-xl p-2 border min-h-[72px] flex flex-col gap-1 ${isToday ? 'border-teal-300 bg-teal-50' : 'border-stone-200 bg-white'}`}
+            >
+              <div className="flex items-center justify-between mb-0.5">
+                <span className={`text-[10px] font-medium ${isToday ? 'text-teal-600' : 'text-stone-400'}`}>{day}</span>
+                <span className={`text-xs ${isToday ? 'text-teal-700 font-semibold' : 'text-stone-400'}`}>{d.getDate()}</span>
+              </div>
+              {dayPosts.slice(0, 3).map(p => {
+                const s = POST_STATUSES[p.status]
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => navigate(`/posts/${p.id}`)}
+                    className="text-left w-full text-[10px] px-1.5 py-0.5 rounded truncate transition-colors hover:opacity-80"
+                    style={{ backgroundColor: (s?.color || '#9ca5b2') + '25', color: s?.color || '#9ca5b2' }}
+                    title={p.title}
+                  >
+                    {p.title}
+                  </button>
+                )
+              })}
+              {dayPosts.length > 3 && (
+                <span className="text-[10px] text-stone-400 px-1">+{dayPosts.length - 3} more</span>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

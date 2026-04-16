@@ -19,6 +19,7 @@ export default function Posts() {
     return { year: now.getFullYear(), month: now.getMonth() }
   })
   const [calendarPlatform, setCalendarPlatform] = useState('all')
+  const [sortOrder, setSortOrder] = useState('newest')
 
   // Templates
   const [templates, setTemplates] = useState([])
@@ -201,8 +202,20 @@ export default function Posts() {
     window.dispatchEvent(new CustomEvent('lume-posts-updated'))
   }
 
+  function sortPosts(arr) {
+    const a = [...arr]
+    switch (sortOrder) {
+      case 'oldest':    return a.sort((x,y) => new Date(x.created_at) - new Date(y.created_at))
+      case 'title_az':  return a.sort((x,y) => x.title.localeCompare(y.title))
+      case 'title_za':  return a.sort((x,y) => y.title.localeCompare(x.title))
+      case 'sched_asc': return a.sort((x,y) => (x.scheduled_date||'9999') > (y.scheduled_date||'9999') ? 1 : -1)
+      case 'sched_desc':return a.sort((x,y) => (x.scheduled_date||'0000') < (y.scheduled_date||'0000') ? 1 : -1)
+      default:          return a.sort((x,y) => new Date(y.created_at) - new Date(x.created_at))
+    }
+  }
+
   const anySelected = selectedIds.size > 0
-  const filtered = filterStatus === 'all' ? posts : posts.filter(p => p.status === filterStatus)
+  const filtered = sortPosts(filterStatus === 'all' ? posts : posts.filter(p => p.status === filterStatus))
 
   return (
     <div className="p-7">
@@ -325,6 +338,18 @@ export default function Posts() {
               {s.label}
             </button>
           ))}
+          <select
+            value={sortOrder}
+            onChange={e => setSortOrder(e.target.value)}
+            className="ml-auto text-xs border border-stone-200 rounded-md px-2 py-1 text-stone-500 bg-white focus:outline-none focus:border-teal-400 transition-colors"
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="title_az">Title A→Z</option>
+            <option value="title_za">Title Z→A</option>
+            <option value="sched_asc">Scheduled ↑</option>
+            <option value="sched_desc">Scheduled ↓</option>
+          </select>
         </div>
       )}
 
@@ -1040,6 +1065,16 @@ function KanbanCard({ post, onDragStart, onClick, onEdit, onDelete, selectMode, 
   )
 }
 
+function readinessScore(post) {
+  let score = 0
+  if (post.title?.trim()) score++
+  if (post.platform?.length > 0) score++
+  if (post.type?.length > 0) score++
+  if (post.scheduled_date) score++
+  // caption and assets we can't check from list data, so max is 4
+  return { score, max: 4 }
+}
+
 function PostCard({ post, onClick, onEdit, onDelete, selectMode, checked, anySelected, onCheck, coverUrl }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const status = POST_STATUSES[post.status]
@@ -1122,6 +1157,25 @@ function PostCard({ post, onClick, onEdit, onDelete, selectMode, checked, anySel
           ))}
         </div>
       )}
+
+      {/* Readiness bar */}
+      {(() => {
+        const { score, max } = readinessScore(post)
+        if (score === max) return null // fully ready, no bar needed
+        return (
+          <div className="mt-2">
+            <div className="h-0.5 bg-stone-100 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${(score/max)*100}%`,
+                  backgroundColor: score >= 3 ? '#2a9d8f' : score >= 2 ? '#e9c46a' : '#e76f51'
+                }}
+              />
+            </div>
+          </div>
+        )
+      })()}
     </button>
   )
 }
