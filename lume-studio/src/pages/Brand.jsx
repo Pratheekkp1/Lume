@@ -56,6 +56,7 @@ function ColorsTab() {
   const [saving, setSaving] = useState(false)
   const [newPaletteName, setNewPaletteName] = useState('')
   const [addingPalette, setAddingPalette] = useState(false)
+  const [copiedCSS, setCopiedCSS] = useState(false)
 
   useEffect(() => { load() }, [])
 
@@ -161,6 +162,25 @@ function ColorsTab() {
         </div>
       ))}
 
+      {/* Copy as CSS */}
+      {palettes.some(p => p.swatches.length > 0) && (
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            onClick={() => {
+              const allSwatches = palettes.flatMap(p => p.swatches)
+              const css = allSwatches.map((hex, i) => `  --brand-color-${i + 1}: ${hex};`).join('\n')
+              const block = `:root {\n${css}\n}`
+              navigator.clipboard.writeText(block)
+              setCopiedCSS(true)
+              setTimeout(() => setCopiedCSS(false), 2000)
+            }}
+            className="text-xs border border-stone-200 text-stone-500 px-3 py-1.5 rounded-md hover:border-stone-300 transition-colors flex items-center gap-1.5"
+          >
+            {copiedCSS ? '✓ Copied!' : '⟨/⟩ Copy as CSS'}
+          </button>
+        </div>
+      )}
+
       {addingPalette ? (
         <div className="flex items-center gap-2">
           <input
@@ -228,12 +248,18 @@ function ToneTab() {
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
   const saveTimer = useRef(null)
+  const [toneKeywords, setToneKeywords] = useState([])
+  const [keywordInput, setKeywordInput] = useState('')
 
   useEffect(() => { load() }, [])
 
   async function load() {
-    const { data } = await supabase.from('brand_kit').select('value').eq('key', 'tone').single()
-    setNotes(data?.value?.notes || '')
+    const [{ data: toneData }, { data: kwData }] = await Promise.all([
+      supabase.from('brand_kit').select('value').eq('key', 'tone').single(),
+      supabase.from('brand_kit').select('value').eq('key', 'tone_keywords').single(),
+    ])
+    setNotes(toneData?.value?.notes || '')
+    setToneKeywords(kwData?.value || [])
     setLoading(false)
   }
 
@@ -248,6 +274,23 @@ function ToneTab() {
     await supabase.from('brand_kit').upsert({ key: 'tone', value: { notes: val }, updated_at: new Date().toISOString() }, { onConflict: 'key' })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  async function saveKeywords(updated) {
+    await supabase.from('brand_kit').upsert({ key: 'tone_keywords', value: updated, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+  }
+
+  function addToneKeyword(kw) {
+    if (!kw || toneKeywords.includes(kw)) return
+    const updated = [...toneKeywords, kw]
+    setToneKeywords(updated)
+    saveKeywords(updated)
+  }
+
+  function removeToneKeyword(kw) {
+    const updated = toneKeywords.filter(k => k !== kw)
+    setToneKeywords(updated)
+    saveKeywords(updated)
   }
 
   if (loading) return <p className="text-stone-400 text-sm">Loading...</p>
@@ -266,6 +309,28 @@ function ToneTab() {
         className="w-full border border-stone-200 rounded-xl px-4 py-3 text-sm text-stone-700 placeholder-stone-300 outline-none focus:border-stone-400 resize-none leading-relaxed"
       />
       <p className="text-xs text-stone-300 mt-2">Auto-saves as you type.</p>
+
+      {/* Brand Keywords */}
+      <div className="mt-4">
+        <label className="text-xs uppercase tracking-widest text-stone-400 mb-2 block">Brand Keywords</label>
+        <div className="flex flex-wrap gap-2 mb-2">
+          {toneKeywords.map(kw => (
+            <span key={kw} className="flex items-center gap-1 text-xs bg-stone-100 text-stone-600 px-3 py-1 rounded-full border border-stone-200">
+              {kw}
+              <button onClick={() => removeToneKeyword(kw)} className="text-stone-400 hover:text-stone-600 text-sm leading-none">×</button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            value={keywordInput}
+            onChange={e => setKeywordInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && keywordInput.trim()) { addToneKeyword(keywordInput.trim()); setKeywordInput('') } }}
+            placeholder="Add keyword (Enter to add)…"
+            className="flex-1 text-xs border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400"
+          />
+        </div>
+      </div>
     </div>
   )
 }
