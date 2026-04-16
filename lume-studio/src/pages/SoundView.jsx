@@ -24,6 +24,8 @@ export default function SoundView() {
   const [playingTrack, setPlayingTrack] = useState(null);
   const [notes, setNotes] = useState("");
   const [filter, setFilter] = useState("all");
+  const [trackSearch, setTrackSearch] = useState('');
+  const [trackSort, setTrackSort] = useState('newest');
   const [showUploader, setShowUploader] = useState(false);
   const [deletingTrack, setDeletingTrack] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -337,15 +339,23 @@ export default function SoundView() {
 
   const anySelected = selectedIds.size > 0;
 
-  const filtered =
+  const filtered = (
     filter === "all" ? tracks
     : filter === "favorites" ? tracks.filter((t) => t.is_favorite)
-    : tracks.filter((t) => t.category_id === filter);
-  tracksRef.current = filtered;
+    : tracks.filter((t) => t.category_id === filter)
+  ).filter(t => !trackSearch.trim() || t.name.toLowerCase().includes(trackSearch.toLowerCase()) || (t.notes || '').toLowerCase().includes(trackSearch.toLowerCase()));
+
+  const sorted = [...filtered];
+  if (trackSort === 'oldest') sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  else if (trackSort === 'name_az') sorted.sort((a, b) => a.name.localeCompare(b.name));
+  else if (trackSort === 'name_za') sorted.sort((a, b) => b.name.localeCompare(a.name));
+  else sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  tracksRef.current = sorted;
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const curIdx = playingTrack ? filtered.findIndex((t) => t.id === playingTrack.id) : -1;
+  const curIdx = playingTrack ? sorted.findIndex((t) => t.id === playingTrack.id) : -1;
   const hasPrev = curIdx > 0;
-  const hasNext = curIdx !== -1 && curIdx < filtered.length - 1;
+  const hasNext = curIdx !== -1 && curIdx < sorted.length - 1;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -368,7 +378,7 @@ export default function SoundView() {
               <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Sound Project</p>
               <h1 className="font-serif text-3xl text-stone-800">{project?.name || "..."}</h1>
               <p className="text-xs text-stone-400 mt-1">
-                {tracks.length} track{tracks.length !== 1 ? "s" : ""}
+                {filtered.length !== tracks.length ? `${filtered.length} of ${tracks.length}` : tracks.length} track{tracks.length !== 1 ? "s" : ""}
                 {project?.event_date && ` · ${new Date(project.event_date).toLocaleDateString("en-US", { month: "long", year: "numeric" })}`}
                 {project?.location && ` · ${project.location}`}
               </p>
@@ -409,6 +419,24 @@ export default function SoundView() {
               </button>
             </div>
           </div>
+
+          {/* Search + Sort */}
+          <input
+            value={trackSearch}
+            onChange={e => setTrackSearch(e.target.value)}
+            placeholder="Search tracks…"
+            className="w-full text-xs border border-stone-200 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:border-teal-400 text-stone-700 placeholder-stone-300"
+          />
+          <select
+            value={trackSort}
+            onChange={e => setTrackSort(e.target.value)}
+            className="text-xs border border-stone-200 rounded-md px-2 py-1 text-stone-500 bg-white focus:outline-none w-full mb-3"
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="name_az">Name A→Z</option>
+            <option value="name_za">Name Z→A</option>
+          </select>
 
           {/* Filter / category pills */}
           <div className="flex items-center gap-2 mb-6 flex-wrap">
@@ -571,7 +599,7 @@ export default function SoundView() {
           {/* Tracks */}
           {loading ? (
             <p className="text-stone-400 text-sm">Loading...</p>
-          ) : filtered.length === 0 ? (
+          ) : sorted.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-center">
               <p className="text-stone-400 text-sm">
                 {tracks.length === 0 ? "No tracks yet — add some to get started" : "No tracks match this filter"}
@@ -579,7 +607,7 @@ export default function SoundView() {
             </div>
           ) : (
             <div className="flex flex-col gap-1">
-              {filtered.map((track, i) => (
+              {sorted.map((track, i) => (
                 <TrackRow
                   key={track.id}
                   track={track}

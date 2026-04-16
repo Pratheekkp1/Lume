@@ -66,6 +66,20 @@ export default function Analytics() {
   }))
   const typeEntries = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])
 
+  // Publishing streak
+  const streak = computeStreak(posts)
+
+  // Best posting days (published posts only)
+  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const dayCounts = Array(7).fill(0)
+  published.forEach(p => {
+    if (p.scheduled_date) {
+      const d = new Date(p.scheduled_date + 'T00:00:00').getDay()
+      dayCounts[d]++
+    }
+  })
+  const maxDayCount = Math.max(...dayCounts, 1)
+
   // Status funnel
   const statusCounts = {}
   Object.keys(POST_STATUSES).forEach(k => statusCounts[k] = 0)
@@ -110,11 +124,17 @@ export default function Analytics() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         <SummaryCard label="Total Posts" value={posts.length} sub={`${published.length} published`} />
         <SummaryCard label="This Month" value={monthlyData[monthlyData.length - 1]?.count || 0} sub="published" />
         <SummaryCard label="Avg / Month" value={monthlyData.length ? Math.round(monthlyData.reduce((s, m) => s + m.count, 0) / monthlyData.length) : 0} sub={`over ${timeRange}mo`} />
         <SummaryCard label="Platforms" value={platformEntries.length} sub="active" />
+        <SummaryCard
+          label="Publishing Streak"
+          value={`${streak} week${streak !== 1 ? 's' : ''}`}
+          sub="consecutive"
+          valueColor="#f4a261"
+        />
       </div>
 
       {/* Published over time */}
@@ -143,6 +163,37 @@ export default function Analytics() {
         <p className="text-xs text-stone-400 mt-3">
           Avg {weeklyData.length ? (weeklyData.reduce((s, w) => s + w.count, 0) / weeklyData.length).toFixed(1) : 0} posts/week
         </p>
+      </div>
+
+      {/* Best posting days */}
+      <div className="bg-white border border-stone-200 rounded-xl p-6 mb-6">
+        <p className="text-xs tracking-widest uppercase text-stone-400 mb-5">Best Days to Post</p>
+        {published.length === 0 ? (
+          <p className="text-sm text-stone-400">No published posts with dates yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {dayLabels.map((label, i) => {
+              const count = dayCounts[i]
+              const isTop = count === maxDayCount && count > 0
+              const barPct = (count / maxDayCount) * 100
+              return (
+                <div key={label} className="flex items-center gap-3">
+                  <span className="w-8 text-xs text-stone-500 flex-shrink-0">{label}</span>
+                  <div className="flex-1 h-4 bg-stone-100 rounded-sm overflow-hidden">
+                    <div
+                      className="h-full rounded-sm transition-all"
+                      style={{
+                        width: `${barPct}%`,
+                        backgroundColor: isTop ? '#2a9d8f' : '#d6d3d1',
+                      }}
+                    />
+                  </div>
+                  <span className="w-6 text-xs text-stone-500 text-right flex-shrink-0">{count}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Platform + Type row */}
@@ -303,10 +354,15 @@ function HorizontalBars({ entries, colorMap = {}, colorList = [], total }) {
   )
 }
 
-function SummaryCard({ label, value, sub }) {
+function SummaryCard({ label, value, sub, valueColor }) {
   return (
     <div className="bg-white border border-stone-200 rounded-xl p-5">
-      <p className="text-3xl font-light text-stone-800 mb-1">{value}</p>
+      <p
+        className="text-3xl font-light mb-1"
+        style={{ color: valueColor || '#292524' }}
+      >
+        {value}
+      </p>
       <p className="text-xs text-stone-500">{label}</p>
       {sub && <p className="text-[10px] text-stone-400 mt-0.5">{sub}</p>}
     </div>
@@ -314,6 +370,29 @@ function SummaryCard({ label, value, sub }) {
 }
 
 // ── Helpers ─────────────────────────────────────────────────
+
+function computeStreak(posts) {
+  const published = posts.filter(p => p.status === 'published' && p.scheduled_date)
+  if (published.length === 0) return 0
+  const getWeek = d => {
+    const date = new Date(d + 'T00:00:00')
+    const startOfYear = new Date(date.getFullYear(), 0, 1)
+    return Math.ceil(((date - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7)
+  }
+  const weeksWithPosts = new Set(
+    published.map(p => `${new Date(p.scheduled_date + 'T00:00:00').getFullYear()}-${getWeek(p.scheduled_date)}`)
+  )
+  let streak = 0
+  const now = new Date()
+  for (let w = 0; w < 52; w++) {
+    const d = new Date(now)
+    d.setDate(now.getDate() - w * 7)
+    const key = `${d.getFullYear()}-${getWeek(d.toISOString().split('T')[0])}`
+    if (weeksWithPosts.has(key)) streak++
+    else if (w > 0) break
+  }
+  return streak
+}
 
 function buildMonthlyData(publishedPosts, months) {
   const now = new Date()
