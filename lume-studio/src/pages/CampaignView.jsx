@@ -112,12 +112,20 @@ export default function CampaignView() {
             <h1 className="font-serif text-3xl text-stone-800 mb-1">{campaign.name}</h1>
             {campaign.description && <p className="text-sm text-stone-500 mb-2">{campaign.description}</p>}
             <div className="flex items-center gap-3 flex-wrap">
-              <span
-                className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: status.color + '25', color: status.color }}
+              <select
+                value={campaign.status}
+                onChange={async e => {
+                  const newStatus = e.target.value
+                  await supabase.from('campaigns').update({ status: newStatus }).eq('id', campaignId)
+                  setCampaign(prev => ({ ...prev, status: newStatus }))
+                }}
+                className="text-[10px] font-medium px-2 py-0.5 rounded-full border-0 outline-none cursor-pointer"
+                style={{ backgroundColor: (CAMPAIGN_STATUSES[campaign.status]?.color || '#9ca5b2') + '25', color: CAMPAIGN_STATUSES[campaign.status]?.color || '#9ca5b2' }}
               >
-                {status.label}
-              </span>
+                {Object.entries(CAMPAIGN_STATUSES).map(([key, s]) => (
+                  <option key={key} value={key}>{s.label}</option>
+                ))}
+              </select>
               {(campaign.start_date || campaign.end_date) && (
                 <span className="text-xs text-stone-400">
                   {formatDate(campaign.start_date)} {campaign.start_date && campaign.end_date ? '→' : ''} {formatDate(campaign.end_date)}
@@ -143,6 +151,35 @@ export default function CampaignView() {
       </div>
 
       <CampaignTimeline campaign={campaign} />
+
+      {posts.length > 0 && (
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs tracking-widest uppercase text-stone-400">Post Breakdown</p>
+            <p className="text-xs text-stone-400">{posts.length} post{posts.length !== 1 ? 's' : ''}</p>
+          </div>
+          <div className="h-2 bg-stone-100 rounded-full overflow-hidden flex mb-2">
+            {Object.entries(POST_STATUSES).map(([key, s]) => {
+              const count = posts.filter(p => p.status === key).length
+              const pct = (count / posts.length) * 100
+              if (pct === 0) return null
+              return <div key={key} className="h-full transition-all" style={{ width: `${pct}%`, backgroundColor: s.color }} title={`${s.label}: ${count}`} />
+            })}
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {Object.entries(POST_STATUSES).map(([key, s]) => {
+              const count = posts.filter(p => p.status === key).length
+              if (count === 0) return null
+              return (
+                <div key={key} className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                  <span className="text-xs text-stone-500">{s.label}: <span className="font-medium text-stone-700">{count}</span></span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Progress bar */}
       <div className="bg-white border border-stone-200 rounded-xl p-5 mb-6">

@@ -135,20 +135,27 @@ function ProfileSection() {
         </Field>
 
         <Field label="Avatar Color">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-wrap gap-2 mt-1">
             {AVATAR_COLORS.map((color) => (
               <button
                 key={color}
                 onClick={() => setAvatarColor(color)}
-                className="w-7 h-7 rounded-full transition-transform hover:scale-110 flex items-center justify-center"
+                className={`w-7 h-7 rounded-full transition-transform ${avatarColor === color ? 'scale-110 ring-2 ring-offset-1 ring-stone-400' : 'hover:scale-105'}`}
                 style={{ backgroundColor: color }}
                 title={color}
-              >
-                {avatarColor === color && (
-                  <span className="text-white text-[10px]">✓</span>
-                )}
-              </button>
+              />
             ))}
+          </div>
+          <div className="flex items-center gap-2 mt-3">
+            <label className="text-xs text-stone-400">Other</label>
+            <input
+              type="color"
+              value={avatarColor}
+              onChange={(e) => setAvatarColor(e.target.value)}
+              className="w-7 h-7 rounded-full cursor-pointer border border-stone-200 bg-transparent p-0.5"
+              title="Custom color"
+            />
+            <span className="text-xs text-stone-300 font-mono">{avatarColor}</span>
           </div>
         </Field>
 
@@ -166,38 +173,59 @@ function ProfileSection() {
   )
 }
 
-function ShortcutsSection() {
-  const shortcuts = [
-    { keys: ['Esc'], description: 'Close detail panel or modal' },
-    { keys: ['←', '→'], description: 'Navigate to previous / next item' },
-    { keys: ['Space'], description: 'Play / pause audio (Sound projects)' },
-    { keys: ['Click name'], description: 'Rename a track, clip, or photo' },
-  ]
+const SHORTCUTS = [
+  { group: 'Global', items: [
+    { keys: ['⌘', 'K'], label: 'Open command palette' },
+    { keys: ['⌘', '/'], label: 'Focus search' },
+    { keys: ['Esc'],    label: 'Close modal / deselect' },
+  ]},
+  { group: 'Posts', items: [
+    { keys: ['⌘', 'N'], label: 'New post (when on Posts page)' },
+    { keys: ['↑', '↓'], label: 'Navigate results' },
+    { keys: ['↵'],      label: 'Open selected item' },
+  ]},
+  { group: 'Album View', items: [
+    { keys: ['←', '→'], label: 'Previous / next photo' },
+    { keys: ['Esc'],    label: 'Close lightbox' },
+    { keys: ['F'],      label: 'Toggle favorite (when photo open)' },
+  ]},
+  { group: 'Sound View', items: [
+    { keys: ['Space'],  label: 'Play / pause track' },
+    { keys: ['←', '→'], label: 'Previous / next track' },
+  ]},
+  { group: 'Notes', items: [
+    { keys: ['⌘', 'Enter'], label: 'Save note entry' },
+    { keys: ['Enter'],       label: 'Add activity log entry (in PostView)' },
+  ]},
+]
 
+function ShortcutsSection() {
   return (
     <div>
       <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Shortcuts</p>
       <h1 className="font-serif text-3xl text-stone-800 mb-6">Keyboard Shortcuts</h1>
 
-      <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
-        {shortcuts.map((s, i) => (
-          <div key={i} className={`flex items-center gap-4 px-5 py-3.5 ${i !== 0 ? 'border-t border-stone-100' : ''}`}>
-            <div className="flex items-center gap-1.5 flex-shrink-0 w-32">
-              {s.keys.map((k) => (
-                <kbd
-                  key={k}
-                  className="px-2 py-0.5 bg-stone-100 border border-stone-200 rounded text-xs text-stone-600 font-mono"
-                >
-                  {k}
-                </kbd>
+      <div className="flex flex-col gap-6">
+        {SHORTCUTS.map((group) => (
+          <div key={group.group}>
+            <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">{group.group}</p>
+            <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+              {group.items.map((item) => (
+                <div key={item.label} className="flex items-center justify-between py-1.5 px-5 border-b border-stone-100 last:border-0">
+                  <span className="text-sm text-stone-600">{item.label}</span>
+                  <div className="flex items-center gap-1">
+                    {item.keys.map((k, i) => (
+                      <kbd key={i} className="px-1.5 py-0.5 bg-stone-100 border border-stone-300 rounded text-[10px] font-mono text-stone-600">{k}</kbd>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
-            <span className="text-sm text-stone-600">{s.description}</span>
           </div>
         ))}
       </div>
 
-      <p className="text-xs text-stone-400 mt-4">Shortcuts are disabled when typing in a text field.</p>
+      <p className="text-xs text-stone-400 mt-5">Shortcuts are disabled when typing in a text field.</p>
     </div>
   )
 }
