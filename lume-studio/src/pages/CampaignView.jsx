@@ -4,6 +4,36 @@ import { supabase } from '../lib/supabase'
 import { POST_STATUSES } from '../lib/constants'
 import { CAMPAIGN_STATUSES, PALETTE } from './Campaigns'
 
+function CampaignTimeline({ campaign }) {
+  if (!campaign.start_date || !campaign.end_date) return null
+  const start = new Date(campaign.start_date + 'T00:00:00')
+  const end = new Date(campaign.end_date + 'T00:00:00')
+  const now = new Date()
+  const total = end - start
+  const elapsed = Math.min(Math.max(now - start, 0), total)
+  const pct = total > 0 ? (elapsed / total) * 100 : 0
+  const daysLeft = Math.max(0, Math.ceil((end - now) / 86400000))
+  const isOverdue = now > end
+  const fmt = d => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+
+  return (
+    <div className="mb-5">
+      <div className="flex justify-between text-[10px] text-stone-400 mb-1.5">
+        <span>{fmt(campaign.start_date)}</span>
+        <span className={isOverdue ? 'text-red-400' : 'text-stone-400'}>
+          {isOverdue ? 'Ended' : `${daysLeft}d left`} · {fmt(campaign.end_date)}
+        </span>
+      </div>
+      <div className="relative h-2 bg-stone-100 rounded-full overflow-hidden">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full transition-all"
+          style={{ width: `${pct}%`, backgroundColor: campaign.color || '#6366f1' }}
+        />
+      </div>
+    </div>
+  )
+}
+
 export default function CampaignView() {
   const { campaignId } = useParams()
   const navigate = useNavigate()
@@ -111,6 +141,8 @@ export default function CampaignView() {
           </button>
         </div>
       </div>
+
+      <CampaignTimeline campaign={campaign} />
 
       {/* Progress bar */}
       <div className="bg-white border border-stone-200 rounded-xl p-5 mb-6">
