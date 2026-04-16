@@ -111,6 +111,24 @@ export default function Posts() {
     await softDelete(ENTITY_TYPES.POST, target.id, target.title)
   }
 
+  async function handleDuplicate(post) {
+    const { data, error } = await supabase
+      .from('posts')
+      .insert({
+        title: `${post.title} (copy)`,
+        type: post.type,
+        platform: post.platform,
+        status: 'idea',
+        description: post.description || null,
+      })
+      .select('id, title, type, status, platform, created_at, scheduled_date')
+      .single()
+    if (!error && data) {
+      setPosts(prev => [data, ...prev])
+      window.dispatchEvent(new CustomEvent('lume-posts-updated'))
+    }
+  }
+
   async function handleEdit(fields) {
     const { error } = await supabase.from('posts').update(fields).eq('id', editTarget.id)
     if (!error) {
@@ -214,6 +232,26 @@ export default function Posts() {
     }
   }
 
+  function exportCSV() {
+    const headers = ['Title', 'Status', 'Type', 'Platform', 'Scheduled Date', 'Created']
+    const rows = filtered.map(p => [
+      `"${(p.title || '').replace(/"/g, '""')}"`,
+      p.status || '',
+      (p.type || []).join('; '),
+      (p.platform || []).join('; '),
+      p.scheduled_date || '',
+      p.created_at ? new Date(p.created_at).toLocaleDateString() : '',
+    ])
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `posts-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const anySelected = selectedIds.size > 0
   const filtered = sortPosts(filterStatus === 'all' ? posts : posts.filter(p => p.status === filterStatus))
 
@@ -239,6 +277,12 @@ export default function Posts() {
               {selectMode ? 'Done' : 'Select'}
             </button>
           )}
+          <button
+            onClick={exportCSV}
+            className="text-xs px-3 py-1.5 rounded-md border border-stone-200 text-stone-500 hover:border-stone-300 hover:text-stone-700 transition-colors"
+          >
+            ↓ CSV
+          </button>
           <div className="flex border border-stone-200 rounded-md overflow-hidden">
             <button
               onClick={() => { setViewMode('board'); localStorage.setItem('lume-posts-view', 'board') }}
@@ -426,6 +470,7 @@ export default function Posts() {
           onOpen={post => navigate(`/posts/${post.id}`)}
           onEdit={post => setEditTarget(post)}
           onDelete={post => setDeleteTarget(post)}
+          onDuplicate={post => handleDuplicate(post)}
           selectMode={selectMode}
           selectedIds={selectedIds}
           toggleSelect={toggleSelect}
@@ -447,6 +492,7 @@ export default function Posts() {
               onClick={() => selectMode ? toggleSelect(post.id) : navigate(`/posts/${post.id}`)}
               onEdit={(e) => { e.stopPropagation(); setEditTarget(post) }}
               onDelete={(e) => { e.stopPropagation(); setDeleteTarget(post) }}
+              onDuplicate={(e) => { e.stopPropagation(); handleDuplicate(post) }}
               selectMode={selectMode}
               checked={selectedIds.has(post.id)}
               anySelected={anySelected}
@@ -487,7 +533,88 @@ export default function Posts() {
 
 /* ── List View ───────────────────────────────────────────── */
 
-function PostListView({ posts, onOpen, onEdit, onDelete, selectMode, selectedIds, toggleSelect, anySelected }) {
+function PostListRow({ post, index, onOpen, onEdit, onDelete, onDuplicate, selectMode, selectedIds, toggleSelect, anySelected }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const status = POST_STATUSES[post.status]
+  const cats = (post.post_categories || []).map(pc => pc.category).filter(Boolean)
+  const isChecked = selectedIds.has(post.id)
+  return (
+    <div
+      key={post.id}
+      onClick={() => onOpen(post)}
+      className={`grid grid-cols-[1fr_120px_100px_120px_80px] gap-4 px-4 py-3 cursor-pointer hover:bg-stone-50 transition-colors items-center ${index !== 0 ? 'border-t border-stone-100' : ''} ${isChecked ? 'bg-teal-50' : ''}`}
+    >
+      {/* Title + cats */}
+      <div className="flex items-center gap-2 min-w-0">
+        {(selectMode || anySelected) && (
+          <input type="checkbox" checked={isChecked}
+            onChange={e => { e.stopPropagation(); toggleSelect(post.id) }}
+            onClick={e => e.stopPropagation()}
+            className="accent-teal-500 flex-shrink-0"
+          />
+        )}
+        <span className="text-sm text-stone-700 truncate">{post.title}</span>
+        {cats.slice(0, 3).map(cat => (
+          <span key={cat.id} className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+        ))}
+      </div>
+      {/* Status */}
+      <div>
+        {status && (
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: status.color + '30', color: status.color }}>
+            {status.label}
+          </span>
+        )}
+      </div>
+      {/* Type */}
+      <span className="text-xs text-stone-400 truncate">{post.type?.join(', ') || '—'}</span>
+      {/* Scheduled */}
+      <span className="text-xs text-stone-400">
+        {post.scheduled_date
+          ? new Date(post.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : '—'}
+      </span>
+      {/* Platform + actions */}
+      <div className="flex items-center justify-between gap-1">
+        <span className="text-xs text-stone-300 truncate">{post.platform?.join(', ') || '—'}</span>
+        <div className="relative flex-shrink-0">
+          <button
+            onClick={e => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
+            className="text-xs text-stone-400 hover:text-stone-700 px-1 transition-colors"
+          >⋮</button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={e => { e.stopPropagation(); setMenuOpen(false) }} />
+              <div className="absolute bottom-full right-0 z-20 bg-white border border-stone-200 rounded-lg shadow-lg py-1 min-w-[120px] mb-1">
+                <button
+                  onClick={e => { e.stopPropagation(); setMenuOpen(false); onEdit(post) }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50 transition-colors"
+                >
+                  Edit Post
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); setMenuOpen(false); onDuplicate(post) }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50 transition-colors"
+                >
+                  Duplicate
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); setMenuOpen(false); onDelete(post) }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  Delete Post
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PostListView({ posts, onOpen, onEdit, onDelete, onDuplicate, selectMode, selectedIds, toggleSelect, anySelected }) {
   return (
     <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
       {/* Header row */}
@@ -501,58 +628,21 @@ function PostListView({ posts, onOpen, onEdit, onDelete, selectMode, selectedIds
       {posts.length === 0 ? (
         <p className="px-4 py-8 text-sm text-stone-400 text-center">No posts.</p>
       ) : (
-        posts.map((post, i) => {
-          const status = POST_STATUSES[post.status]
-          const cats = (post.post_categories || []).map(pc => pc.category).filter(Boolean)
-          const isChecked = selectedIds.has(post.id)
-          return (
-            <div
-              key={post.id}
-              onClick={() => onOpen(post)}
-              className={`grid grid-cols-[1fr_120px_100px_120px_80px] gap-4 px-4 py-3 cursor-pointer hover:bg-stone-50 transition-colors items-center ${i !== 0 ? 'border-t border-stone-100' : ''} ${isChecked ? 'bg-teal-50' : ''}`}
-            >
-              {/* Title + cats */}
-              <div className="flex items-center gap-2 min-w-0">
-                {(selectMode || anySelected) && (
-                  <input type="checkbox" checked={isChecked}
-                    onChange={e => { e.stopPropagation(); toggleSelect(post.id) }}
-                    onClick={e => e.stopPropagation()}
-                    className="accent-teal-500 flex-shrink-0"
-                  />
-                )}
-                <span className="text-sm text-stone-700 truncate">{post.title}</span>
-                {cats.slice(0, 3).map(cat => (
-                  <span key={cat.id} className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-                ))}
-              </div>
-              {/* Status */}
-              <div>
-                {status && (
-                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: status.color + '30', color: status.color }}>
-                    {status.label}
-                  </span>
-                )}
-              </div>
-              {/* Type */}
-              <span className="text-xs text-stone-400 truncate">{post.type?.join(', ') || '—'}</span>
-              {/* Scheduled */}
-              <span className="text-xs text-stone-400">
-                {post.scheduled_date
-                  ? new Date(post.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                  : '—'}
-              </span>
-              {/* Platform + actions */}
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-xs text-stone-300 truncate">{post.platform?.join(', ') || '—'}</span>
-                <button
-                  onClick={e => { e.stopPropagation(); onEdit(post) }}
-                  className="opacity-0 group-hover:opacity-100 text-xs text-stone-400 hover:text-stone-700 px-1 transition-colors"
-                >⋮</button>
-              </div>
-            </div>
-          )
-        })
+        posts.map((post, i) => (
+          <PostListRow
+            key={post.id}
+            post={post}
+            index={i}
+            onOpen={onOpen}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onDuplicate={onDuplicate}
+            selectMode={selectMode}
+            selectedIds={selectedIds}
+            toggleSelect={toggleSelect}
+            anySelected={anySelected}
+          />
+        ))
       )}
     </div>
   )
@@ -1075,7 +1165,7 @@ function readinessScore(post) {
   return { score, max: 4 }
 }
 
-function PostCard({ post, onClick, onEdit, onDelete, selectMode, checked, anySelected, onCheck, coverUrl }) {
+function PostCard({ post, onClick, onEdit, onDelete, onDuplicate, selectMode, checked, anySelected, onCheck, coverUrl }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const status = POST_STATUSES[post.status]
   const cats = (post.post_categories || []).map(pc => pc.category).filter(Boolean)
@@ -1130,6 +1220,12 @@ function PostCard({ post, onClick, onEdit, onDelete, selectMode, checked, anySel
                     className="w-full text-left px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50 transition-colors"
                   >
                     Edit Post
+                  </button>
+                  <button
+                    onClick={(e) => { setMenuOpen(false); onDuplicate(e) }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50 transition-colors"
+                  >
+                    Duplicate
                   </button>
                   <button
                     onClick={(e) => { setMenuOpen(false); onDelete(e) }}
