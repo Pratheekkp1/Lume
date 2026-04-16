@@ -17,6 +17,9 @@ export default function Ideas() {
   const [showCreate, setShowCreate] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
   const [promoteTarget, setPromoteTarget] = useState(null)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [search, setSearch] = useState('')
 
   useEffect(() => { fetchIdeas() }, [])
 
@@ -69,7 +72,22 @@ export default function Ideas() {
     }
   }
 
-  const filtered = filterStatus === 'all' ? ideas : ideas.filter(i => i.status === filterStatus)
+  async function bulkStatusChange(status) {
+    const ids = [...selectedIds]
+    setIdeas(prev => prev.map(i => selectedIds.has(i.id) ? { ...i, status } : i))
+    setSelectedIds(new Set())
+    await supabase.from('ideas').update({ status, updated_at: new Date().toISOString() }).in('id', ids)
+  }
+
+  async function bulkDelete() {
+    const ids = [...selectedIds]
+    setIdeas(prev => prev.filter(i => !selectedIds.has(i.id)))
+    setSelectedIds(new Set())
+    await supabase.from('ideas').delete().in('id', ids)
+  }
+
+  const filtered = (filterStatus === 'all' ? ideas : ideas.filter(i => i.status === filterStatus))
+    .filter(i => !search.trim() || i.title.toLowerCase().includes(search.toLowerCase()) || (i.notes || '').toLowerCase().includes(search.toLowerCase()))
 
   return (
     <div className="p-7">
@@ -80,13 +98,29 @@ export default function Ideas() {
           <h1 className="font-serif text-3xl text-stone-800">Ideas</h1>
           <p className="text-xs text-stone-400 mt-1">{ideas.length} idea{ideas.length !== 1 ? 's' : ''}</p>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="bg-teal-500 text-white text-xs font-medium px-4 py-2 rounded-md hover:bg-teal-600 transition-colors"
-        >
-          + Capture Idea
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setSelectMode(s => !s); setSelectedIds(new Set()) }}
+            className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${selectMode ? 'bg-teal-500 text-white border-teal-500' : 'border-stone-200 text-stone-500 hover:border-stone-300'}`}
+          >
+            {selectMode ? 'Done' : 'Select'}
+          </button>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="bg-teal-500 text-white text-xs font-medium px-4 py-2 rounded-md hover:bg-teal-600 transition-colors"
+          >
+            + Capture Idea
+          </button>
+        </div>
       </div>
+
+      {/* Search */}
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search ideas…"
+        className="mb-3 w-full max-w-xs text-xs border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400 text-stone-700 placeholder-stone-300"
+      />
 
       {/* Status filters */}
       <div className="flex items-center gap-2 mb-6 flex-wrap">
@@ -110,6 +144,26 @@ export default function Ideas() {
           )
         })}
       </div>
+
+      {/* Bulk action bar */}
+      {selectMode && selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 mb-4 px-3 py-2 bg-stone-100 border border-stone-200 rounded-lg text-xs">
+          <span className="text-stone-600 font-medium">{selectedIds.size} selected</span>
+          <div className="ml-auto flex items-center gap-2">
+            <select
+              onChange={e => { if (e.target.value) bulkStatusChange(e.target.value) }}
+              className="text-xs border border-stone-200 rounded px-2 py-1 bg-white text-stone-500 focus:outline-none"
+              defaultValue=""
+            >
+              <option value="" disabled>Change status…</option>
+              {Object.entries(IDEA_STATUSES).filter(([k]) => k !== 'promoted').map(([key, s]) => (
+                <option key={key} value={key}>{s.label}</option>
+              ))}
+            </select>
+            <button onClick={bulkDelete} className="text-red-400 hover:text-red-600 px-2 py-1 border border-stone-200 rounded transition-colors">Delete</button>
+          </div>
+        </div>
+      )}
 
       {/* Ideas grid */}
       {loading ? (
@@ -135,6 +189,13 @@ export default function Ideas() {
               onDelete={() => handleDelete(idea.id)}
               onPromote={() => idea.promoted_post_id ? navigate(`/posts/${idea.promoted_post_id}`) : setPromoteTarget(idea)}
               onStatusChange={(status) => handleUpdate(idea.id, { status })}
+              selectMode={selectMode}
+              selected={selectedIds.has(idea.id)}
+              onSelect={() => setSelectedIds(prev => {
+                const next = new Set(prev)
+                next.has(idea.id) ? next.delete(idea.id) : next.add(idea.id)
+                return next
+              })}
             />
           ))}
         </div>
@@ -173,24 +234,46 @@ export default function Ideas() {
   )
 }
 
-function IdeaCard({ idea, onEdit, onDelete, onPromote, onStatusChange }) {
+function IdeaCard({ idea, onEdit, onDelete, onPromote, onStatusChange, selectMode, selected, onSelect }) {
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const s = IDEA_STATUSES[idea.status] || IDEA_STATUSES.raw
   const isPromoted = idea.status === 'promoted'
 
+  function handleCardClick(e) {
+    if (selectMode) {
+      onSelect()
+    }
+  }
+
   return (
-    <div className="bg-white border border-stone-200 rounded-xl p-4 hover:border-stone-300 hover:shadow-sm transition group flex flex-col gap-3">
+    <div
+      onClick={handleCardClick}
+      className={`bg-white border rounded-xl p-4 hover:shadow-sm transition group flex flex-col gap-3 relative ${
+        selectMode ? 'cursor-pointer' : ''
+      } ${
+        selected ? 'border-teal-400 ring-2 ring-teal-100' : 'border-stone-200 hover:border-stone-300'
+      }`}
+    >
+      {/* Checkbox (select mode) */}
+      {selectMode && (
+        <div className="absolute top-3 left-3 z-10">
+          <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selected ? 'bg-teal-500 border-teal-500' : 'bg-white border-stone-300'}`}>
+            {selected && <span className="text-white text-[10px] leading-none">✓</span>}
+          </div>
+        </div>
+      )}
+
       {/* Status + menu row */}
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center justify-between ${selectMode ? 'pl-6' : ''}`}>
         <div className="relative">
           <button
-            onClick={() => setShowStatusMenu(p => !p)}
+            onClick={e => { if (selectMode) { e.stopPropagation(); return; } setShowStatusMenu(p => !p) }}
             className="text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors"
             style={{ backgroundColor: s.color + '25', color: s.color }}
           >
-            {s.label} ▾
+            {s.label} {!selectMode && '▾'}
           </button>
-          {showStatusMenu && (
+          {showStatusMenu && !selectMode && (
             <div className="absolute left-0 top-full mt-1 bg-white border border-stone-200 rounded-lg shadow-lg py-1 z-10 min-w-[120px]">
               {Object.entries(IDEA_STATUSES).map(([key, st]) => key !== 'promoted' && (
                 <button
@@ -205,10 +288,12 @@ function IdeaCard({ idea, onEdit, onDelete, onPromote, onStatusChange }) {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button onClick={onEdit} className="text-xs text-stone-400 hover:text-stone-600 px-1.5 py-0.5 rounded transition-colors">Edit</button>
-          <button onClick={onDelete} className="text-stone-300 hover:text-red-400 text-lg leading-none transition-colors">×</button>
-        </div>
+        {!selectMode && (
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={onEdit} className="text-xs text-stone-400 hover:text-stone-600 px-1.5 py-0.5 rounded transition-colors">Edit</button>
+            <button onClick={onDelete} className="text-stone-300 hover:text-red-400 text-lg leading-none transition-colors">×</button>
+          </div>
+        )}
       </div>
 
       {/* Title */}
@@ -233,16 +318,18 @@ function IdeaCard({ idea, onEdit, onDelete, onPromote, onStatusChange }) {
       )}
 
       {/* Promote button */}
-      <button
-        onClick={onPromote}
-        className={`mt-auto text-xs py-1.5 rounded-md border transition-colors w-full ${
-          isPromoted
-            ? 'border-stone-100 text-stone-400 bg-stone-50'
-            : 'border-teal-200 text-teal-600 hover:bg-teal-50 hover:border-teal-300'
-        }`}
-      >
-        {isPromoted ? '✓ Promoted to post' : '→ Promote to post'}
-      </button>
+      {!selectMode && (
+        <button
+          onClick={e => { e.stopPropagation(); onPromote() }}
+          className={`mt-auto text-xs py-1.5 rounded-md border transition-colors w-full ${
+            isPromoted
+              ? 'border-stone-100 text-stone-400 bg-stone-50'
+              : 'border-teal-200 text-teal-600 hover:bg-teal-50 hover:border-teal-300'
+          }`}
+        >
+          {isPromoted ? '✓ Promoted to post' : '→ Promote to post'}
+        </button>
+      )}
     </div>
   )
 }
