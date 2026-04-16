@@ -12,6 +12,14 @@ const CARD_TYPES = [
   { key: 'reference', label: 'Reference', icon: '📌' },
 ]
 
+const TYPE_STYLES = {
+  note:      { icon: '✎', color: '#2a9d8f' },
+  link:      { icon: '🔗', color: '#6366f1' },
+  image:     { icon: '◻', color: '#f4a261' },
+  reference: { icon: '◈', color: '#e76f51' },
+  idea:      { icon: '✦', color: '#e9c46a' },
+}
+
 const TAG_COLORS = ['#2a9d8f', '#e76f51', '#6366f1', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6']
 
 export default function Inspiration() {
@@ -64,6 +72,14 @@ export default function Inspiration() {
     setAdding(false)
   }
 
+  async function togglePin(id) {
+    const card = cards.find(c => c.id === id)
+    if (!card) return
+    const pinned = !card.pinned
+    await supabase.from('inspiration').update({ pinned, updated_at: new Date().toISOString() }).eq('id', id)
+    setCards(prev => prev.map(c => c.id === id ? { ...c, pinned } : c))
+  }
+
   async function deleteCard(id) {
     await supabase.from('inspiration').delete().eq('id', id)
     setCards(prev => prev.filter(c => c.id !== id))
@@ -87,11 +103,14 @@ export default function Inspiration() {
     setNewTagInput(''); setNewTags([]); setNewColor(TAG_COLORS[0])
   }
 
-  const filtered = cards.filter(c => {
-    if (filterType !== 'all' && c.type !== filterType) return false
-    if (filterTag && !(c.tags || []).includes(filterTag)) return false
-    return true
-  })
+  const filtered = (() => {
+    const base = cards.filter(c => {
+      if (filterType !== 'all' && c.type !== filterType) return false
+      if (filterTag && !(c.tags || []).includes(filterTag)) return false
+      return true
+    })
+    return [...base.filter(c => c.pinned), ...base.filter(c => !c.pinned)]
+  })()
 
   return (
     <div className="p-7 max-w-5xl">
@@ -278,6 +297,7 @@ export default function Inspiration() {
               onToggle={() => setExpandedId(expandedId === card.id ? null : card.id)}
               onUpdate={fields => updateCard(card.id, fields)}
               onDelete={() => deleteCard(card.id)}
+              onTogglePin={() => togglePin(card.id)}
             />
           ))}
         </div>
@@ -286,9 +306,8 @@ export default function Inspiration() {
   )
 }
 
-function InspirationCard({ card, expanded, onToggle, onUpdate, onDelete }) {
-  const typeInfo = CARD_TYPES.find(t => t.key === card.type) || CARD_TYPES[0]
-  const [editingBody, setEditingBody] = useState(false)
+function InspirationCard({ card, expanded, onToggle, onUpdate, onDelete, onTogglePin }) {
+  const typeStyle = TYPE_STYLES[card.type] || { icon: '✎', color: '#a8a29e' }
   const [bodyDraft, setBodyDraft] = useState(card.body || '')
   const bodyTimer = useRef(null)
 
@@ -300,17 +319,30 @@ function InspirationCard({ card, expanded, onToggle, onUpdate, onDelete }) {
 
   return (
     <div
-      className="break-inside-avoid bg-white border border-stone-200 rounded-xl overflow-hidden hover:shadow-sm transition-shadow"
-      style={{ borderTopColor: card.color, borderTopWidth: 3 }}
+      className="group break-inside-avoid bg-white border border-stone-200 rounded-xl overflow-hidden hover:shadow-sm transition-shadow"
+      style={{ borderLeftColor: typeStyle.color, borderLeftWidth: 4 }}
     >
       <div className="p-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-base flex-shrink-0">{typeInfo.icon}</span>
+            <span
+              className="text-[11px] font-bold flex-shrink-0 w-5 h-5 flex items-center justify-center rounded"
+              style={{ color: typeStyle.color }}
+              title={card.type}
+            >
+              {typeStyle.icon}
+            </span>
             <span className="text-sm font-medium text-stone-700 truncate">{card.title}</span>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={e => { e.stopPropagation(); onTogglePin() }}
+              className={`text-sm transition-all px-0.5 ${card.pinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} hover:scale-110`}
+              title={card.pinned ? 'Unpin' : 'Pin to top'}
+            >
+              {card.pinned ? '📌' : '📍'}
+            </button>
             <button
               onClick={onToggle}
               className="text-xs text-stone-300 hover:text-stone-500 transition-colors px-1"
