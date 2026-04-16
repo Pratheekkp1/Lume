@@ -68,6 +68,262 @@ const PLATFORM_SPECS = {
   },
 }
 
+const PLATFORM_CHAR_LIMITS = {
+  Instagram: 2200,
+  TikTok: 2200,
+  YouTube: 5000,
+  'Twitter/X': 280,
+  Facebook: 63206,
+  LinkedIn: 3000,
+  Pinterest: 500,
+}
+
+function PostPreview({ post, assets, linkedPhotos }) {
+  const platforms = post?.platform || []
+  const [activePlatform, setActivePlatform] = useState(null)
+
+  const displayPlatforms = platforms.length > 0 ? platforms : ['Generic']
+  // selectedPlatform: use activePlatform if it's still valid, else fall back to first
+  const selectedPlatform = (activePlatform && platforms.includes(activePlatform))
+    ? activePlatform
+    : displayPlatforms[0]
+  const caption = post?.caption || ''
+  const title = post?.title || 'Untitled Post'
+
+  // Find first image URL
+  const firstImageAsset = assets.find(a => a.file_type === 'image')
+  const firstLinkedPhoto = linkedPhotos[0]
+  let thumbUrl = null
+  if (firstImageAsset) {
+    thumbUrl = firstImageAsset.file_path
+  } else if (firstLinkedPhoto) {
+    thumbUrl = supabase.storage.from('Photos').getPublicUrl(firstLinkedPhoto.file_path).data.publicUrl
+  }
+
+  const charLimit = PLATFORM_CHAR_LIMITS[selectedPlatform] || null
+  const captionLen = caption.length
+  const remaining = charLimit !== null ? charLimit - captionLen : null
+
+  function ImagePlaceholder({ className }) {
+    return thumbUrl ? (
+      <img src={thumbUrl} alt="" className={`${className} object-cover`} />
+    ) : (
+      <div className={`${className} bg-stone-200 flex items-center justify-center`}>
+        <span className="text-stone-400 text-xs">No image</span>
+      </div>
+    )
+  }
+
+  function AvatarCircle({ size = 'w-7 h-7' }) {
+    return (
+      <div className={`${size} rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center flex-shrink-0`}>
+        <span className="text-white text-[9px] font-bold">Y</span>
+      </div>
+    )
+  }
+
+  function InstagramCard() {
+    const previewCaption = caption.length > 125 ? caption.slice(0, 125) + '…more' : caption || 'Your caption will appear here.'
+    return (
+      <div className="border border-stone-200 rounded-xl overflow-hidden bg-white text-[11px]">
+        {/* Header */}
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-stone-100">
+          <AvatarCircle />
+          <div>
+            <p className="font-semibold text-stone-800 text-[11px]">yourbrand</p>
+            <p className="text-stone-400 text-[9px]">Sponsored</p>
+          </div>
+          <span className="ml-auto text-stone-400 text-base leading-none">···</span>
+        </div>
+        {/* Image */}
+        <ImagePlaceholder className="w-full aspect-square" />
+        {/* Engagement */}
+        <div className="px-3 py-2 flex items-center gap-3 border-b border-stone-100">
+          <span className="text-stone-500">♡</span>
+          <span className="text-stone-500">💬</span>
+          <span className="text-stone-500">↗</span>
+          <span className="ml-auto text-stone-500">🔖</span>
+        </div>
+        {/* Likes */}
+        <div className="px-3 pt-1 pb-0.5">
+          <p className="font-semibold text-stone-700 text-[10px]">1,024 likes</p>
+        </div>
+        {/* Caption */}
+        <div className="px-3 pb-3 pt-0.5 text-stone-700 leading-relaxed">
+          <span className="font-semibold">yourbrand </span>
+          {previewCaption}
+        </div>
+      </div>
+    )
+  }
+
+  function TwitterCard() {
+    const tweet = caption.length > 280 ? caption.slice(0, 277) + '...' : caption || 'Your tweet text will appear here.'
+    return (
+      <div className="border border-stone-200 rounded-xl overflow-hidden bg-white p-3 text-[11px]">
+        <div className="flex gap-2">
+          <AvatarCircle size="w-8 h-8" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-1 mb-1">
+              <span className="font-bold text-stone-800 text-[11px]">yourbrand</span>
+              <span className="text-stone-400 text-[9px]">@yourbrand · now</span>
+            </div>
+            <p className="text-stone-700 leading-relaxed whitespace-pre-line">{tweet}</p>
+            {thumbUrl && (
+              <img src={thumbUrl} alt="" className="mt-2 rounded-xl w-full aspect-video object-cover border border-stone-100" />
+            )}
+            {/* Engagement */}
+            <div className="flex items-center gap-4 mt-2 text-stone-400">
+              <span>💬 <span className="text-[10px]">12</span></span>
+              <span>🔁 <span className="text-[10px]">34</span></span>
+              <span>♡ <span className="text-[10px]">128</span></span>
+              <span>↗</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  function YouTubeCard() {
+    const desc = caption.length > 150 ? caption.slice(0, 150) + '…' : caption || 'Video description.'
+    return (
+      <div className="border border-stone-200 rounded-xl overflow-hidden bg-white text-[11px]">
+        <ImagePlaceholder className="w-full aspect-video" />
+        <div className="p-3">
+          <p className="font-bold text-stone-800 text-[12px] leading-snug line-clamp-2">{title}</p>
+          <p className="text-stone-500 text-[10px] mt-1">yourbrand · 0 views · just now</p>
+          <p className="text-stone-500 mt-2 leading-relaxed">{desc}</p>
+        </div>
+      </div>
+    )
+  }
+
+  function LinkedInCard() {
+    const previewCaption = caption.length > 200 ? caption.slice(0, 197) + '...more' : caption || 'Your post content will appear here.'
+    return (
+      <div className="border border-stone-200 rounded-xl overflow-hidden bg-white text-[11px]">
+        <div className="flex items-center gap-2 px-3 py-2">
+          <AvatarCircle size="w-8 h-8" />
+          <div>
+            <p className="font-semibold text-stone-800 text-[11px]">yourbrand</p>
+            <p className="text-stone-400 text-[9px]">1st · just now</p>
+          </div>
+          <span className="ml-auto text-stone-400 text-base leading-none">···</span>
+        </div>
+        <div className="px-3 pb-2 text-stone-700 leading-relaxed">{previewCaption}</div>
+        {thumbUrl && (
+          <img src={thumbUrl} alt="" className="w-full aspect-video object-cover" />
+        )}
+        <div className="px-3 py-2 flex items-center gap-3 border-t border-stone-100 text-stone-400">
+          <span>👍 Like</span>
+          <span>💬 Comment</span>
+          <span>↗ Share</span>
+        </div>
+      </div>
+    )
+  }
+
+  function FacebookCard() {
+    const previewCaption = caption.length > 200 ? caption.slice(0, 197) + '...See more' : caption || 'Your post content will appear here.'
+    return (
+      <div className="border border-stone-200 rounded-xl overflow-hidden bg-white text-[11px]">
+        <div className="flex items-center gap-2 px-3 py-2">
+          <AvatarCircle size="w-8 h-8" />
+          <div>
+            <p className="font-semibold text-stone-800 text-[11px]">yourbrand</p>
+            <p className="text-stone-400 text-[9px]">Just now · 🌐</p>
+          </div>
+          <span className="ml-auto text-stone-400 text-base leading-none">···</span>
+        </div>
+        <div className="px-3 pb-2 text-stone-700 leading-relaxed">{previewCaption}</div>
+        {thumbUrl && (
+          <img src={thumbUrl} alt="" className="w-full aspect-video object-cover" />
+        )}
+        <div className="px-3 py-2 flex items-center gap-4 border-t border-stone-100 text-stone-400">
+          <span>👍 Like</span>
+          <span>💬 Comment</span>
+          <span>↗ Share</span>
+        </div>
+      </div>
+    )
+  }
+
+  function GenericCard() {
+    const previewCaption = caption.length > 200 ? caption.slice(0, 197) + '...' : caption || 'Your post content will appear here.'
+    return (
+      <div className="border border-stone-200 rounded-xl overflow-hidden bg-white text-[11px]">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-stone-100">
+          <AvatarCircle />
+          <span className="font-semibold text-stone-800">yourbrand</span>
+        </div>
+        <ImagePlaceholder className="w-full aspect-video" />
+        <div className="p-3">
+          <p className="font-semibold text-stone-800 mb-1 text-[12px]">{title}</p>
+          <p className="text-stone-600 leading-relaxed">{previewCaption}</p>
+        </div>
+      </div>
+    )
+  }
+
+  function renderCard(platform) {
+    if (platform === 'Instagram' || platform === 'TikTok') return <InstagramCard />
+    if (platform === 'Twitter/X') return <TwitterCard />
+    if (platform === 'YouTube') return <YouTubeCard />
+    if (platform === 'LinkedIn') return <LinkedInCard />
+    if (platform === 'Facebook') return <FacebookCard />
+    return <GenericCard />
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Platform selector pills */}
+      {displayPlatforms.length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          {displayPlatforms.map(p => (
+            <button
+              key={p}
+              onClick={() => setActivePlatform(p)}
+              className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors ${
+                selectedPlatform === p
+                  ? 'bg-stone-800 text-white'
+                  : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Platform label when only one */}
+      {displayPlatforms.length === 1 && displayPlatforms[0] !== 'Generic' && (
+        <p className="text-[10px] text-stone-400 uppercase tracking-wide font-medium">{displayPlatforms[0]} preview</p>
+      )}
+
+      {/* Mock card */}
+      {renderCard(selectedPlatform)}
+
+      {/* Character limit indicator */}
+      {charLimit !== null && (
+        <div className="flex items-center justify-between text-[10px] px-1">
+          <span className="text-stone-400">{selectedPlatform} caption limit</span>
+          <span className={remaining < 0 ? 'text-red-500 font-semibold' : remaining < 50 ? 'text-amber-500 font-medium' : 'text-stone-400'}>
+            {remaining < 0 ? `${Math.abs(remaining)} over limit` : `${remaining.toLocaleString()} remaining`}
+          </span>
+        </div>
+      )}
+
+      {/* No platform notice */}
+      {platforms.length === 0 && (
+        <p className="text-[10px] text-stone-400 text-center pt-1">
+          Select platforms in the Details panel to see platform-specific previews.
+        </p>
+      )}
+    </div>
+  )
+}
+
 function PlatformRequirements({ platforms }) {
   const [open, setOpen] = useState(false)
   const relevant = (platforms || []).filter(p => PLATFORM_SPECS[p])
@@ -920,18 +1176,30 @@ export default function PostView() {
             >
               Activity
             </button>
-            <div className="ml-auto pb-1.5 pt-2">
-              <button
-                onClick={() => { setAssetSelectMode(!assetSelectMode); if (assetSelectMode) deselectAllAssets(); }}
-                className={`text-xs px-3 py-1 rounded-md border transition-colors ${
-                  assetSelectMode
-                    ? 'bg-teal-500 text-white border-teal-500'
-                    : 'border-stone-200 text-stone-500 hover:border-stone-300'
-                }`}
-              >
-                {assetSelectMode ? 'Done' : 'Select'}
-              </button>
-            </div>
+            <button
+              onClick={() => setActiveTab('preview')}
+              className={`pb-2.5 pt-3 text-xs font-medium border-b-2 transition-colors ${
+                activeTab === 'preview'
+                  ? 'border-teal-600 text-teal-700'
+                  : 'border-transparent text-stone-400 hover:text-stone-600'
+              }`}
+            >
+              Preview
+            </button>
+            {activeTab !== 'preview' && (
+              <div className="ml-auto pb-1.5 pt-2">
+                <button
+                  onClick={() => { setAssetSelectMode(!assetSelectMode); if (assetSelectMode) deselectAllAssets(); }}
+                  className={`text-xs px-3 py-1 rounded-md border transition-colors ${
+                    assetSelectMode
+                      ? 'bg-teal-500 text-white border-teal-500'
+                      : 'border-stone-200 text-stone-500 hover:border-stone-300'
+                  }`}
+                >
+                  {assetSelectMode ? 'Done' : 'Select'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1211,6 +1479,11 @@ export default function PostView() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* ── Preview tab ── */}
+          {activeTab === 'preview' && post && (
+            <PostPreview post={post} assets={assets} linkedPhotos={linkedPhotos} />
           )}
 
           <input
@@ -1840,14 +2113,6 @@ function DescriptionEditor({ value, onSave }) {
 }
 
 // ── Caption editor ──────────────────────────────────────────────────────────
-
-const PLATFORM_CHAR_LIMITS = {
-  'Instagram':  2200,
-  'TikTok':     2200,
-  'YouTube':    5000,
-  'Twitter/X':   280,
-  'Facebook':  63206,
-}
 
 function CaptionEditor({ value, onSave, placeholder = 'Write your caption…', platform = null }) {
   const [draft, setDraft] = useState(value)

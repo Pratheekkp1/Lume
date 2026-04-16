@@ -252,6 +252,56 @@ export default function Posts() {
     URL.revokeObjectURL(url)
   }
 
+  function exportICal() {
+    function escapeIcal(str) {
+      return (str || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n')
+    }
+    function toIcalDate(dateStr) {
+      // dateStr is YYYY-MM-DD, convert to YYYYMMDD
+      return dateStr.replace(/-/g, '')
+    }
+    function nextDay(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00')
+      d.setDate(d.getDate() + 1)
+      return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
+    }
+
+    const scheduled = filtered.filter(p => p.scheduled_date)
+    const events = scheduled.map(p => {
+      const summary = escapeIcal(`${p.title}${p.platform?.length ? ` [${p.platform.join(', ')}]` : ''}`)
+      const description = escapeIcal((p.caption || '').slice(0, 200))
+      const dtstart = toIcalDate(p.scheduled_date)
+      const dtend = nextDay(p.scheduled_date)
+      return [
+        'BEGIN:VEVENT',
+        `UID:post-${p.id}@lume`,
+        `DTSTART;VALUE=DATE:${dtstart}`,
+        `DTEND;VALUE=DATE:${dtend}`,
+        `SUMMARY:${summary}`,
+        `DESCRIPTION:${description}`,
+        'END:VEVENT',
+      ].join('\r\n')
+    })
+
+    const ics = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Lume Studio//EN',
+      'CALNAME:Content Calendar',
+      'X-WR-CALNAME:Content Calendar',
+      ...events,
+      'END:VCALENDAR',
+    ].join('\r\n')
+
+    const blob = new Blob([ics], { type: 'text/calendar' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `content-calendar-${new Date().toISOString().split('T')[0]}.ics`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const anySelected = selectedIds.size > 0
   const filtered = sortPosts(filterStatus === 'all' ? posts : posts.filter(p => p.status === filterStatus))
 
@@ -282,6 +332,12 @@ export default function Posts() {
             className="text-xs px-3 py-1.5 rounded-md border border-stone-200 text-stone-500 hover:border-stone-300 hover:text-stone-700 transition-colors"
           >
             ↓ CSV
+          </button>
+          <button
+            onClick={exportICal}
+            className="text-xs px-3 py-1.5 rounded-md border border-stone-200 text-stone-500 hover:border-stone-300 hover:text-stone-700 transition-colors"
+          >
+            ↓ iCal
           </button>
           <div className="flex border border-stone-200 rounded-md overflow-hidden">
             <button
