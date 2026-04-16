@@ -224,7 +224,12 @@ export default function AlbumView() {
     await softDelete(ENTITY_TYPES.PHOTO, photo.id, photo.name);
   }
 
-  async function setCoverPhoto() {
+  async function setCoverPhoto(photoId) {
+    await supabase.from('collections').update({ cover_photo_id: photoId }).eq('id', collectionId);
+    setCollection(prev => ({ ...prev, cover_photo_id: photoId }));
+  }
+
+  async function toggleCoverPhoto() {
     if (!selectedPhoto) return;
     const isCurrent = collection?.cover_photo_id === selectedPhoto.id;
     const newId = isCurrent ? null : selectedPhoto.id;
@@ -500,6 +505,8 @@ export default function AlbumView() {
               checked={selectedIds.has(photo.id)}
               selectMode={selectMode}
               anySelected={anySelected}
+              collection={collection}
+              onSetCover={setCoverPhoto}
               onCheck={(e) => { e.stopPropagation(); toggleSelect(photo.id); }}
               onClick={() => selectMode ? toggleSelect(photo.id) : openPhoto(photo)}
             />
@@ -675,7 +682,7 @@ export default function AlbumView() {
                     <button
                       onClick={() => {
                         if (isPdf(selectedPhoto.file_path)) { setCoverError(true); setTimeout(() => setCoverError(false), 3000); return; }
-                        setCoverPhoto();
+                        toggleCoverPhoto();
                       }}
                       className={`w-full border text-xs font-medium py-1.5 rounded-md transition-colors ${
                         collection?.cover_photo_id === selectedPhoto.id
@@ -959,9 +966,10 @@ function AddToPostModal({ posts, photoIds, onClose, onAdded }) {
   );
 }
 
-function PhotoCard({ photo, selected, checked, selectMode, anySelected, onCheck, onClick }) {
+function PhotoCard({ photo, selected, checked, selectMode, anySelected, collection, onSetCover, onCheck, onClick }) {
   const status = STATUSES[photo.status] || STATUSES.unedited;
   const cats = (photo.photo_categories || []).map(pc => pc.category).filter(Boolean);
+  const isCover = collection?.cover_photo_id === photo.id;
 
   return (
     <div
@@ -1003,6 +1011,19 @@ function PhotoCard({ photo, selected, checked, selectMode, anySelected, onCheck,
         >
           <Checkbox checked={checked} onChange={onCheck} />
         </div>
+        {!isVideo(photo) && !isCover && (
+          <button
+            onClick={e => { e.stopPropagation(); onSetCover(photo.id); }}
+            className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 text-[10px] bg-black/50 text-white px-1.5 py-0.5 rounded transition-opacity"
+          >
+            Set cover
+          </button>
+        )}
+        {isCover && (
+          <div className="absolute bottom-1 left-1 text-[10px] bg-teal-500 text-white px-1.5 py-0.5 rounded">
+            Cover
+          </div>
+        )}
         <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: status.color }} />
       </div>
       <div className="px-2 py-1.5 bg-white">
