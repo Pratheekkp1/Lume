@@ -304,13 +304,27 @@ function PostPreview({ post, assets, linkedPhotos }) {
       {/* Mock card */}
       {renderCard(selectedPlatform)}
 
-      {/* Character limit indicator */}
+      {/* Character limit indicator + copy button */}
       {charLimit !== null && (
         <div className="flex items-center justify-between text-[10px] px-1">
           <span className="text-stone-400">{selectedPlatform} caption limit</span>
-          <span className={remaining < 0 ? 'text-red-500 font-semibold' : remaining < 50 ? 'text-amber-500 font-medium' : 'text-stone-400'}>
-            {remaining < 0 ? `${Math.abs(remaining)} over limit` : `${remaining.toLocaleString()} remaining`}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={remaining < 0 ? 'text-red-500 font-semibold' : remaining < 50 ? 'text-amber-500 font-medium' : 'text-stone-400'}>
+              {remaining < 0 ? `${Math.abs(remaining)} over limit` : `${remaining.toLocaleString()} remaining`}
+            </span>
+            {caption && (
+              <button
+                onClick={() => {
+                  const truncated = charLimit ? caption.slice(0, charLimit) : caption
+                  navigator.clipboard.writeText(truncated)
+                }}
+                className="text-teal-600 hover:text-teal-700 transition-colors font-medium"
+                title={`Copy caption for ${selectedPlatform}`}
+              >
+                Copy
+              </button>
+            )}
+          </div>
         </div>
       )}
 
