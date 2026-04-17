@@ -150,7 +150,14 @@ export default function Ideas() {
         <div>
           <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Creative</p>
           <h1 className="font-serif text-3xl text-stone-800">Ideas</h1>
-          <p className="text-xs text-stone-400 mt-1">{ideas.length} idea{ideas.length !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-stone-400 mt-1">
+            {ideas.length} idea{ideas.length !== 1 ? 's' : ''}
+            {(() => {
+              const today = new Date(); today.setHours(0,0,0,0)
+              const overdue = ideas.filter(i => i.due_by && new Date(i.due_by + 'T00:00:00') < today && i.status !== 'promoted').length
+              return overdue > 0 ? <span className="ml-2 text-red-500 font-medium">{overdue} overdue</span> : null
+            })()}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {/* View toggle */}
@@ -169,6 +176,28 @@ export default function Ideas() {
             className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${selectMode ? 'bg-teal-500 text-white border-teal-500' : 'border-stone-200 text-stone-500 hover:border-stone-300'}`}
           >
             {selectMode ? 'Done' : 'Select'}
+          </button>
+          <button
+            onClick={() => {
+              const lines = ideas.map(i => {
+                const status = IDEA_STATUSES[i.status]?.label || i.status
+                const priority = i.priority && i.priority !== 'normal' ? ` [${i.priority}]` : ''
+                const due = i.due_by ? ` — due ${i.due_by}` : ''
+                return [`## ${i.title}${priority}`, `Status: ${status}${due}`, i.notes ? i.notes : ''].filter(Boolean).join('\n')
+              })
+              const md = `# Ideas\n\nExported ${new Date().toLocaleDateString()}\n\n---\n\n` + lines.join('\n\n---\n\n')
+              const blob = new Blob([md], { type: 'text/markdown' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = `ideas-${new Date().toISOString().split('T')[0]}.md`
+              a.click()
+              URL.revokeObjectURL(url)
+            }}
+            className="text-xs px-3 py-1.5 rounded-md border border-stone-200 text-stone-500 hover:border-stone-300 hover:text-stone-700 transition-colors"
+            title="Export all ideas as Markdown"
+          >
+            ↓ .md
           </button>
           <button
             onClick={() => setShowCreate(true)}

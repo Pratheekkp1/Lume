@@ -407,6 +407,27 @@ export default function SoundView() {
             </div>
             <div className="flex items-center gap-2">
               <button
+                onClick={() => {
+                  const lines = tracks.map((t, i) => {
+                    const size = t.file_size ? ` (${(t.file_size / 1024 / 1024).toFixed(1)} MB)` : ''
+                    const status = SOUND_STATUSES[t.status]?.label || t.status || ''
+                    return `${i + 1}. ${t.name}${size} — ${status}${t.notes ? '\n   ' + t.notes : ''}`
+                  })
+                  const md = `# ${project?.name || 'Sound Project'} — Track List\n\nExported ${new Date().toLocaleDateString()}\n\n` + lines.join('\n\n')
+                  const blob = new Blob([md], { type: 'text/markdown' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `${(project?.name || 'tracks').toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.md`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                }}
+                className="text-xs px-3 py-1.5 rounded-md border border-stone-200 text-stone-500 hover:border-stone-300 hover:text-stone-700 transition-colors"
+                title="Export track list"
+              >
+                ↓ .md
+              </button>
+              <button
                 onClick={() => { setSelectMode(!selectMode); if (selectMode) deselectAll(); }}
                 className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
                   selectMode

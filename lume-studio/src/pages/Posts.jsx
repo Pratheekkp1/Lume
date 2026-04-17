@@ -21,6 +21,7 @@ export default function Posts() {
   const [calendarPlatform, setCalendarPlatform] = useState('all')
   const [sortOrder, setSortOrder] = useState('newest')
   const [filterPlatform, setFilterPlatform] = useState('all')
+  const [postSearch, setPostSearch] = useState('')
 
   // Templates
   const [templates, setTemplates] = useState([])
@@ -315,6 +316,7 @@ export default function Posts() {
     posts
       .filter(p => filterStatus === 'all' || p.status === filterStatus)
       .filter(p => filterPlatform === 'all' || (p.platform || []).includes(filterPlatform))
+      .filter(p => !postSearch.trim() || p.title?.toLowerCase().includes(postSearch.toLowerCase()))
   )
 
   return (
@@ -426,6 +428,19 @@ export default function Posts() {
       {/* Status filter — only in grid and list view */}
       {(viewMode === 'grid' || viewMode === 'list') && (
         <div className="flex items-center gap-2 mb-6 flex-wrap">
+          {/* Inline search */}
+          <div className="relative">
+            <input
+              type="text"
+              value={postSearch}
+              onChange={e => setPostSearch(e.target.value)}
+              placeholder="Search posts…"
+              className="text-xs border border-stone-200 rounded-md pl-7 pr-3 py-1.5 text-stone-600 placeholder-stone-300 outline-none focus:border-teal-400 transition-colors w-36 bg-white"
+            />
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-300 text-xs pointer-events-none">⌕</span>
+            {postSearch && <button onClick={() => setPostSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-300 hover:text-stone-500 transition-colors text-xs">×</button>}
+          </div>
+          <div className="w-px h-4 bg-stone-200 flex-shrink-0" />
           <button
             onClick={() => setFilterStatus('all')}
             className={`px-3 py-1 rounded-full text-xs border transition-colors ${

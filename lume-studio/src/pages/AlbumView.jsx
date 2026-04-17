@@ -548,13 +548,29 @@ export default function AlbumView() {
           {/* Image / PDF area */}
           <div className="flex-1 bg-stone-900/25 backdrop-blur-md flex items-center justify-center relative overflow-hidden">
 
-            {/* Close */}
-            <button
-              onClick={closeDetail}
-              className="absolute top-4 right-4 z-10 w-8 h-8 bg-white/10 hover:bg-white/20 text-white rounded-lg flex items-center justify-center text-sm transition-colors"
-            >
-              ✕
-            </button>
+            {/* Top bar controls */}
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+              {/* Download */}
+              {selectedPhoto.file_path && !isVideo(selectedPhoto) && !isPdf(selectedPhoto.file_path) && (
+                <a
+                  href={supabase.storage.from("Photos").getPublicUrl(selectedPhoto.file_path).data.publicUrl}
+                  download={selectedPhoto.name}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-8 h-8 bg-white/10 hover:bg-white/20 text-white rounded-lg flex items-center justify-center text-sm transition-colors"
+                  title="Download photo"
+                >
+                  ↓
+                </a>
+              )}
+              {/* Close */}
+              <button
+                onClick={closeDetail}
+                className="w-8 h-8 bg-white/10 hover:bg-white/20 text-white rounded-lg flex items-center justify-center text-sm transition-colors"
+              >
+                ✕
+              </button>
+            </div>
 
             {/* Counter */}
             <div className="absolute top-4 left-4 z-10 text-xs text-white/50 tabular-nums">
