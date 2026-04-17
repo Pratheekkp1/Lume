@@ -19,6 +19,9 @@ export default function Analytics() {
   const [metrics, setMetrics] = useState([])
   const [loading, setLoading] = useState(true)
   const [timeRange, setTimeRange] = useState(12) // months
+  const [weeklyGoal, setWeeklyGoal] = useState(() => parseInt(localStorage.getItem('lume-weekly-goal') || '0'))
+  const [monthlyGoal, setMonthlyGoal] = useState(() => parseInt(localStorage.getItem('lume-monthly-goal') || '0'))
+  const [editingGoals, setEditingGoals] = useState(false)
 
   useEffect(() => { fetchAll() }, [])
 
@@ -311,6 +314,112 @@ export default function Analytics() {
           <p className="text-xs">Open a published post and add metrics in the Performance section of the side panel.</p>
         </div>
       )}
+
+      {/* Publishing Goals */}
+      <div className="bg-white border border-stone-200 rounded-xl p-6 mb-6 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs tracking-widest uppercase text-stone-400">Publishing Goals</p>
+          <button
+            onClick={() => setEditingGoals(p => !p)}
+            className="text-xs text-teal-600 hover:text-teal-700 transition-colors"
+          >
+            {editingGoals ? 'Done' : 'Edit goals'}
+          </button>
+        </div>
+        {editingGoals ? (
+          <div className="flex gap-6">
+            <div>
+              <label className="text-xs text-stone-500 block mb-1">Posts per week</label>
+              <input
+                type="number"
+                min="0"
+                max="50"
+                value={weeklyGoal || ''}
+                onChange={e => {
+                  const v = parseInt(e.target.value) || 0
+                  setWeeklyGoal(v)
+                  localStorage.setItem('lume-weekly-goal', String(v))
+                }}
+                placeholder="e.g. 3"
+                className="w-24 border border-stone-200 rounded-md px-3 py-1.5 text-sm text-stone-700 outline-none focus:border-teal-400 transition-colors"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-stone-500 block mb-1">Posts per month</label>
+              <input
+                type="number"
+                min="0"
+                max="200"
+                value={monthlyGoal || ''}
+                onChange={e => {
+                  const v = parseInt(e.target.value) || 0
+                  setMonthlyGoal(v)
+                  localStorage.setItem('lume-monthly-goal', String(v))
+                }}
+                placeholder="e.g. 12"
+                className="w-24 border border-stone-200 rounded-md px-3 py-1.5 text-sm text-stone-700 outline-none focus:border-teal-400 transition-colors"
+              />
+            </div>
+          </div>
+        ) : (weeklyGoal > 0 || monthlyGoal > 0) ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {weeklyGoal > 0 && (() => {
+              const thisWeekStart = (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return d })()
+              const thisWeekCount = published.filter(p => p.scheduled_date && new Date(p.scheduled_date + 'T00:00:00') >= thisWeekStart).length
+              const pct = Math.min(100, Math.round((thisWeekCount / weeklyGoal) * 100))
+              const met = thisWeekCount >= weeklyGoal
+              return (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-stone-600">This week</span>
+                    <span className={`text-xs font-medium ${met ? 'text-teal-600' : 'text-stone-500'}`}>
+                      {thisWeekCount} / {weeklyGoal} {met ? '✓ Goal met!' : `(${weeklyGoal - thisWeekCount} to go)`}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-stone-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${pct}%`, backgroundColor: met ? '#2a9d8f' : '#9ca5b2' }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-stone-400 mt-1">Weekly goal: {weeklyGoal} post{weeklyGoal !== 1 ? 's' : ''}</p>
+                </div>
+              )
+            })()}
+            {monthlyGoal > 0 && (() => {
+              const pct = Math.min(100, Math.round((thisMonthCount / monthlyGoal) * 100))
+              const met = thisMonthCount >= monthlyGoal
+              const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
+              const dayOfMonth = new Date().getDate()
+              const projected = Math.round((thisMonthCount / dayOfMonth) * daysInMonth)
+              return (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-stone-600">This month</span>
+                    <span className={`text-xs font-medium ${met ? 'text-teal-600' : 'text-stone-500'}`}>
+                      {thisMonthCount} / {monthlyGoal} {met ? '✓ Goal met!' : `(${monthlyGoal - thisMonthCount} to go)`}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-stone-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${pct}%`, backgroundColor: met ? '#2a9d8f' : '#9ca5b2' }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-stone-400 mt-1">
+                    Monthly goal: {monthlyGoal} posts · Projected: ~{projected} at current pace
+                  </p>
+                </div>
+              )
+            })()}
+          </div>
+        ) : (
+          <p className="text-sm text-stone-400">
+            Set a weekly or monthly publishing goal to track your consistency.
+            <button onClick={() => setEditingGoals(true)} className="ml-1 text-teal-600 hover:text-teal-700 transition-colors">Set goals →</button>
+          </p>
+        )}
+      </div>
     </div>
   )
 }
