@@ -28,6 +28,7 @@ export default function Dashboard() {
   const [publishedThisMonth, setPublishedThisMonth] = useState(0)
   const [ideasCount, setIdeasCount] = useState(0)
   const [suggestion, setSuggestion] = useState(null)
+  const [weekStreak, setWeekStreak] = useState(0)
   const [loading, setLoading] = useState(true)
 
   const profile = getProfile()
@@ -92,6 +93,35 @@ export default function Dashboard() {
 
     setRecentPosts((posts || []).slice(0, 6))
     setUpcomingPosts(scheduled || [])
+
+    // Compute weekly posting streak
+    const publishedAll = (posts || []).filter(p => p.status === 'published')
+    const getWeekKey = d => {
+      const date = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+      const dayOfWeek = date.getDay()
+      const sunday = new Date(date)
+      sunday.setDate(date.getDate() - dayOfWeek)
+      return sunday.toISOString().split('T')[0]
+    }
+    const publishedWeeks = new Set(publishedAll.map(p => {
+      const d = new Date(p.created_at)
+      return getWeekKey(d)
+    }))
+    let streak = 0
+    const now = new Date()
+    for (let w = 0; w < 52; w++) {
+      const d = new Date(now)
+      d.setDate(now.getDate() - w * 7)
+      if (publishedWeeks.has(getWeekKey(d))) {
+        streak++
+      } else if (w === 0) {
+        // current week — don't break if this week is still in progress
+        continue
+      } else {
+        break
+      }
+    }
+    setWeekStreak(streak)
 
     // Smart suggestion
     const allPosts = posts || []
@@ -203,6 +233,17 @@ export default function Dashboard() {
                 <span className="text-xs font-semibold text-stone-700">{ideasCount}</span>
                 <span className="text-xs text-stone-400">total ideas</span>
               </div>
+              {weekStreak > 0 && (
+                <div
+                  className="flex items-center gap-1.5 rounded-full px-3 py-1.5"
+                  style={{ backgroundColor: weekStreak >= 4 ? '#fff3e0' : '#f5f5f4' }}
+                  title={`${weekStreak} consecutive week${weekStreak !== 1 ? 's' : ''} with published posts`}
+                >
+                  <span className="text-sm leading-none">{weekStreak >= 4 ? '🔥' : '📅'}</span>
+                  <span className="text-xs font-semibold text-stone-700">{weekStreak}w</span>
+                  <span className="text-xs text-stone-400">streak</span>
+                </div>
+              )}
             </div>
             {/* Action buttons */}
             <div className="flex items-center gap-3 flex-wrap">

@@ -14,12 +14,19 @@ const COMMANDS = [
   { id: 'nav-brand',        group: 'Navigate',  label: 'Brand Kit',        icon: '◈',  path: '/brand' },
   { id: 'nav-settings',     group: 'Navigate',  label: 'Settings',         icon: '⚙',  path: '/settings' },
   // Actions
+  // More navigate
+  { id: 'nav-trash',        group: 'Navigate',  label: 'Trash',            icon: '🗑', path: '/trash' },
+  // Actions
   { id: 'act-new-post',     group: 'Actions',   label: 'New Post',         icon: '+',  path: '/posts?create=true' },
   { id: 'act-new-album',    group: 'Actions',   label: 'New Album',        icon: '+',  path: '/library?type=albums' },
+  { id: 'act-new-sound',    group: 'Actions',   label: 'New Sound Project',icon: '+',  path: '/library?type=sounds' },
   { id: 'act-capture-idea', group: 'Actions',   label: 'Capture Idea',     icon: '+',  path: '/ideas' },
   { id: 'act-new-note',     group: 'Actions',   label: 'New Note',         icon: '+',  path: '/notes' },
   { id: 'act-search',       group: 'Actions',   label: 'Search…',          icon: '⌕',  path: '/search' },
   { id: 'act-calendar',     group: 'Actions',   label: 'Content Calendar', icon: '▦',  path: '/posts?view=calendar' },
+  { id: 'act-analytics',    group: 'Actions',   label: 'View Analytics',   icon: '↗',  path: '/analytics' },
+  { id: 'act-brand',        group: 'Actions',   label: 'Brand Kit',        icon: '◈',  path: '/brand' },
+  { id: 'act-shortcuts',    group: 'Actions',   label: 'Keyboard Shortcuts', icon: '⌨', path: '/settings?section=shortcuts' },
 ]
 
 export default function CommandPalette() {
