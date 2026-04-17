@@ -38,10 +38,13 @@ export default function Posts() {
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [bulkProcessing, setBulkProcessing] = useState(false)
   const [showBatchSchedule, setShowBatchSchedule] = useState(false)
+  const [campaigns, setCampaigns] = useState([])
+  const [addToCampaignMsg, setAddToCampaignMsg] = useState('')
 
   useEffect(() => {
     fetchPosts()
     fetchTemplates()
+    fetchCampaigns()
     window.addEventListener('lume-templates-updated', fetchTemplates)
     return () => window.removeEventListener('lume-templates-updated', fetchTemplates)
   }, [])
@@ -94,6 +97,22 @@ export default function Posts() {
   async function fetchTemplates() {
     const { data } = await supabase.from('post_templates').select('*').order('created_at', { ascending: false })
     setTemplates(data || [])
+  }
+
+  async function fetchCampaigns() {
+    const { data } = await supabase.from('campaigns').select('id, name, color, status').is('deleted_at', null).order('name')
+    setCampaigns(data || [])
+  }
+
+  async function bulkAddToCampaign(campaignId) {
+    const ids = [...selectedIds]
+    const records = ids.map(postId => ({ campaign_id: campaignId, post_id: postId }))
+    const { error } = await supabase.from('campaign_posts').upsert(records, { onConflict: 'campaign_id,post_id' })
+    if (!error) {
+      const camp = campaigns.find(c => c.id === campaignId)
+      setAddToCampaignMsg(`Added ${ids.length} post${ids.length !== 1 ? 's' : ''} to "${camp?.name}"`)
+      setTimeout(() => setAddToCampaignMsg(''), 3000)
+    }
   }
 
   async function handleCreate(fields) {
@@ -524,6 +543,20 @@ export default function Posts() {
                 >
                   Schedule
                 </button>
+                {campaigns.length > 0 && (
+                  addToCampaignMsg ? (
+                    <span className="text-teal-600 text-xs">{addToCampaignMsg}</span>
+                  ) : (
+                    <select
+                      defaultValue=""
+                      onChange={(e) => { if (e.target.value) { bulkAddToCampaign(e.target.value); e.target.value = ''; } }}
+                      className="text-xs border border-teal-200 text-teal-600 bg-white px-2 py-1 rounded outline-none cursor-pointer hover:border-teal-400"
+                    >
+                      <option value="" disabled>Add to campaign…</option>
+                      {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  )
+                )}
                 <button
                   onClick={() => setConfirmBulkDelete(true)}
                   className="border border-red-200 text-red-400 px-3 py-1 rounded hover:bg-red-50 hover:text-red-500 transition-colors"
