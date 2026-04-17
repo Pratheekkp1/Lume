@@ -10,6 +10,7 @@ const SECTION_CONFIG = {
   photos: { label: 'Photos', icon: '◻', pathFn: (r) => `/media/${r.collection_id}` },
   audioProjects: { label: 'Sound Projects', icon: '♩', pathFn: (r) => `/sounds/${r.id}` },
   audioTracks: { label: 'Tracks', icon: '♩', pathFn: (r) => `/sounds/${r.project_id}` },
+  ideas: { label: 'Ideas', icon: '✦', pathFn: () => `/ideas`, nameFn: (r) => r.title },
 }
 
 export default function SearchResults() {
@@ -40,7 +41,7 @@ export default function SearchResults() {
     // Search audio_tracks: name, notes
     // Also search categories by name, then find linked items
 
-    const [posts, collections, photos, audioProjects, audioTracks, categories] = await Promise.all([
+    const [posts, collections, photos, audioProjects, audioTracks, categories, ideas] = await Promise.all([
       supabase
         .from('posts')
         .select('id, title, caption, status, type, platform, created_at, post_categories(category:categories(id,name,color))')
@@ -80,6 +81,12 @@ export default function SearchResults() {
         .from('categories')
         .select('id, name, color, type')
         .ilike('name', like)
+        .limit(10),
+      supabase
+        .from('ideas')
+        .select('id, title, notes, status')
+        .or(`title.ilike.${like},notes.ilike.${like}`)
+        .order('created_at', { ascending: false })
         .limit(10),
     ])
 
@@ -127,6 +134,7 @@ export default function SearchResults() {
       audioProjects: audioProjects.data || [],
       audioTracks: mergedTracks,
       categories: categories.data || [],
+      ideas: ideas.data || [],
     })
     setLoading(false)
   }
@@ -164,7 +172,7 @@ export default function SearchResults() {
   }
 
   const totalCount = results
-    ? results.posts.length + results.collections.length + results.photos.length + results.audioProjects.length + results.audioTracks.length
+    ? results.posts.length + results.collections.length + results.photos.length + results.audioProjects.length + results.audioTracks.length + (results.ideas?.length || 0)
     : 0
 
   const sections = results ? [
@@ -173,6 +181,7 @@ export default function SearchResults() {
     { key: 'photos', data: results.photos },
     { key: 'audioProjects', data: results.audioProjects },
     { key: 'audioTracks', data: results.audioTracks },
+    { key: 'ideas', data: results.ideas || [] },
   ].filter(s => s.data.length > 0) : []
 
   return (

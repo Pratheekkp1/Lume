@@ -1300,6 +1300,14 @@ function PostCard({ post, onClick, onEdit, onDelete, onDuplicate, onStatusChange
                   >
                     Duplicate
                   </button>
+                  {post.caption && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setMenuOpen(false); navigator.clipboard.writeText(post.caption) }}
+                      className="w-full text-left px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50 transition-colors"
+                    >
+                      Copy caption
+                    </button>
+                  )}
                   <button
                     onClick={(e) => { setMenuOpen(false); onDelete(e) }}
                     className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 transition-colors"
