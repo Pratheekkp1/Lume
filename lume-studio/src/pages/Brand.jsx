@@ -210,6 +210,14 @@ function ColorsTab() {
 
 function SwatchPicker({ hex, onChange, onBlur, onRemove }) {
   const [showRemove, setShowRemove] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  function copyHex() {
+    navigator.clipboard.writeText(hex).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
 
   return (
     <div
@@ -228,7 +236,13 @@ function SwatchPicker({ hex, onChange, onBlur, onRemove }) {
           title={hex}
         />
       </div>
-      <p className="text-[9px] text-stone-400 text-center mt-1 font-mono uppercase">{hex}</p>
+      <button
+        onClick={copyHex}
+        className="text-[9px] text-stone-400 text-center mt-1 font-mono uppercase w-full hover:text-teal-600 transition-colors block"
+        title="Click to copy hex"
+      >
+        {copied ? '✓' : hex}
+      </button>
       {showRemove && (
         <button
           onClick={onRemove}
