@@ -349,6 +349,18 @@ export default function AlbumView() {
               ))}
             </div>
           )}
+          {/* Stats strip */}
+          {photos.length > 0 && (() => {
+            const totalMB = (photos.reduce((sum, p) => sum + (p.file_size || 0), 0) / 1024 / 1024).toFixed(1)
+            const favCount = photos.filter(p => p.is_favorite).length
+            return (
+              <div className="flex items-center gap-3 mt-2">
+                <span className="text-[10px] text-stone-400">{totalMB} MB total</span>
+                {favCount > 0 && <span className="text-[10px] text-amber-500">★ {favCount} starred</span>}
+                {usedPhotoIds.size > 0 && <span className="text-[10px] text-teal-600">{usedPhotoIds.size} used in posts</span>}
+              </div>
+            )
+          })()}
         </div>
         <button
           onClick={() => setShowUploader(true)}

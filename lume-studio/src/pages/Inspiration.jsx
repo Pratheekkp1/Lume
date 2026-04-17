@@ -32,6 +32,7 @@ export default function Inspiration() {
   const [expandedId, setExpandedId] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStarred, setFilterStarred] = useState(false)
+  const [sortMode, setSortMode] = useState('newest')
   const [quickUrl, setQuickUrl] = useState('')
   const [quickUrlSaving, setQuickUrlSaving] = useState(false)
 
@@ -144,7 +145,14 @@ export default function Inspiration() {
       if (q && !c.title.toLowerCase().includes(q) && !(c.body || '').toLowerCase().includes(q) && !(c.url || '').toLowerCase().includes(q) && !(c.tags || []).some(t => t.toLowerCase().includes(q))) return false
       return true
     })
-    return [...base.filter(c => c.pinned), ...base.filter(c => !c.pinned)]
+    const sorted = [...base].sort((a, b) => {
+      if (sortMode === 'oldest') return new Date(a.created_at) - new Date(b.created_at)
+      if (sortMode === 'title') return (a.title || '').localeCompare(b.title || '')
+      if (sortMode === 'type') return (a.type || '').localeCompare(b.type || '')
+      // newest (default)
+      return new Date(b.created_at) - new Date(a.created_at)
+    })
+    return [...sorted.filter(c => c.pinned), ...sorted.filter(c => !c.pinned)]
   })()
 
   return (
@@ -200,6 +208,17 @@ export default function Inspiration() {
           placeholder="Search cards…"
           className="text-xs border border-stone-200 rounded-md px-3 py-1.5 outline-none focus:border-teal-400 w-44"
         />
+        {/* Sort */}
+        <select
+          value={sortMode}
+          onChange={e => setSortMode(e.target.value)}
+          className="text-xs border border-stone-200 rounded-md px-2 py-1.5 text-stone-500 bg-white outline-none focus:border-teal-400 transition-colors"
+        >
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="title">Title A–Z</option>
+          <option value="type">By type</option>
+        </select>
 
         {/* Type filter */}
         <div className="flex items-center gap-1">
