@@ -447,6 +447,9 @@ export default function PostView() {
   const [showCaptionHistory, setShowCaptionHistory] = useState(false)
   const lastSnapshotRef = useRef('')
 
+  // Focus mode
+  const [focusMode, setFocusMode] = useState(false)
+
   // Multi-select for assets
   const [assetSelectMode, setAssetSelectMode] = useState(false)
   const [selectedAssetIds, setSelectedAssetIds] = useState(new Set()) // stores 'kind:id' strings
@@ -979,6 +982,13 @@ export default function PostView() {
               ← All Posts
             </button>
             <div className="flex items-center gap-2 relative">
+              <button
+                onClick={() => setFocusMode(v => !v)}
+                title={focusMode ? 'Exit focus mode' : 'Focus mode — hide details panel'}
+                className={`text-xs border px-2.5 py-1 rounded-md transition-all inline-flex items-center gap-1.5 ${focusMode ? 'bg-stone-800 text-white border-stone-800' : 'text-stone-400 hover:text-stone-700 border-stone-200 hover:border-stone-300'}`}
+              >
+                {focusMode ? '⊡ Exit focus' : '⊡ Focus'}
+              </button>
               <button
                 onClick={() => setShowRepurpose(true)}
                 className="text-xs text-stone-400 hover:text-teal-600 border border-stone-200 hover:border-teal-300 px-2.5 py-1 rounded-md transition-all inline-flex items-center gap-1.5"
@@ -1559,7 +1569,7 @@ export default function PostView() {
       </div>
 
       {/* Side panel */}
-      <div className="w-64 border-l border-stone-200 bg-white flex flex-col overflow-y-auto flex-shrink-0">
+      {!focusMode && <div className="w-64 border-l border-stone-200 bg-white flex flex-col overflow-y-auto flex-shrink-0">
         {/* Selected item detail */}
         {selectedItem && (
           <div className="p-5 border-b border-stone-100">
@@ -1859,7 +1869,7 @@ export default function PostView() {
             <p>Created {new Date(post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Category manage panel */}
       {showCategoryPanel && (
