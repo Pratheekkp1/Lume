@@ -194,6 +194,26 @@ export default function Inspiration() {
           + Add card
         </button>
         <button
+          onClick={() => {
+            const lines = ['# Inspiration Board', `_Exported ${new Date().toLocaleDateString()}_`, '']
+            cards.forEach(c => {
+              lines.push(`## ${c.title || '(untitled)'}`)
+              lines.push(`**Type:** ${c.type}${c.is_favorite ? ' ★' : ''}`)
+              if (c.url) lines.push(`**URL:** ${c.url}`)
+              if (c.body) lines.push('', c.body)
+              if ((c.tags || []).length > 0) lines.push('', (c.tags).map(t => `#${t}`).join(' '))
+              lines.push('')
+            })
+            const blob = new Blob([lines.join('\n')], { type: 'text/markdown' })
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+            a.download = `inspiration-${Date.now()}.md`; a.click()
+          }}
+          className="text-xs text-stone-400 border border-stone-200 px-3 py-1.5 rounded-md hover:bg-stone-50 transition-colors ml-auto"
+          title="Export all cards as Markdown"
+        >
+          ↓ .md
+        </button>
+        <button
           onClick={() => setFilterStarred(v => !v)}
           className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${filterStarred ? 'bg-amber-50 text-amber-600 border-amber-300' : 'border-stone-200 text-stone-400 hover:border-stone-400'}`}
           title="Show starred only"
