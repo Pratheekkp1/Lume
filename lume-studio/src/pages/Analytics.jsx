@@ -214,6 +214,9 @@ export default function Analytics() {
         )}
       </div>
 
+      {/* Posting heatmap */}
+      <PostingHeatmap published={published} />
+
       {/* Platform + Type row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Platform breakdown */}
@@ -451,4 +454,105 @@ function fmtNum(n) {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
   if (n >= 1000) return `${(n / 1000).toFixed(1)}K`
   return (n || 0).toString()
+}
+
+// GitHub-style posting heatmap (last 52 weeks)
+function PostingHeatmap({ published }) {
+  const now = new Date()
+  // Build a map of date -> count
+  const dateMap = {}
+  published.forEach(p => {
+    const d = (p.scheduled_date || p.created_at || '').split('T')[0]
+    if (d) dateMap[d] = (dateMap[d] || 0) + 1
+  })
+
+  // Build 52 weeks × 7 days grid
+  // Start from the Sunday 52 weeks ago
+  const startDate = new Date(now)
+  startDate.setDate(now.getDate() - now.getDay() - 51 * 7)
+  startDate.setHours(0, 0, 0, 0)
+
+  const weeks = []
+  for (let w = 0; w < 52; w++) {
+    const days = []
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(startDate)
+      date.setDate(startDate.getDate() + w * 7 + d)
+      const dateStr = date.toISOString().split('T')[0]
+      const count = dateMap[dateStr] || 0
+      const isFuture = date > now
+      days.push({ date: dateStr, count, isFuture })
+    }
+    weeks.push(days)
+  }
+
+  const maxCount = Math.max(...Object.values(dateMap), 1)
+
+  function getColor(count, isFuture) {
+    if (isFuture) return '#f5f5f4'
+    if (count === 0) return '#e7e5e4'
+    const intensity = Math.min(count / maxCount, 1)
+    if (intensity < 0.25) return '#99d4cc'
+    if (intensity < 0.5) return '#5bbdb3'
+    if (intensity < 0.75) return '#2a9d8f'
+    return '#1a6b65'
+  }
+
+  const monthLabels = []
+  for (let w = 0; w < 52; w += 4) {
+    const d = new Date(startDate)
+    d.setDate(startDate.getDate() + w * 7)
+    monthLabels.push({ w, label: MONTH_NAMES[d.getMonth()] })
+  }
+
+  const totalPosts = Object.values(dateMap).reduce((s, v) => s + v, 0)
+  const activeDays = Object.keys(dateMap).length
+
+  return (
+    <div className="bg-white border border-stone-200 rounded-xl p-6 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs tracking-widest uppercase text-stone-400">Posting Activity (last 12 months)</p>
+        <p className="text-xs text-stone-400">{totalPosts} posts · {activeDays} active days</p>
+      </div>
+      <div className="overflow-x-auto">
+        {/* Month labels */}
+        <div className="flex mb-1 pl-6">
+          {monthLabels.map(({ w, label }) => (
+            <div key={w} className="text-[9px] text-stone-400" style={{ width: `${(4 / 52) * 100}%`, minWidth: 28 }}>
+              {label}
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-0.5">
+          {/* Day labels */}
+          <div className="flex flex-col gap-0.5 mr-1 justify-between" style={{ height: 7 * 11 }}>
+            {['', 'M', '', 'W', '', 'F', ''].map((l, i) => (
+              <div key={i} className="text-[9px] text-stone-300 leading-none" style={{ height: 10, lineHeight: '10px' }}>{l}</div>
+            ))}
+          </div>
+          {/* Cells */}
+          {weeks.map((week, wi) => (
+            <div key={wi} className="flex flex-col gap-0.5">
+              {week.map(({ date, count, isFuture }) => (
+                <div
+                  key={date}
+                  title={`${date}: ${count} post${count !== 1 ? 's' : ''}`}
+                  className="rounded-sm cursor-default"
+                  style={{ width: 10, height: 10, backgroundColor: getColor(count, isFuture) }}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+        {/* Legend */}
+        <div className="flex items-center gap-1.5 mt-2 justify-end">
+          <span className="text-[9px] text-stone-400">Less</span>
+          {[0, 0.25, 0.5, 0.75, 1].map(i => (
+            <div key={i} className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: getColor(i > 0 ? i * maxCount : 0, false) }} />
+          ))}
+          <span className="text-[9px] text-stone-400">More</span>
+        </div>
+      </div>
+    </div>
+  )
 }

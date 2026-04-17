@@ -479,12 +479,30 @@ function HashtagsTab() {
   const [expandedId, setExpandedId] = useState(null)
   const [copied, setCopied] = useState(null)
   const [editTagInput, setEditTagInput] = useState({}) // groupId -> draft string
+  const [usageMap, setUsageMap] = useState({}) // groupName -> post count
 
   useEffect(() => { load() }, [])
 
   async function load() {
-    const { data } = await supabase.from('hashtag_groups').select('*').order('created_at')
-    setGroups(data || [])
+    const [{ data: groupData }, { data: captions }] = await Promise.all([
+      supabase.from('hashtag_groups').select('*').order('created_at'),
+      supabase.from('posts').select('caption').is('deleted_at', null).not('caption', 'is', null),
+    ])
+    setGroups(groupData || [])
+    // Count how many captions contain hashtags from each group
+    const usage = {}
+    ;(groupData || []).forEach(g => {
+      const tags = (g.hashtags || []).map(t => t.toLowerCase().replace(/^#/, ''))
+      if (tags.length === 0) return
+      let count = 0
+      ;(captions || []).forEach(({ caption }) => {
+        if (!caption) return
+        const cl = caption.toLowerCase()
+        if (tags.some(t => cl.includes('#' + t))) count++
+      })
+      usage[g.id] = count
+    })
+    setUsageMap(usage)
     setLoading(false)
   }
 
@@ -552,6 +570,11 @@ function HashtagsTab() {
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-400">{group.platform}</span>
               )}
               <span className="text-xs text-stone-300 ml-auto">{(group.hashtags || []).length} tags</span>
+              {usageMap[group.id] > 0 && (
+                <span className="text-[10px] text-teal-600 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                  Used in {usageMap[group.id]} post{usageMap[group.id] !== 1 ? 's' : ''}
+                </span>
+              )}
             </button>
             <button
               onClick={() => copyGroup(group)}
