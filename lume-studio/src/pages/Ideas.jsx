@@ -71,6 +71,7 @@ export default function Ideas() {
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('newest')
+  const [viewMode, setViewMode] = useState('grid') // 'grid' | 'kanban'
 
   useEffect(() => { fetchIdeas() }, [])
 
@@ -152,6 +153,17 @@ export default function Ideas() {
           <p className="text-xs text-stone-400 mt-1">{ideas.length} idea{ideas.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex border border-stone-200 rounded-md overflow-hidden">
+            {[['grid','⊞'],['kanban','⊟']].map(([mode, icon]) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                title={mode.charAt(0).toUpperCase() + mode.slice(1) + ' view'}
+                className={`px-2.5 py-1.5 text-xs transition-colors ${viewMode === mode ? 'bg-teal-500 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
+              >{icon}</button>
+            ))}
+          </div>
           <button
             onClick={() => { setSelectMode(s => !s); setSelectedIds(new Set()) }}
             className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${selectMode ? 'bg-teal-500 text-white border-teal-500' : 'border-stone-200 text-stone-500 hover:border-stone-300'}`}
@@ -229,10 +241,10 @@ export default function Ideas() {
         </div>
       )}
 
-      {/* Ideas grid */}
+      {/* Ideas grid / kanban */}
       {loading ? (
         <p className="text-stone-400 text-sm">Loading...</p>
-      ) : filtered.length === 0 ? (
+      ) : ideas.length === 0 ? (
         <div className="text-center py-16 text-stone-400">
           <p className="text-lg mb-1">No ideas yet</p>
           <p className="text-sm mb-4">Capture inspiration before it becomes a post.</p>
@@ -243,6 +255,70 @@ export default function Ideas() {
             Capture your first idea
           </button>
         </div>
+      ) : viewMode === 'kanban' ? (
+        /* ── Kanban ── */
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {Object.entries(IDEA_STATUSES).map(([statusKey, statusMeta]) => {
+            const colIdeas = applySort(
+              ideas.filter(i => i.status === statusKey).filter(i => !search.trim() || i.title.toLowerCase().includes(search.toLowerCase())),
+              sortBy
+            )
+            return (
+              <div key={statusKey} className="flex-shrink-0 w-64">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusMeta.color }} />
+                  <span className="text-xs font-medium text-stone-600">{statusMeta.label}</span>
+                  <span className="ml-auto text-xs text-stone-400">{colIdeas.length}</span>
+                </div>
+                <div className="space-y-2 min-h-[80px]">
+                  {colIdeas.map(idea => {
+                    const pri = PRIORITY_OPTIONS.find(p => p.value === (idea.priority || 'normal'))
+                    const due = idea.due_by ? formatDueDate(idea.due_by) : null
+                    return (
+                      <div
+                        key={idea.id}
+                        className="bg-white border border-stone-200 rounded-lg p-3 hover:border-stone-300 hover:shadow-sm transition-all cursor-pointer group"
+                        onClick={() => setEditTarget(idea)}
+                      >
+                        <div className="flex items-start gap-2 mb-1.5">
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-1 ${pri?.dotClass || 'bg-stone-400'}`} />
+                          <p className="text-xs font-medium text-stone-700 leading-snug flex-1">{idea.title}</p>
+                        </div>
+                        {idea.notes && (
+                          <p className="text-[10px] text-stone-400 truncate ml-4 mb-1.5">{idea.notes}</p>
+                        )}
+                        {due && (
+                          <p className={`text-[10px] ml-4 ${due.isOverdue ? 'text-red-500' : 'text-stone-400'}`}>
+                            {due.isOverdue ? '⚠ ' : ''}Due {due.formatted}
+                          </p>
+                        )}
+                        <div className="mt-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity ml-4">
+                          {Object.entries(IDEA_STATUSES).filter(([k]) => k !== statusKey && k !== 'promoted').map(([k, s]) => (
+                            <button
+                              key={k}
+                              onClick={e => { e.stopPropagation(); handleUpdate(idea.id, { status: k }) }}
+                              className="text-[9px] px-1.5 py-0.5 rounded border border-stone-200 text-stone-400 hover:text-stone-700 transition-colors"
+                              title={`Move to ${s.label}`}
+                            >
+                              → {s.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {colIdeas.length === 0 && (
+                    <div className="border border-dashed border-stone-200 rounded-lg py-6 text-center">
+                      <p className="text-[10px] text-stone-300">No ideas</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : filtered.length === 0 ? (
+        <p className="text-stone-400 text-sm py-8 text-center">No ideas match your filter.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map(idea => (
