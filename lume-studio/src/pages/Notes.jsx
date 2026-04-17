@@ -3,6 +3,35 @@ import { supabase } from '../lib/supabase'
 
 const BRAND_KIT_KEY = 'scratch_notes'
 
+const NOTE_TEMPLATES = [
+  {
+    name: 'Content Brief',
+    content:
+      '# Content Brief\n\n**Topic:**\n\n**Goal:**\n\n**Target audience:**\n\n**Key message:**\n\n**Platform(s):**\n\n**Due date:**\n\n**Notes:**',
+  },
+  {
+    name: 'Weekly Plan',
+    content:
+      '# Weekly Content Plan\n\nWeek of: \n\n**Monday:**\n\n**Wednesday:**\n\n**Friday:**\n\n**Ideas for next week:**',
+  },
+  {
+    name: 'Mood Board',
+    content:
+      '# Mood Board\n\n**Vibe / Aesthetic:**\n\n**Color palette:**\n\n**References:**\n\n**Caption tone:**\n\n**Hashtag direction:**',
+  },
+  {
+    name: 'Meeting Notes',
+    content:
+      '# Meeting Notes\n\nDate: \nAttendees: \n\n**Agenda:**\n\n**Action items:**\n\n**Next steps:**',
+  },
+]
+
+const SORT_OPTIONS = [
+  { value: 'pinned', label: 'Pinned first' },
+  { value: 'newest', label: 'Newest' },
+  { value: 'oldest', label: 'Oldest' },
+]
+
 function timeAgo(isoString) {
   const diff = Date.now() - new Date(isoString).getTime()
   const seconds = Math.floor(diff / 1000)
@@ -17,8 +46,11 @@ function timeAgo(isoString) {
 
 function formatTimestamp(isoString) {
   const d = new Date(isoString)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    + ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return (
+    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+    ' · ' +
+    d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  )
 }
 
 export default function Notes() {
@@ -27,10 +59,13 @@ export default function Notes() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [noteSearch, setNoteSearch] = useState('')
+  const [sortMode, setSortMode] = useState('pinned')
+  const [showTemplateMenu, setShowTemplateMenu] = useState(false)
 
   const debounceTimer = useRef(null)
   const textareaRef = useRef(null)
   const notesRef = useRef(notes)
+  const templateMenuRef = useRef(null)
 
   // Keep ref in sync so debounced save always has latest notes
   useEffect(() => {
@@ -52,8 +87,8 @@ export default function Notes() {
       }
 
       const raw = Array.isArray(data?.value) ? data.value : []
-      // Migrate old notes that lack a tags field
-      const loaded = raw.map((n) => ({ tags: [], ...n }))
+      // Migrate old notes that lack tags or pinned fields
+      const loaded = raw.map((n) => ({ tags: [], pinned: false, ...n }))
       setNotes(loaded)
       if (loaded.length > 0) {
         setSelectedId(loaded[0].id)
@@ -70,6 +105,19 @@ export default function Notes() {
     }
   }, [selectedId])
 
+  // Close template menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (templateMenuRef.current && !templateMenuRef.current.contains(e.target)) {
+        setShowTemplateMenu(false)
+      }
+    }
+    if (showTemplateMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showTemplateMenu])
+
   const saveToSupabase = useCallback(async (updatedNotes) => {
     setSaving(true)
     const { error } = await supabase
@@ -82,12 +130,15 @@ export default function Notes() {
     setSaving(false)
   }, [])
 
-  const scheduleSave = useCallback((updatedNotes) => {
-    if (debounceTimer.current) clearTimeout(debounceTimer.current)
-    debounceTimer.current = setTimeout(() => {
-      saveToSupabase(updatedNotes)
-    }, 800)
-  }, [saveToSupabase])
+  const scheduleSave = useCallback(
+    (updatedNotes) => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+      debounceTimer.current = setTimeout(() => {
+        saveToSupabase(updatedNotes)
+      }, 800)
+    },
+    [saveToSupabase]
+  )
 
   // Cleanup debounce on unmount
   useEffect(() => {
@@ -96,11 +147,12 @@ export default function Notes() {
     }
   }, [])
 
-  function handleNewNote() {
+  function handleNewNote(initialContent = '') {
     const newNote = {
       id: crypto.randomUUID(),
-      content: '',
+      content: initialContent,
       tags: [],
+      pinned: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
@@ -108,6 +160,11 @@ export default function Notes() {
     setNotes(updated)
     setSelectedId(newNote.id)
     scheduleSave(updated)
+  }
+
+  function handleNewFromTemplate(template) {
+    setShowTemplateMenu(false)
+    handleNewNote(template.content)
   }
 
   function handleSelectNote(id) {
@@ -143,6 +200,15 @@ export default function Notes() {
     }
   }
 
+  function handleTogglePin(e, id) {
+    e.stopPropagation()
+    const updated = notes.map((n) =>
+      n.id === id ? { ...n, pinned: !n.pinned, updated_at: new Date().toISOString() } : n
+    )
+    setNotes(updated)
+    scheduleSave(updated)
+  }
+
   function addTag(tag) {
     const updated = notes.map((n) => {
       if (n.id !== selectedId) return n
@@ -169,13 +235,23 @@ export default function Notes() {
   const wordCount = (selectedNote?.content || '').trim().split(/\s+/).filter(Boolean).length
   const charCount = (selectedNote?.content || '').length
 
-  // Filtered note list for search
-  const displayedNotes = notes.filter(
+  // Filter + sort note list
+  const filteredNotes = notes.filter(
     (n) =>
       !noteSearch.trim() ||
       n.content.toLowerCase().includes(noteSearch.toLowerCase()) ||
       (n.tags || []).some((t) => t.toLowerCase().includes(noteSearch.toLowerCase()))
   )
+
+  const displayedNotes = [...filteredNotes].sort((a, b) => {
+    if (sortMode === 'pinned') {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
+      return new Date(b.updated_at) - new Date(a.updated_at)
+    }
+    if (sortMode === 'oldest') return new Date(a.updated_at) - new Date(b.updated_at)
+    // newest
+    return new Date(b.updated_at) - new Date(a.updated_at)
+  })
 
   return (
     <div className="p-7 h-full flex flex-col">
@@ -190,13 +266,37 @@ export default function Notes() {
             <span className="text-xs text-teal-500 animate-pulse">Saving…</span>
           )}
         </div>
-        <button
-          onClick={handleNewNote}
-          className="flex items-center gap-1.5 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white text-sm font-medium rounded-lg transition-colors"
-        >
-          <span className="text-base leading-none">+</span>
-          New Note
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Template dropdown */}
+          <div className="relative" ref={templateMenuRef}>
+            <button
+              onClick={() => setShowTemplateMenu((v) => !v)}
+              className="text-xs text-stone-500 hover:text-teal-600 px-2 py-1.5 rounded-lg hover:bg-teal-50 transition-colors border border-stone-200 hover:border-teal-200"
+            >
+              From template ▾
+            </button>
+            {showTemplateMenu && (
+              <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-stone-200 rounded-xl shadow-lg z-10 py-1 overflow-hidden">
+                {NOTE_TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.name}
+                    onClick={() => handleNewFromTemplate(tpl)}
+                    className="w-full text-left px-3 py-2 text-sm text-stone-700 hover:bg-teal-50 hover:text-teal-700 transition-colors"
+                  >
+                    {tpl.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => handleNewNote()}
+            className="flex items-center gap-1.5 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            <span className="text-base leading-none">+</span>
+            New Note
+          </button>
+        </div>
       </div>
 
       {/* Body */}
@@ -208,7 +308,20 @@ export default function Notes() {
         <div className="flex-1 flex gap-5 min-h-0">
           {/* Left: Note list */}
           <div className="w-64 flex-shrink-0 flex flex-col min-h-0">
-            {/* Search input */}
+            {/* Sort + Search row */}
+            <div className="flex items-center gap-2 mb-2">
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value)}
+                className="text-[11px] border border-stone-200 rounded-lg px-2 py-1.5 text-stone-500 focus:outline-none focus:border-teal-400 bg-white flex-shrink-0"
+              >
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <input
               value={noteSearch}
               onChange={(e) => setNoteSearch(e.target.value)}
@@ -224,7 +337,7 @@ export default function Notes() {
               ) : (
                 displayedNotes.map((note) => {
                   const isSelected = note.id === selectedId
-                  const firstLine = note.content.split('\n')[0] || 'Empty note'
+                  const firstLine = note.content.split('\n')[0].replace(/^#+\s*/, '') || 'Empty note'
                   const tags = note.tags || []
                   return (
                     <div
@@ -236,9 +349,15 @@ export default function Notes() {
                       }`}
                       onClick={() => handleSelectNote(note.id)}
                     >
-                      <p className="text-sm text-stone-700 truncate pr-5">
-                        {firstLine}
-                      </p>
+                      {/* Title row */}
+                      <div className="flex items-start gap-1.5 pr-5">
+                        {note.pinned && (
+                          <span className="mt-0.5 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-teal-400" title="Pinned" />
+                        )}
+                        <p className="text-sm text-stone-700 truncate flex-1">
+                          {firstLine}
+                        </p>
+                      </div>
                       <p className="text-[10px] text-stone-400 mt-1">
                         {formatTimestamp(note.updated_at)}
                       </p>
@@ -255,6 +374,18 @@ export default function Notes() {
                           ))}
                         </div>
                       )}
+                      {/* Pin button — visible on hover; always visible when pinned */}
+                      <button
+                        onClick={(e) => handleTogglePin(e, note.id)}
+                        title={note.pinned ? 'Unpin note' : 'Pin note'}
+                        className={`absolute bottom-2.5 right-2.5 w-5 h-5 flex items-center justify-center text-xs transition-opacity ${
+                          note.pinned
+                            ? 'opacity-100 text-teal-500'
+                            : 'opacity-0 group-hover:opacity-100 text-stone-400 hover:text-teal-500'
+                        }`}
+                      >
+                        📌
+                      </button>
                       {/* Delete button */}
                       <button
                         onClick={(e) => handleDeleteNote(e, note.id)}
@@ -314,14 +445,33 @@ export default function Notes() {
                   />
                 </div>
 
-                {/* Word / char count + last edited */}
+                {/* Word / char count + last edited + export */}
                 <div className="flex items-center justify-between mt-1">
                   <p className="text-xs text-stone-400">
                     Last edited {timeAgo(selectedNote.updated_at)}
+                    {selectedNote.pinned && (
+                      <span className="ml-2 text-teal-500">· Pinned</span>
+                    )}
                   </p>
-                  <p className="text-xs text-stone-400">
-                    {wordCount} {wordCount === 1 ? 'word' : 'words'} · {charCount} chars
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => {
+                        const blob = new Blob([selectedNote.content], { type: 'text/markdown' })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        const firstLine = selectedNote.content.split('\n')[0].replace(/^#+\s*/, '').trim() || 'note'
+                        a.href = url; a.download = `${firstLine.slice(0, 40).replace(/[^a-z0-9]/gi, '-')}.md`; a.click()
+                        URL.revokeObjectURL(url)
+                      }}
+                      className="text-xs text-stone-400 hover:text-teal-600 transition-colors"
+                      title="Download as Markdown"
+                    >
+                      ↓ .md
+                    </button>
+                    <p className="text-xs text-stone-400">
+                      {wordCount} {wordCount === 1 ? 'word' : 'words'} · {charCount} chars
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
