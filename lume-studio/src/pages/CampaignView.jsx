@@ -1,8 +1,151 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { POST_STATUSES } from '../lib/constants'
 import { CAMPAIGN_STATUSES, PALETTE } from './Campaigns'
+
+function CampaignBrief({ campaignId, postCount }) {
+  const [brief, setBrief] = useState({})
+  const [open, setOpen] = useState(false)
+  const [goals, setGoals] = useState({})
+  const saveTimer = useRef(null)
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase.from('brand_kit')
+        .select('value').eq('key', `campaign_brief_${campaignId}`).single()
+      if (data?.value) {
+        const v = data.value
+        setBrief({
+          target_audience: v.target_audience || '',
+          key_message: v.key_message || '',
+          tone: v.tone || '',
+          cta: v.cta || '',
+          notes: v.notes || '',
+        })
+        setGoals({
+          target_reach: v.target_reach || '',
+          target_engagement: v.target_engagement || '',
+          target_posts: v.target_posts || '',
+          target_conversions: v.target_conversions || '',
+        })
+      }
+    }
+    load()
+  }, [campaignId])
+
+  const scheduleSave = useCallback((newBrief, newGoals) => {
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(async () => {
+      await supabase.from('brand_kit').upsert(
+        { key: `campaign_brief_${campaignId}`, value: { ...newBrief, ...newGoals }, updated_at: new Date().toISOString() },
+        { onConflict: 'key' }
+      )
+    }, 800)
+  }, [campaignId])
+
+  function updateBrief(field, val) {
+    const updated = { ...brief, [field]: val }
+    setBrief(updated)
+    scheduleSave(updated, goals)
+  }
+
+  function updateGoal(field, val) {
+    const updated = { ...goals, [field]: val }
+    setGoals(updated)
+    scheduleSave(brief, updated)
+  }
+
+  const BRIEF_FIELDS = [
+    { key: 'target_audience', label: 'Target Audience', placeholder: 'e.g. Creatives aged 20–35, indie music fans' },
+    { key: 'key_message', label: 'Key Message', placeholder: 'The core message of this campaign' },
+    { key: 'tone', label: 'Tone', placeholder: 'e.g. Playful, authentic, inspirational' },
+    { key: 'cta', label: 'Call to Action', placeholder: 'e.g. Follow for daily tips' },
+  ]
+
+  const GOAL_FIELDS = [
+    { key: 'target_reach', label: 'Reach', unit: 'impressions' },
+    { key: 'target_engagement', label: 'Engagement', unit: 'interactions' },
+    { key: 'target_posts', label: 'Posts', unit: 'published' },
+    { key: 'target_conversions', label: 'Conversions', unit: 'clicks' },
+  ]
+
+  const publishedCount = parseInt(goals.target_posts || 0, 10)
+
+  return (
+    <div className="mb-6">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-2 text-xs uppercase tracking-widest text-stone-400 hover:text-stone-600 transition-colors mb-3 w-full text-left"
+      >
+        <span>📋 Brief</span>
+        <span className="ml-auto">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="bg-white border border-stone-200 rounded-xl p-5 space-y-4">
+          {/* Brief fields */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {BRIEF_FIELDS.map(f => (
+              <div key={f.key}>
+                <label className="text-[10px] uppercase tracking-widest text-stone-400 mb-1 block">{f.label}</label>
+                <input
+                  type="text"
+                  value={brief[f.key] || ''}
+                  onChange={e => updateBrief(f.key, e.target.value)}
+                  placeholder={f.placeholder}
+                  className="w-full text-sm text-stone-700 border border-stone-200 rounded-lg px-3 py-1.5 outline-none focus:border-teal-500 placeholder-stone-300"
+                />
+              </div>
+            ))}
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-widest text-stone-400 mb-1 block">Notes</label>
+            <textarea
+              value={brief.notes || ''}
+              onChange={e => updateBrief('notes', e.target.value)}
+              placeholder="Additional notes, references, links…"
+              rows={3}
+              className="w-full text-sm text-stone-700 border border-stone-200 rounded-lg px-3 py-1.5 outline-none focus:border-teal-500 placeholder-stone-300 resize-none"
+            />
+          </div>
+
+          {/* Goals */}
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-3">🎯 Goals</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {GOAL_FIELDS.map(f => (
+                <div key={f.key} className="bg-stone-50 border border-stone-200 rounded-lg p-3">
+                  <p className="text-[10px] text-stone-400 mb-1">{f.label}</p>
+                  <input
+                    type="number"
+                    min="0"
+                    value={goals[f.key] || ''}
+                    onChange={e => updateGoal(f.key, e.target.value)}
+                    placeholder="—"
+                    className="w-full text-xl font-light text-stone-700 bg-transparent outline-none focus:text-teal-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <p className="text-[10px] text-stone-400 mt-0.5">{f.unit}</p>
+                  {f.key === 'target_posts' && publishedCount > 0 && (
+                    <div className="mt-2">
+                      <div className="h-1 bg-stone-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-teal-400 rounded-full transition-all"
+                          style={{ width: `${Math.min((postCount / publishedCount) * 100, 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-stone-400 mt-0.5">{postCount} / {publishedCount}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function CampaignTimeline({ campaign }) {
   if (!campaign.start_date || !campaign.end_date) return null
@@ -151,6 +294,8 @@ export default function CampaignView() {
       </div>
 
       <CampaignTimeline campaign={campaign} />
+
+      <CampaignBrief campaignId={campaignId} postCount={posts.length} />
 
       {posts.length > 0 && (
         <div className="mb-5">
