@@ -31,6 +31,7 @@ export default function Inspiration() {
   const [allTags, setAllTags] = useState([])
   const [expandedId, setExpandedId] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [filterStarred, setFilterStarred] = useState(false)
   const [quickUrl, setQuickUrl] = useState('')
   const [quickUrlSaving, setQuickUrlSaving] = useState(false)
 
@@ -83,6 +84,14 @@ export default function Inspiration() {
     setCards(prev => prev.map(c => c.id === id ? { ...c, pinned } : c))
   }
 
+  async function toggleFavorite(id) {
+    const card = cards.find(c => c.id === id)
+    if (!card) return
+    const is_favorite = !card.is_favorite
+    await supabase.from('inspiration').update({ is_favorite, updated_at: new Date().toISOString() }).eq('id', id)
+    setCards(prev => prev.map(c => c.id === id ? { ...c, is_favorite } : c))
+  }
+
   async function deleteCard(id) {
     await supabase.from('inspiration').delete().eq('id', id)
     setCards(prev => prev.filter(c => c.id !== id))
@@ -131,6 +140,7 @@ export default function Inspiration() {
     const base = cards.filter(c => {
       if (filterType !== 'all' && c.type !== filterType) return false
       if (filterTag && !(c.tags || []).includes(filterTag)) return false
+      if (filterStarred && !c.is_favorite) return false
       if (q && !c.title.toLowerCase().includes(q) && !(c.body || '').toLowerCase().includes(q) && !(c.url || '').toLowerCase().includes(q) && !(c.tags || []).some(t => t.toLowerCase().includes(q))) return false
       return true
     })
@@ -174,6 +184,13 @@ export default function Inspiration() {
           className="bg-teal-500 text-white text-xs font-medium px-4 py-2.5 rounded-md hover:bg-teal-600 transition-colors"
         >
           + Add card
+        </button>
+        <button
+          onClick={() => setFilterStarred(v => !v)}
+          className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${filterStarred ? 'bg-amber-50 text-amber-600 border-amber-300' : 'border-stone-200 text-stone-400 hover:border-stone-400'}`}
+          title="Show starred only"
+        >
+          ★ Starred {filterStarred && `(${cards.filter(c => c.is_favorite).length})`}
         </button>
         {/* Search */}
         <input
@@ -353,6 +370,7 @@ export default function Inspiration() {
               onUpdate={fields => updateCard(card.id, fields)}
               onDelete={() => deleteCard(card.id)}
               onTogglePin={() => togglePin(card.id)}
+              onToggleFavorite={() => toggleFavorite(card.id)}
             />
           ))}
         </div>
@@ -391,6 +409,13 @@ function InspirationCard({ card, expanded, onToggle, onUpdate, onDelete, onToggl
             <span className="text-sm font-medium text-stone-700 truncate">{card.title}</span>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={e => { e.stopPropagation(); onToggleFavorite?.() }}
+              className={`text-sm transition-all px-0.5 ${card.is_favorite ? 'opacity-100 text-amber-400' : 'opacity-0 group-hover:opacity-100 text-stone-300 hover:text-amber-400'}`}
+              title={card.is_favorite ? 'Unstar' : 'Star'}
+            >
+              ★
+            </button>
             <button
               onClick={e => { e.stopPropagation(); onTogglePin() }}
               className={`text-sm transition-all px-0.5 ${card.pinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} hover:scale-110`}
