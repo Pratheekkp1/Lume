@@ -30,6 +30,9 @@ export default function Inspiration() {
   const [filterTag, setFilterTag] = useState(null)
   const [allTags, setAllTags] = useState([])
   const [expandedId, setExpandedId] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [quickUrl, setQuickUrl] = useState('')
+  const [quickUrlSaving, setQuickUrlSaving] = useState(false)
 
   // New card form
   const [newType, setNewType] = useState('note')
@@ -103,10 +106,32 @@ export default function Inspiration() {
     setNewTagInput(''); setNewTags([]); setNewColor(TAG_COLORS[0])
   }
 
+  async function quickAddUrl() {
+    const url = quickUrl.trim()
+    if (!url) return
+    setQuickUrlSaving(true)
+    const domain = url.replace(/^https?:\/\//, '').split('/')[0]
+    const { data, error } = await supabase.from('inspiration').insert({
+      type: 'link',
+      title: domain,
+      url,
+      tags: [],
+      pinned: false,
+    }).select().single()
+    if (!error && data) {
+      setCards(prev => [data, ...prev])
+      setExpandedId(data.id)
+    }
+    setQuickUrl('')
+    setQuickUrlSaving(false)
+  }
+
   const filtered = (() => {
+    const q = searchQuery.toLowerCase().trim()
     const base = cards.filter(c => {
       if (filterType !== 'all' && c.type !== filterType) return false
       if (filterTag && !(c.tags || []).includes(filterTag)) return false
+      if (q && !c.title.toLowerCase().includes(q) && !(c.body || '').toLowerCase().includes(q) && !(c.url || '').toLowerCase().includes(q) && !(c.tags || []).some(t => t.toLowerCase().includes(q))) return false
       return true
     })
     return [...base.filter(c => c.pinned), ...base.filter(c => !c.pinned)]
@@ -120,6 +145,28 @@ export default function Inspiration() {
         <p className="text-sm text-stone-400 mt-1">Save ideas, references, and links that fuel your content.</p>
       </div>
 
+      {/* Quick URL paste bar */}
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-stone-300 text-xs flex-shrink-0">🔗</span>
+        <input
+          type="url"
+          value={quickUrl}
+          onChange={e => setQuickUrl(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && quickAddUrl()}
+          placeholder="Paste a link to save it instantly…"
+          className="flex-1 text-xs border border-stone-200 rounded-lg px-3 py-2 outline-none focus:border-teal-400 text-stone-700 placeholder-stone-300"
+        />
+        {quickUrl && (
+          <button
+            onClick={quickAddUrl}
+            disabled={quickUrlSaving}
+            className="text-xs text-teal-600 border border-teal-200 px-3 py-2 rounded-lg hover:bg-teal-50 transition-colors disabled:opacity-40"
+          >
+            {quickUrlSaving ? 'Saving…' : 'Save'}
+          </button>
+        )}
+      </div>
+
       {/* Toolbar */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <button
@@ -128,6 +175,14 @@ export default function Inspiration() {
         >
           + Add card
         </button>
+        {/* Search */}
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Search cards…"
+          className="text-xs border border-stone-200 rounded-md px-3 py-1.5 outline-none focus:border-teal-400 w-44"
+        />
 
         {/* Type filter */}
         <div className="flex items-center gap-1">
