@@ -442,6 +442,8 @@ export default function PostView() {
   const [showCategoryPanel, setShowCategoryPanel] = useState(false)
   const [allPillars, setAllPillars] = useState([])
   const [postCampaigns, setPostCampaigns] = useState([])
+  const [liveUrlDraft, setLiveUrlDraft] = useState('')
+  const [liveUrlSaved, setLiveUrlSaved] = useState(false)
   const [showRepurpose, setShowRepurpose] = useState(false)
   const [repurposing, setRepurposing] = useState(false)
   const [showSaveTemplate, setShowSaveTemplate] = useState(false)
@@ -509,6 +511,7 @@ export default function PostView() {
     ])
     setPost(postData)
     setTitleDraft(postData?.title || '')
+    setLiveUrlDraft(postData?.live_url || '')
     setAssets(assetData || [])
     setCategories((catJoins || []).map(j => j.category).filter(Boolean))
     setAllCategories(allCats || [])
@@ -1878,6 +1881,39 @@ export default function PostView() {
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Live URL — shown when published */}
+          {post.status === 'published' && (
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">Live URL</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="url"
+                  value={liveUrlDraft}
+                  onChange={e => { setLiveUrlDraft(e.target.value); setLiveUrlSaved(false) }}
+                  onBlur={() => {
+                    if (liveUrlDraft !== (post.live_url || '')) {
+                      updateField('live_url', liveUrlDraft || null)
+                      setLiveUrlSaved(true)
+                      setTimeout(() => setLiveUrlSaved(false), 2000)
+                    }
+                  }}
+                  placeholder="https://..."
+                  className="flex-1 text-xs border border-stone-200 rounded-md px-2.5 py-1.5 outline-none focus:border-teal-400 text-stone-700 placeholder-stone-300"
+                />
+                {liveUrlDraft && (
+                  <a
+                    href={liveUrlDraft}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-teal-500 hover:text-teal-700 flex-shrink-0"
+                    title="Open live URL"
+                  >↗</a>
+                )}
+              </div>
+              {liveUrlSaved && <p className="text-[10px] text-teal-500 mt-1">Saved</p>}
             </div>
           )}
 
