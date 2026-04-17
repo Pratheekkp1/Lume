@@ -13,6 +13,8 @@ export default function Library() {
   const [loading, setLoading] = useState(true)
   const [typeFilter, setTypeFilter] = useState(searchParams.get('type') || 'all')
   const [filterEvent, setFilterEvent] = useState('all')
+  const [albumSort, setAlbumSort] = useState('newest')
+  const [albumStatusFilter, setAlbumStatusFilter] = useState('all')
   const [density, setDensity] = useState(() => localStorage.getItem('lume-lib-density') || 'normal')
 
   // Album CRUD state
@@ -161,11 +163,35 @@ export default function Library() {
   const showAlbums = typeFilter === 'all' || typeFilter === 'albums'
   const showSounds = typeFilter === 'all' || typeFilter === 'sounds'
 
-  const filteredAlbums = filterEvent === 'all'
+  const eventFiltered = filterEvent === 'all'
     ? albums
     : filterEvent === 'none'
       ? albums.filter(a => !a.event_id)
       : albums.filter(a => a.event_id === filterEvent)
+
+  const statusFiltered = albumStatusFilter === 'all'
+    ? eventFiltered
+    : eventFiltered.filter(a => a.status === albumStatusFilter)
+
+  const filteredAlbums = [...statusFiltered].sort((a, b) => {
+    if (albumSort === 'name_asc') return a.name.localeCompare(b.name)
+    if (albumSort === 'event_asc') {
+      if (!a.event_date && !b.event_date) return 0
+      if (!a.event_date) return 1
+      if (!b.event_date) return -1
+      return new Date(a.event_date) - new Date(b.event_date)
+    }
+    if (albumSort === 'event_desc') {
+      if (!a.event_date && !b.event_date) return 0
+      if (!a.event_date) return 1
+      if (!b.event_date) return -1
+      return new Date(b.event_date) - new Date(a.event_date)
+    }
+    if (albumSort === 'photos_desc') return (b.photos?.length || 0) - (a.photos?.length || 0)
+    if (albumSort === 'oldest') return new Date(a.created_at) - new Date(b.created_at)
+    // newest (default)
+    return new Date(b.created_at) - new Date(a.created_at)
+  })
 
   const totalCount = albums.length + soundProjects.length
 
@@ -224,7 +250,7 @@ export default function Library() {
         ].map(f => (
           <button
             key={f.key}
-            onClick={() => { setTypeFilter(f.key); setFilterEvent('all') }}
+            onClick={() => { setTypeFilter(f.key); setFilterEvent('all'); setAlbumStatusFilter('all') }}
             className={`px-3 py-1 rounded-full text-xs border transition-colors ${
               typeFilter === f.key
                 ? 'bg-teal-500 text-white border-teal-500'
@@ -235,6 +261,39 @@ export default function Library() {
           </button>
         ))}
       </div>
+
+      {/* Album sort + status filter */}
+      {showAlbums && (
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <select
+            value={albumSort}
+            onChange={e => setAlbumSort(e.target.value)}
+            className="bg-white border border-stone-200 rounded-md px-2 py-1 text-xs text-stone-600 outline-none focus:border-teal-500"
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="name_asc">Name A–Z</option>
+            <option value="event_asc">Event date ↑</option>
+            <option value="event_desc">Event date ↓</option>
+            <option value="photos_desc">Photo count ↓</option>
+          </select>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {['all','unedited','culling','editing','retouching','delivered'].map(s => (
+              <button
+                key={s}
+                onClick={() => setAlbumStatusFilter(s)}
+                className={`px-2.5 py-0.5 rounded-full text-[11px] border transition-colors ${
+                  albumStatusFilter === s
+                    ? 'bg-stone-700 text-white border-stone-700'
+                    : 'border-stone-200 text-stone-400 hover:border-stone-400'
+                }`}
+              >
+                {s === 'all' ? 'All statuses' : s.charAt(0).toUpperCase() + s.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Event filter — only when albums visible */}
       {showAlbums && events.length > 0 && (
@@ -296,7 +355,7 @@ export default function Library() {
           {showAlbums && filteredAlbums.length > 0 && (
             <div>
               {typeFilter === 'all' && (
-                <h2 className="text-xs uppercase tracking-widest text-stone-400 mb-3">Albums</h2>
+                <h2 className="text-xs uppercase tracking-widest text-stone-400 mb-3">Albums ({filteredAlbums.length})</h2>
               )}
               <div className={`grid gap-6 ${gridCols[density]}`}>
                 {filteredAlbums.map(album => (
