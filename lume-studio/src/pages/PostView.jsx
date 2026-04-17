@@ -442,6 +442,11 @@ export default function PostView() {
   const [activityInput, setActivityInput] = useState('')
   const [savingActivity, setSavingActivity] = useState(false)
 
+  // Caption history
+  const [captionHistory, setCaptionHistory] = useState([])
+  const [showCaptionHistory, setShowCaptionHistory] = useState(false)
+  const lastSnapshotRef = useRef('')
+
   // Multi-select for assets
   const [assetSelectMode, setAssetSelectMode] = useState(false)
   const [selectedAssetIds, setSelectedAssetIds] = useState(new Set()) // stores 'kind:id' strings
@@ -499,7 +504,30 @@ export default function PostView() {
       .eq('key', `post_log_${postId}`)
       .maybeSingle()
     setActivityLog(activityData?.value || [])
+    // Load caption history
+    const { data: captionHistData } = await supabase
+      .from('brand_kit')
+      .select('value')
+      .eq('key', `caption_history_${postId}`)
+      .maybeSingle()
+    setCaptionHistory(captionHistData?.value || [])
     setLoading(false)
+  }
+
+  // ── Caption History ─────────────────────────────────────────────────────────
+
+  async function saveCaptionSnapshot(caption) {
+    if (!caption || caption === lastSnapshotRef.current) return
+    lastSnapshotRef.current = caption
+    const snapshot = { id: crypto.randomUUID(), caption, created_at: new Date().toISOString() }
+    setCaptionHistory(prev => {
+      const updated = [snapshot, ...prev].slice(0, 15)
+      supabase.from('brand_kit').upsert(
+        { key: `caption_history_${postId}`, value: updated, updated_at: new Date().toISOString() },
+        { onConflict: 'key' }
+      )
+      return updated
+    })
   }
 
   // ── Activity Log ────────────────────────────────────────────────────────────
@@ -532,6 +560,7 @@ export default function PostView() {
   async function updateField(field, value) {
     await supabase.from('posts').update({ [field]: value, updated_at: new Date().toISOString() }).eq('id', postId)
     setPost(prev => ({ ...prev, [field]: value }))
+    if (field === 'caption') saveCaptionSnapshot(value)
   }
 
   // ── Variants ───────────────────────────────────────────────────────────────
@@ -1138,10 +1167,43 @@ export default function PostView() {
               </div>
             </>
           ) : (
-            <CaptionEditor
-              value={post.caption || ''}
-              onSave={val => updateField('caption', val)}
-            />
+            <>
+              <CaptionEditor
+                value={post.caption || ''}
+                onSave={val => updateField('caption', val)}
+              />
+              {captionHistory.length > 0 && (
+                <div className="relative mt-1">
+                  <button
+                    onClick={() => setShowCaptionHistory(v => !v)}
+                    className="text-[10px] text-stone-400 hover:text-teal-600 transition-colors"
+                  >
+                    ↩ {captionHistory.length} version{captionHistory.length !== 1 ? 's' : ''}
+                  </button>
+                  {showCaptionHistory && (
+                    <div className="absolute left-0 top-full mt-1 w-80 bg-white border border-stone-200 rounded-xl shadow-lg z-30 overflow-hidden max-h-64 overflow-y-auto">
+                      <p className="text-[10px] uppercase tracking-widest text-stone-400 px-4 py-2 border-b border-stone-100">Caption History</p>
+                      {captionHistory.map(snap => (
+                        <div key={snap.id} className="px-4 py-3 border-b border-stone-50 last:border-0 group hover:bg-stone-50">
+                          <p className="text-xs text-stone-600 line-clamp-2 mb-1">{snap.caption || '(empty)'}</p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] text-stone-400">
+                              {new Date(snap.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                            <button
+                              onClick={() => { updateField('caption', snap.caption); setShowCaptionHistory(false) }}
+                              className="text-[10px] text-teal-600 hover:text-teal-700 font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              Restore
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
 
