@@ -186,6 +186,12 @@ export default function Posts() {
     setConfirmBulkDelete(false)
   }
 
+  async function updatePostStatus(id, status) {
+    setPosts(prev => prev.map(p => p.id === id ? { ...p, status } : p))
+    await supabase.from('posts').update({ status, updated_at: new Date().toISOString() }).eq('id', id)
+    window.dispatchEvent(new CustomEvent('lume-posts-updated'))
+  }
+
   async function bulkStatusChange(status) {
     const ids = [...selectedIds]
     setPosts(prev => prev.map(p => selectedIds.has(p.id) ? { ...p, status } : p))
@@ -549,6 +555,7 @@ export default function Posts() {
               onEdit={(e) => { e.stopPropagation(); setEditTarget(post) }}
               onDelete={(e) => { e.stopPropagation(); setDeleteTarget(post) }}
               onDuplicate={(e) => { e.stopPropagation(); handleDuplicate(post) }}
+              onStatusChange={(status) => updatePostStatus(post.id, status)}
               selectMode={selectMode}
               checked={selectedIds.has(post.id)}
               anySelected={anySelected}
@@ -1221,10 +1228,18 @@ function readinessScore(post) {
   return { score, max: 4 }
 }
 
-function PostCard({ post, onClick, onEdit, onDelete, onDuplicate, selectMode, checked, anySelected, onCheck, coverUrl }) {
+function PostCard({ post, onClick, onEdit, onDelete, onDuplicate, onStatusChange, selectMode, checked, anySelected, onCheck, coverUrl }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const status = POST_STATUSES[post.status]
   const cats = (post.post_categories || []).map(pc => pc.category).filter(Boolean)
+  const statusKeys = Object.keys(POST_STATUSES)
+
+  function cycleStatus(e) {
+    e.stopPropagation()
+    const idx = statusKeys.indexOf(post.status)
+    const next = statusKeys[(idx + 1) % statusKeys.length]
+    onStatusChange?.(next)
+  }
 
   return (
     <button
@@ -1251,7 +1266,9 @@ function PostCard({ post, onClick, onEdit, onDelete, onDuplicate, selectMode, ch
       )}
       <div className="flex items-start justify-between mb-2">
         <span
-          className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+          onClick={cycleStatus}
+          title="Click to cycle status"
+          className="text-[10px] font-medium px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition-opacity"
           style={{ backgroundColor: (status?.color || '#b0a090') + '30', color: status?.color || '#b0a090' }}
         >
           {status?.label || post.status}
