@@ -16,6 +16,7 @@ export default function Library() {
   const [albumSort, setAlbumSort] = useState('newest')
   const [albumStatusFilter, setAlbumStatusFilter] = useState('all')
   const [density, setDensity] = useState(() => localStorage.getItem('lume-lib-density') || 'normal')
+  const [librarySearch, setLibrarySearch] = useState('')
 
   // Album CRUD state
   const [showNewAlbum, setShowNewAlbum] = useState(false)
@@ -173,7 +174,11 @@ export default function Library() {
     ? eventFiltered
     : eventFiltered.filter(a => a.status === albumStatusFilter)
 
-  const filteredAlbums = [...statusFiltered].sort((a, b) => {
+  const searchFiltered = librarySearch.trim()
+    ? statusFiltered.filter(a => a.name.toLowerCase().includes(librarySearch.toLowerCase()) || (a.description || '').toLowerCase().includes(librarySearch.toLowerCase()))
+    : statusFiltered
+
+  const filteredAlbums = [...searchFiltered].sort((a, b) => {
     if (albumSort === 'name_asc') return a.name.localeCompare(b.name)
     if (albumSort === 'event_asc') {
       if (!a.event_date && !b.event_date) return 0
@@ -241,7 +246,7 @@ export default function Library() {
         </div>
       </div>
 
-      {/* Type filter */}
+      {/* Type filter + search */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         {[
           { key: 'all', label: 'All' },
@@ -260,6 +265,22 @@ export default function Library() {
             {f.label}
           </button>
         ))}
+        <div className="ml-auto relative">
+          <input
+            type="text"
+            value={librarySearch}
+            onChange={e => setLibrarySearch(e.target.value)}
+            placeholder="Search library…"
+            className="text-xs border border-stone-200 rounded-md pl-7 pr-3 py-1.5 text-stone-600 placeholder-stone-300 outline-none focus:border-teal-400 transition-colors w-44 bg-white"
+          />
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-300 text-xs pointer-events-none">⌕</span>
+          {librarySearch && (
+            <button
+              onClick={() => setLibrarySearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-300 hover:text-stone-500 transition-colors text-xs"
+            >×</button>
+          )}
+        </div>
       </div>
 
       {/* Album sort + status filter */}
@@ -377,7 +398,7 @@ export default function Library() {
                 <h2 className="text-xs uppercase tracking-widest text-stone-400 mb-3">Sound Projects</h2>
               )}
               <div className="max-w-2xl flex flex-col gap-2">
-                {soundProjects.map(project => (
+                {soundProjects.filter(p => !librarySearch.trim() || p.name.toLowerCase().includes(librarySearch.toLowerCase()) || (p.description || '').toLowerCase().includes(librarySearch.toLowerCase())).map(project => (
                   <SoundCard
                     key={project.id}
                     project={project}

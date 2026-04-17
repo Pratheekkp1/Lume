@@ -188,8 +188,20 @@ export default function Sidebar() {
 
       <div className="border-t border-stone-200 mx-3 mb-3" />
 
-      {/* Settings */}
-      <div className="mt-auto px-3">
+      {/* Settings + Trash */}
+      <div className="mt-auto px-3 space-y-0.5">
+        <NavLink
+          to="/trash"
+          className={({ isActive }) =>
+            `flex items-center gap-2 text-sm px-2 py-1.5 rounded-md w-full transition
+            ${isActive
+              ? 'text-stone-700 bg-stone-100 font-medium'
+              : 'text-stone-400 hover:text-stone-700 hover:bg-stone-200'
+            }`
+          }
+        >
+          <span>🗑</span> Trash
+        </NavLink>
         <NavLink
           to="/settings"
           className={({ isActive }) =>

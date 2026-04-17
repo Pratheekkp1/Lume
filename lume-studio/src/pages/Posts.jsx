@@ -20,6 +20,7 @@ export default function Posts() {
   })
   const [calendarPlatform, setCalendarPlatform] = useState('all')
   const [sortOrder, setSortOrder] = useState('newest')
+  const [filterPlatform, setFilterPlatform] = useState('all')
 
   // Templates
   const [templates, setTemplates] = useState([])
@@ -309,7 +310,12 @@ export default function Posts() {
   }
 
   const anySelected = selectedIds.size > 0
-  const filtered = sortPosts(filterStatus === 'all' ? posts : posts.filter(p => p.status === filterStatus))
+  const allPlatforms = [...new Set(posts.flatMap(p => p.platform || []))].sort()
+  const filtered = sortPosts(
+    posts
+      .filter(p => filterStatus === 'all' || p.status === filterStatus)
+      .filter(p => filterPlatform === 'all' || (p.platform || []).includes(filterPlatform))
+  )
 
   return (
     <div className="p-7">
@@ -444,18 +450,30 @@ export default function Posts() {
               {s.label}
             </button>
           ))}
-          <select
-            value={sortOrder}
-            onChange={e => setSortOrder(e.target.value)}
-            className="ml-auto text-xs border border-stone-200 rounded-md px-2 py-1 text-stone-500 bg-white focus:outline-none focus:border-teal-400 transition-colors"
-          >
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-            <option value="title_az">Title A→Z</option>
-            <option value="title_za">Title Z→A</option>
-            <option value="sched_asc">Scheduled ↑</option>
-            <option value="sched_desc">Scheduled ↓</option>
-          </select>
+          <div className="ml-auto flex items-center gap-2">
+            {allPlatforms.length > 0 && (
+              <select
+                value={filterPlatform}
+                onChange={e => setFilterPlatform(e.target.value)}
+                className="text-xs border border-stone-200 rounded-md px-2 py-1 text-stone-500 bg-white focus:outline-none focus:border-teal-400 transition-colors"
+              >
+                <option value="all">All platforms</option>
+                {allPlatforms.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            )}
+            <select
+              value={sortOrder}
+              onChange={e => setSortOrder(e.target.value)}
+              className="text-xs border border-stone-200 rounded-md px-2 py-1 text-stone-500 bg-white focus:outline-none focus:border-teal-400 transition-colors"
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="title_az">Title A→Z</option>
+              <option value="title_za">Title Z→A</option>
+              <option value="sched_asc">Scheduled ↑</option>
+              <option value="sched_desc">Scheduled ↓</option>
+            </select>
+          </div>
         </div>
       )}
 

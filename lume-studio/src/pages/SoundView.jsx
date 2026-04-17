@@ -52,6 +52,7 @@ export default function SoundView() {
   const [duration, setDuration] = useState(0);
   const [speed, setSpeed] = useState(1);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [loopMode, setLoopMode] = useState(false);
 
   useEffect(() => {
     recordOpen('sound', projectId);
@@ -108,6 +109,10 @@ export default function SoundView() {
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = speed;
   }, [speed]);
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.loop = loopMode;
+  }, [loopMode]);
 
   useEffect(() => {
     if (!showSpeedMenu) return;
@@ -822,8 +827,15 @@ export default function SoundView() {
               </button>
             </div>
 
-            {/* Right: speed + time */}
+            {/* Right: loop + speed + time */}
             <div className="flex items-center gap-3 flex-1 justify-end">
+              <button
+                onClick={() => setLoopMode(p => !p)}
+                title={loopMode ? 'Loop: on' : 'Loop: off'}
+                className={`text-xs border rounded px-2 py-1 transition-colors ${loopMode ? 'bg-teal-100 text-teal-700 border-teal-300' : 'text-stone-400 hover:text-stone-700 border-stone-200'}`}
+              >
+                ↺
+              </button>
               <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
                 <button
                   onClick={() => setShowSpeedMenu((p) => !p)}

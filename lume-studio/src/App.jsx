@@ -19,6 +19,7 @@ import Analytics from './pages/Analytics'
 import Ideas from './pages/Ideas'
 import Inspiration from './pages/Inspiration'
 import Notes from './pages/Notes'
+import Trash from './pages/Trash'
 import { purgeExpired } from './lib/trash'
 import CommandPalette from './components/ui/CommandPalette'
 
@@ -59,6 +60,7 @@ export default function App() {
               <Route path="/campaigns/:campaignId" element={<CampaignView />} />
               <Route path="/ideas" element={<Ideas />} />
               <Route path="/notes" element={<Notes />} />
+              <Route path="/trash" element={<Trash />} />
 
               {/* Redirects from old routes */}
               <Route path="/media" element={<Navigate to="/library" replace />} />
