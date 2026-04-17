@@ -18,6 +18,7 @@ export default function Settings() {
           { key: 'shortcuts', label: 'Keyboard Shortcuts' },
           { key: 'templates', label: 'Templates' },
           { key: 'trash', label: 'Trash' },
+          { key: 'export', label: 'Export Data' },
           { key: 'connected', label: 'Connected Accounts' },
           { key: 'team', label: 'Team' },
           { key: 'about', label: 'About' },
@@ -43,6 +44,7 @@ export default function Settings() {
         {activeSection === 'shortcuts' && <ShortcutsSection />}
         {activeSection === 'templates' && <TemplatesSection />}
         {activeSection === 'trash' && <TrashSection />}
+        {activeSection === 'export' && <ExportSection />}
         {activeSection === 'connected' && <ConnectedAccountsSection />}
         {activeSection === 'team' && <TeamSection />}
         {activeSection === 'about' && <AboutSection />}
@@ -226,6 +228,96 @@ function ShortcutsSection() {
       </div>
 
       <p className="text-xs text-stone-400 mt-5">Shortcuts are disabled when typing in a text field.</p>
+    </div>
+  )
+}
+
+function ExportSection() {
+  const [exporting, setExporting] = useState({})
+
+  function download(filename, content, mime) {
+    const blob = new Blob([content], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = filename; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function exportPosts() {
+    setExporting(p => ({ ...p, posts: true }))
+    const { data } = await supabase
+      .from('posts')
+      .select('id, title, type, status, platform, caption, scheduled_date, created_at, updated_at')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+    const headers = ['id', 'title', 'type', 'status', 'platform', 'caption', 'scheduled_date', 'created_at']
+    const rows = (data || []).map(p => headers.map(h => {
+      const v = Array.isArray(p[h]) ? p[h].join(';') : (p[h] ?? '')
+      return `"${String(v).replace(/"/g, '""')}"`
+    }).join(','))
+    download(`lume-posts-${new Date().toISOString().split('T')[0]}.csv`, [headers.join(','), ...rows].join('\n'), 'text/csv')
+    setExporting(p => ({ ...p, posts: false }))
+  }
+
+  async function exportIdeas() {
+    setExporting(p => ({ ...p, ideas: true }))
+    const { data } = await supabase
+      .from('ideas')
+      .select('id, title, notes, status, inspiration_url, priority, due_by, created_at')
+      .order('created_at', { ascending: false })
+    const headers = ['id', 'title', 'notes', 'status', 'inspiration_url', 'priority', 'due_by', 'created_at']
+    const rows = (data || []).map(row => headers.map(h => `"${String(row[h] ?? '').replace(/"/g, '""')}"`).join(','))
+    download(`lume-ideas-${new Date().toISOString().split('T')[0]}.csv`, [headers.join(','), ...rows].join('\n'), 'text/csv')
+    setExporting(p => ({ ...p, ideas: false }))
+  }
+
+  async function exportAll() {
+    setExporting(p => ({ ...p, all: true }))
+    const [{ data: posts }, { data: ideas }, { data: collections }, { data: audioProjects }] = await Promise.all([
+      supabase.from('posts').select('*').is('deleted_at', null),
+      supabase.from('ideas').select('*'),
+      supabase.from('collections').select('id, name, status, event_date, location, created_at').is('deleted_at', null),
+      supabase.from('audio_projects').select('id, name, status, created_at').is('deleted_at', null),
+    ])
+    const exportObj = {
+      exported_at: new Date().toISOString(),
+      posts: posts || [],
+      ideas: ideas || [],
+      albums: collections || [],
+      sound_projects: audioProjects || [],
+    }
+    download(`lume-full-export-${new Date().toISOString().split('T')[0]}.json`, JSON.stringify(exportObj, null, 2), 'application/json')
+    setExporting(p => ({ ...p, all: false }))
+  }
+
+  const EXPORTS = [
+    { key: 'posts', label: 'Posts (CSV)', desc: 'All posts with title, status, platform, caption, scheduled date', action: exportPosts },
+    { key: 'ideas', label: 'Ideas (CSV)', desc: 'All ideas with title, status, priority, due date', action: exportIdeas },
+    { key: 'all', label: 'Full export (JSON)', desc: 'Everything — posts, ideas, albums, sound projects', action: exportAll },
+  ]
+
+  return (
+    <div>
+      <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Settings</p>
+      <h1 className="font-serif text-3xl text-stone-800 mb-6">Export Data</h1>
+      <p className="text-xs text-stone-400 mb-6">Download your Lume data at any time. Files download instantly in your browser.</p>
+      <div className="flex flex-col gap-3 max-w-lg">
+        {EXPORTS.map(exp => (
+          <div key={exp.key} className="bg-white border border-stone-200 rounded-xl p-5 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-stone-700">{exp.label}</p>
+              <p className="text-xs text-stone-400 mt-0.5">{exp.desc}</p>
+            </div>
+            <button
+              onClick={exp.action}
+              disabled={exporting[exp.key]}
+              className="flex-shrink-0 text-xs bg-teal-500 text-white font-medium px-4 py-2 rounded-lg hover:bg-teal-600 disabled:opacity-40 transition-colors"
+            >
+              {exporting[exp.key] ? 'Exporting…' : '↓ Download'}
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

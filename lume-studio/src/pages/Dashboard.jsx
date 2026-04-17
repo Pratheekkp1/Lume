@@ -27,6 +27,7 @@ export default function Dashboard() {
   const [staleDraftsCount, setStaleDraftsCount] = useState(0)
   const [publishedThisMonth, setPublishedThisMonth] = useState(0)
   const [ideasCount, setIdeasCount] = useState(0)
+  const [suggestion, setSuggestion] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const profile = getProfile()
@@ -91,6 +92,25 @@ export default function Dashboard() {
 
     setRecentPosts((posts || []).slice(0, 6))
     setUpcomingPosts(scheduled || [])
+
+    // Smart suggestion
+    const allPosts = posts || []
+    const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]
+    const hasUpcomingScheduled = (scheduled || []).some(p => p.scheduled_date <= nextWeek)
+    if (!hasUpcomingScheduled) {
+      setSuggestion({ type: 'schedule', text: 'Nothing scheduled for the next 7 days.', action: '/posts?view=calendar', actionLabel: 'Open calendar' })
+    } else {
+      // Find the least-used post type in last 20 posts
+      const typeCounts = {}
+      allPosts.slice(0, 20).forEach(p => (p.type || []).forEach(t => { typeCounts[t] = (typeCounts[t] || 0) + 1 }))
+      const allTypes = ['Photo', 'Video', 'Carousel', 'Reel', 'Story', 'Thread', 'Audio']
+      const leastUsed = allTypes.find(t => !typeCounts[t]) || allTypes.sort((a, b) => (typeCounts[a] || 0) - (typeCounts[b] || 0))[0]
+      if (leastUsed && (!typeCounts[leastUsed] || typeCounts[leastUsed] < 2)) {
+        setSuggestion({ type: 'format', text: `You haven't posted much ${leastUsed} content lately.`, action: '/posts?create=true', actionLabel: `Try a ${leastUsed}` })
+      } else {
+        setSuggestion(null)
+      }
+    }
 
     // Build activity feed from recent items across types
     const activityItems = []
@@ -291,6 +311,20 @@ export default function Dashboard() {
                   )
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Smart Suggestion */}
+          {suggestion && (
+            <div className="mb-6 flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+              <span className="text-stone-400 text-sm flex-shrink-0">💡</span>
+              <p className="text-xs text-stone-600 flex-1">{suggestion.text}</p>
+              <button
+                onClick={() => navigate(suggestion.action)}
+                className="text-xs text-teal-600 hover:text-teal-700 font-medium flex-shrink-0 transition-colors"
+              >
+                {suggestion.actionLabel} →
+              </button>
             </div>
           )}
 

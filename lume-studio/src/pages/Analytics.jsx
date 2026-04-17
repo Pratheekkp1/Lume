@@ -69,6 +69,18 @@ export default function Analytics() {
   // Publishing streak
   const streak = computeStreak(posts)
 
+  // Content velocity: this month vs last month
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const thisMonthCount = published.filter(p => p.scheduled_date && new Date(p.scheduled_date + 'T00:00:00') >= thisMonthStart).length
+  const lastMonthCount = published.filter(p => {
+    if (!p.scheduled_date) return false
+    const d = new Date(p.scheduled_date + 'T00:00:00')
+    return d >= lastMonthStart && d < thisMonthStart
+  }).length
+  const velocityDiff = thisMonthCount - lastMonthCount
+  const velocityPct = lastMonthCount > 0 ? Math.round((velocityDiff / lastMonthCount) * 100) : null
+
   // Best posting days (published posts only)
   const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const dayCounts = Array(7).fill(0)
@@ -124,14 +136,20 @@ export default function Analytics() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         <SummaryCard label="Total Posts" value={posts.length} sub={`${published.length} published`} />
-        <SummaryCard label="This Month" value={monthlyData[monthlyData.length - 1]?.count || 0} sub="published" />
+        <SummaryCard label="This Month" value={thisMonthCount} sub="published" />
+        <SummaryCard
+          label="vs Last Month"
+          value={velocityPct !== null ? `${velocityDiff >= 0 ? '+' : ''}${velocityDiff}` : '—'}
+          sub={velocityPct !== null ? `${velocityPct >= 0 ? '+' : ''}${velocityPct}%` : 'no prior data'}
+          valueColor={velocityDiff > 0 ? '#2a9d8f' : velocityDiff < 0 ? '#e76f51' : '#9ca5b2'}
+        />
         <SummaryCard label="Avg / Month" value={monthlyData.length ? Math.round(monthlyData.reduce((s, m) => s + m.count, 0) / monthlyData.length) : 0} sub={`over ${timeRange}mo`} />
         <SummaryCard label="Platforms" value={platformEntries.length} sub="active" />
         <SummaryCard
           label="Publishing Streak"
-          value={`${streak} week${streak !== 1 ? 's' : ''}`}
+          value={`${streak}w`}
           sub="consecutive"
           valueColor="#f4a261"
         />
