@@ -22,22 +22,27 @@ export default function Analytics() {
   const [weeklyGoal, setWeeklyGoal] = useState(() => parseInt(localStorage.getItem('lume-weekly-goal') || '0'))
   const [monthlyGoal, setMonthlyGoal] = useState(() => parseInt(localStorage.getItem('lume-monthly-goal') || '0'))
   const [editingGoals, setEditingGoals] = useState(false)
+  const [pillars, setPillars] = useState([])
 
   useEffect(() => { fetchAll() }, [])
 
   async function fetchAll() {
-    const [{ data: postData }, { data: metricData }] = await Promise.all([
+    const [{ data: postData }, { data: metricData }, { data: pillarData }] = await Promise.all([
       supabase
         .from('posts')
-        .select('id, title, type, status, platform, scheduled_date, created_at')
+        .select('id, title, type, status, platform, scheduled_date, created_at, pillar_id')
         .is('deleted_at', null)
         .order('created_at', { ascending: true }),
       supabase
         .from('post_metrics')
         .select('post_id, platform, views, likes, comments, saves, shares, recorded_at'),
+      supabase
+        .from('content_pillars')
+        .select('id, name, color, emoji'),
     ])
     setPosts(postData || [])
     setMetrics(metricData || [])
+    setPillars(pillarData || [])
     setLoading(false)
   }
 
@@ -314,6 +319,61 @@ export default function Analytics() {
           <p className="text-xs">Open a published post and add metrics in the Performance section of the side panel.</p>
         </div>
       )}
+
+      {/* Content Pillar breakdown */}
+      {pillars.length > 0 && (() => {
+        const pillarCounts = {}
+        const untagged = posts.filter(p => !p.pillar_id).length
+        posts.forEach(p => {
+          if (p.pillar_id) pillarCounts[p.pillar_id] = (pillarCounts[p.pillar_id] || 0) + 1
+        })
+        const max = Math.max(...Object.values(pillarCounts), 1)
+        return (
+          <div className="bg-white border border-stone-200 rounded-xl p-6 mb-6 mt-6">
+            <div className="flex items-center justify-between mb-5">
+              <p className="text-xs tracking-widest uppercase text-stone-400">Content Pillars</p>
+              <span className="text-xs text-stone-400">{posts.length} posts total</span>
+            </div>
+            <div className="space-y-3">
+              {pillars.map(pillar => {
+                const count = pillarCounts[pillar.id] || 0
+                const pct = Math.round((count / posts.length) * 100) || 0
+                return (
+                  <div key={pillar.id}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: pillar.color || '#9ca5b2' }} />
+                        <span className="text-xs text-stone-600">{pillar.emoji && `${pillar.emoji} `}{pillar.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-stone-700">{count}</span>
+                        <span className="text-[10px] text-stone-400 w-8 text-right">{pct}%</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${(count / max) * 100}%`, backgroundColor: pillar.color || '#9ca5b2' }} />
+                    </div>
+                  </div>
+                )
+              })}
+              {untagged > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-stone-400">Untagged</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-stone-500">{untagged}</span>
+                      <span className="text-[10px] text-stone-400 w-8 text-right">{Math.round((untagged / posts.length) * 100)}%</span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-stone-200 transition-all" style={{ width: `${(untagged / max) * 100}%` }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Publishing Goals */}
       <div className="bg-white border border-stone-200 rounded-xl p-6 mb-6 mt-6">
