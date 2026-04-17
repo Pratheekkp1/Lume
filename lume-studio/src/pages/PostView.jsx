@@ -441,6 +441,7 @@ export default function PostView() {
   const [uploading, setUploading] = useState(false)
   const [showCategoryPanel, setShowCategoryPanel] = useState(false)
   const [allPillars, setAllPillars] = useState([])
+  const [postCampaigns, setPostCampaigns] = useState([])
   const [showRepurpose, setShowRepurpose] = useState(false)
   const [repurposing, setRepurposing] = useState(false)
   const [showSaveTemplate, setShowSaveTemplate] = useState(false)
@@ -515,6 +516,12 @@ export default function PostView() {
     setLinkedTracks((trackLinks || []).map(l => l.track ? { ...l.track, _order_index: l.order_index ?? 0 } : null).filter(Boolean))
     setVariants(variantData || [])
     setAllPillars(pillarData || [])
+    // Load campaigns for this post
+    const { data: campLinks } = await supabase
+      .from('campaign_posts')
+      .select('campaign:campaigns(id, name, color, status)')
+      .eq('post_id', postId)
+    setPostCampaigns((campLinks || []).map(l => l.campaign).filter(Boolean))
     const { data: activityData } = await supabase
       .from('brand_kit')
       .select('value')
@@ -1849,6 +1856,25 @@ export default function PostView() {
                   >
                     <span className="w-4 text-center text-stone-300">♩</span>
                     <span className="truncate">{proj.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Campaigns */}
+          {postCampaigns.length > 0 && (
+            <div className="px-5 py-4 border-b border-stone-100">
+              <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">Part of Campaigns</p>
+              <div className="flex flex-col gap-1">
+                {postCampaigns.map(campaign => (
+                  <button
+                    key={campaign.id}
+                    onClick={() => navigate(`/campaigns/${campaign.id}`)}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-stone-600 hover:bg-stone-50 transition-colors text-left"
+                  >
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: campaign.color || '#9ca5b2' }} />
+                    <span className="truncate">{campaign.name}</span>
                   </button>
                 ))}
               </div>
