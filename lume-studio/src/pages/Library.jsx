@@ -35,6 +35,11 @@ export default function Library() {
   const [selectedAlbumIds, setSelectedAlbumIds] = useState(new Set())
   const [bulkAlbumMsg, setBulkAlbumMsg] = useState('')
 
+  // Sound project multi-select
+  const [soundSelectMode, setSoundSelectMode] = useState(false)
+  const [selectedSoundIds, setSelectedSoundIds] = useState(new Set())
+  const [bulkSoundMsg, setBulkSoundMsg] = useState('')
+
   useEffect(() => {
     fetchAll()
     window.addEventListener('lume-media-updated', fetchAll)
@@ -456,17 +461,68 @@ export default function Library() {
           {/* Sound Projects section */}
           {showSounds && soundProjects.length > 0 && (
             <div>
-              {typeFilter === 'all' && (
-                <h2 className="text-xs uppercase tracking-widest text-stone-400 mb-3">Sound Projects</h2>
+              <div className="flex items-center justify-between mb-3">
+                {typeFilter === 'all' ? (
+                  <h2 className="text-xs uppercase tracking-widest text-stone-400">Sound Projects</h2>
+                ) : <span />}
+                <button
+                  onClick={() => { setSoundSelectMode(p => !p); setSelectedSoundIds(new Set()) }}
+                  className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${soundSelectMode ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-400 hover:border-stone-400'}`}
+                >
+                  {soundSelectMode ? 'Cancel' : 'Select'}
+                </button>
+              </div>
+
+              {/* Bulk action bar */}
+              {soundSelectMode && selectedSoundIds.size > 0 && (
+                <div className="flex items-center gap-3 mb-4 bg-stone-800 text-white text-xs rounded-xl px-4 py-3">
+                  <span className="font-medium">{selectedSoundIds.size} selected</span>
+                  <span className="text-stone-400">·</span>
+                  <span className="text-stone-300">Move to status:</span>
+                  {Object.entries(SOUND_STATUSES).map(([key, s]) => (
+                    <button
+                      key={key}
+                      onClick={async () => {
+                        const ids = [...selectedSoundIds]
+                        await supabase.from('audio_projects').update({ status: key }).in('id', ids)
+                        setSoundProjects(prev => prev.map(p => selectedSoundIds.has(p.id) ? { ...p, status: key } : p))
+                        setBulkSoundMsg(`${ids.length} project${ids.length !== 1 ? 's' : ''} moved to ${s.label}`)
+                        setSelectedSoundIds(new Set())
+                        setSoundSelectMode(false)
+                        setTimeout(() => setBulkSoundMsg(''), 3000)
+                      }}
+                      className="px-2 py-0.5 rounded-full text-white text-[10px] font-medium transition-opacity hover:opacity-80"
+                      style={{ backgroundColor: s.color }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
               )}
+              {bulkSoundMsg && (
+                <p className="text-xs text-teal-600 mb-3">{bulkSoundMsg}</p>
+              )}
+
               <div className="max-w-2xl flex flex-col gap-2">
                 {soundProjects.filter(p => !librarySearch.trim() || p.name.toLowerCase().includes(librarySearch.toLowerCase()) || (p.description || '').toLowerCase().includes(librarySearch.toLowerCase())).map(project => (
                   <SoundCard
                     key={project.id}
                     project={project}
-                    onClick={() => navigate(`/sounds/${project.id}`)}
+                    onClick={() => {
+                      if (soundSelectMode) {
+                        setSelectedSoundIds(prev => {
+                          const next = new Set(prev)
+                          if (next.has(project.id)) next.delete(project.id); else next.add(project.id)
+                          return next
+                        })
+                      } else {
+                        navigate(`/sounds/${project.id}`)
+                      }
+                    }}
                     onEdit={(e) => { e.stopPropagation(); setEditSoundTarget(project) }}
                     onDelete={(e) => { e.stopPropagation(); setDeleteTarget({ ...project, _type: 'sound' }) }}
+                    selectMode={soundSelectMode}
+                    selected={selectedSoundIds.has(project.id)}
                   />
                 ))}
               </div>
@@ -636,7 +692,7 @@ function AlbumCard({ album, onClick, onEdit }) {
 
 // ── Sound Card ────────────────────────────────────────────────────────────────
 
-function SoundCard({ project, onClick, onEdit, onDelete }) {
+function SoundCard({ project, onClick, onEdit, onDelete, selectMode, selected }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const status = SOUND_STATUSES[project.status]
   const cats = (project.audio_categories || []).map(ac => ac.category).filter(Boolean)
@@ -644,9 +700,17 @@ function SoundCard({ project, onClick, onEdit, onDelete }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-4 bg-white border border-stone-200 rounded-xl px-4 py-3 hover:border-stone-300 hover:shadow-sm transition text-left"
+      className={`flex items-center gap-4 bg-white border rounded-xl px-4 py-3 hover:shadow-sm transition text-left ${
+        selected ? 'border-teal-400 bg-teal-50/50' : 'border-stone-200 hover:border-stone-300'
+      }`}
     >
-      <span className="w-9 h-9 rounded-lg bg-stone-100 flex items-center justify-center text-sm text-stone-400 flex-shrink-0 hover:bg-stone-200 transition-colors">♩</span>
+      {selectMode ? (
+        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${selected ? 'bg-teal-500 border-teal-500' : 'border-stone-300'}`}>
+          {selected && <span className="text-white text-[10px] font-bold">✓</span>}
+        </div>
+      ) : (
+        <span className="w-9 h-9 rounded-lg bg-stone-100 flex items-center justify-center text-sm text-stone-400 flex-shrink-0 hover:bg-stone-200 transition-colors">♩</span>
+      )}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-stone-700 truncate">{project.name}</p>
         {cats.length > 0 && (
