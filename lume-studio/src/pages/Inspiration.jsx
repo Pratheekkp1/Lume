@@ -36,6 +36,11 @@ export default function Inspiration() {
   const [quickUrl, setQuickUrl] = useState('')
   const [quickUrlSaving, setQuickUrlSaving] = useState(false)
 
+  // Bulk select
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [bulkMsg, setBulkMsg] = useState('')
+
   // New card form
   const [newType, setNewType] = useState('note')
   const [newTitle, setNewTitle] = useState('')
@@ -97,6 +102,16 @@ export default function Inspiration() {
     await supabase.from('inspiration').delete().eq('id', id)
     setCards(prev => prev.filter(c => c.id !== id))
     if (expandedId === id) setExpandedId(null)
+  }
+
+  async function bulkDelete() {
+    const ids = [...selectedIds]
+    await supabase.from('inspiration').delete().in('id', ids)
+    setCards(prev => prev.filter(c => !selectedIds.has(c.id)))
+    setBulkMsg(`${ids.length} card${ids.length !== 1 ? 's' : ''} deleted`)
+    setSelectedIds(new Set())
+    setSelectMode(false)
+    setTimeout(() => setBulkMsg(''), 3000)
   }
 
   async function updateCard(id, fields) {
@@ -212,6 +227,12 @@ export default function Inspiration() {
           title="Export all cards as Markdown"
         >
           ↓ .md
+        </button>
+        <button
+          onClick={() => { setSelectMode(p => !p); setSelectedIds(new Set()) }}
+          className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${selectMode ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-400 hover:border-stone-400'}`}
+        >
+          {selectMode ? 'Cancel' : 'Select'}
         </button>
         <button
           onClick={() => setFilterStarred(v => !v)}
@@ -399,20 +420,55 @@ export default function Inspiration() {
           </p>
         </div>
       ) : (
-        <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
-          {filtered.map(card => (
-            <InspirationCard
-              key={card.id}
-              card={card}
-              expanded={expandedId === card.id}
-              onToggle={() => setExpandedId(expandedId === card.id ? null : card.id)}
-              onUpdate={fields => updateCard(card.id, fields)}
-              onDelete={() => deleteCard(card.id)}
-              onTogglePin={() => togglePin(card.id)}
-              onToggleFavorite={() => toggleFavorite(card.id)}
-            />
-          ))}
-        </div>
+        <>
+          {/* Bulk action bar */}
+          {selectMode && selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 mb-4 bg-stone-800 text-white text-xs rounded-xl px-4 py-3">
+              <span className="font-medium">{selectedIds.size} selected</span>
+              <button onClick={() => setSelectedIds(new Set())} className="text-stone-400 hover:text-white transition-colors">Deselect all</button>
+              <div className="ml-auto">
+                <button
+                  onClick={bulkDelete}
+                  className="bg-red-500 text-white text-xs px-3 py-1.5 rounded-md hover:bg-red-600 transition-colors"
+                >
+                  Delete {selectedIds.size} card{selectedIds.size !== 1 ? 's' : ''}
+                </button>
+              </div>
+            </div>
+          )}
+          {bulkMsg && <p className="text-xs text-teal-600 mb-3">{bulkMsg}</p>}
+
+          <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
+            {filtered.map(card => (
+              <div key={card.id} className="relative break-inside-avoid">
+                {selectMode && (
+                  <div
+                    className="absolute inset-0 z-10 cursor-pointer rounded-xl"
+                    onClick={() => setSelectedIds(prev => {
+                      const next = new Set(prev)
+                      if (next.has(card.id)) next.delete(card.id); else next.add(card.id)
+                      return next
+                    })}
+                  >
+                    <div className={`absolute top-2 left-2 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${selectedIds.has(card.id) ? 'bg-teal-500 border-teal-500' : 'bg-white/90 border-stone-300'}`}>
+                      {selectedIds.has(card.id) && <span className="text-white text-[10px] font-bold">✓</span>}
+                    </div>
+                    {selectedIds.has(card.id) && <div className="absolute inset-0 rounded-xl border-2 border-teal-500 bg-teal-500/10" />}
+                  </div>
+                )}
+                <InspirationCard
+                  card={card}
+                  expanded={!selectMode && expandedId === card.id}
+                  onToggle={() => !selectMode && setExpandedId(expandedId === card.id ? null : card.id)}
+                  onUpdate={fields => updateCard(card.id, fields)}
+                  onDelete={() => deleteCard(card.id)}
+                  onTogglePin={() => togglePin(card.id)}
+                  onToggleFavorite={() => toggleFavorite(card.id)}
+                />
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   )
