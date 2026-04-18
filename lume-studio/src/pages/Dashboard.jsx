@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [ideasCount, setIdeasCount] = useState(0)
   const [suggestion, setSuggestion] = useState(null)
   const [weekStreak, setWeekStreak] = useState(0)
+  const [onThisDay, setOnThisDay] = useState([])
   const [loading, setLoading] = useState(true)
 
   const profile = getProfile()
@@ -155,6 +156,22 @@ export default function Dashboard() {
     }))
     activityItems.sort((a, b) => new Date(b.date) - new Date(a.date))
     setActivity(activityItems.slice(0, 8))
+
+    // "On This Day" — posts/albums created on this calendar date in prior years
+    const now2 = new Date()
+    const mm = String(now2.getMonth() + 1).padStart(2, '0')
+    const dd = String(now2.getDate()).padStart(2, '0')
+    const thisMMDD = `${mm}-${dd}`
+    const otdItems = []
+    ;(posts || []).forEach(p => {
+      const d = new Date(p.created_at)
+      const pMM = String(d.getMonth() + 1).padStart(2, '0')
+      const pDD = String(d.getDate()).padStart(2, '0')
+      if (`${pMM}-${pDD}` === thisMMDD && d.getFullYear() < now2.getFullYear()) {
+        otdItems.push({ type: 'post', id: p.id, name: p.title, year: d.getFullYear(), path: `/posts/${p.id}` })
+      }
+    })
+    setOnThisDay(otdItems.slice(0, 5))
 
     setWeekPosts(weekResult.data || [])
     setActiveCampaigns(campaignData || [])
@@ -351,6 +368,28 @@ export default function Dashboard() {
                     </button>
                   )
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* On This Day */}
+          {onThisDay.length > 0 && (
+            <div className="mb-6">
+              <p className="text-xs tracking-widest uppercase text-stone-400 mb-3">On This Day</p>
+              <div className="flex flex-col gap-1.5">
+                {onThisDay.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => navigate(item.path)}
+                    className="flex items-center gap-3 text-left bg-white border border-stone-200 rounded-xl px-4 py-2.5 hover:border-stone-300 hover:shadow-sm transition-all group"
+                  >
+                    <span className="text-stone-300 text-xs flex-shrink-0">📅</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-stone-700 truncate">{item.name}</p>
+                    </div>
+                    <span className="text-[10px] text-stone-400 flex-shrink-0">{item.year} · {new Date().getFullYear() - item.year}y ago</span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
