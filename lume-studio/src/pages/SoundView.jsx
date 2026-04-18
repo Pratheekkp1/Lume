@@ -47,6 +47,7 @@ export default function SoundView() {
   const audioRef = useRef(null);
   const tracksRef = useRef([]);
   const selectedTrackRef = useRef(null);
+  const shuffleModeRef = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -55,6 +56,8 @@ export default function SoundView() {
   const [loopMode, setLoopMode] = useState(false);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
+  const [shuffleMode, setShuffleMode] = useState(false);
+  const [shuffleOrder, setShuffleOrder] = useState([]);
 
   useEffect(() => {
     recordOpen('sound', projectId);
@@ -76,7 +79,14 @@ export default function SoundView() {
       const all = tracksRef.current;
       const cur = selectedTrackRef.current;
       const idx = all.findIndex((t) => t.id === cur?.id);
-      if (idx !== -1 && idx < all.length - 1) switchTrack(all[idx + 1]);
+      // Shuffle: pick a random different track
+      if (shuffleModeRef.current && all.length > 1) {
+        const otherIdxs = all.map((_, i) => i).filter(i => i !== idx)
+        const nextIdx = otherIdxs[Math.floor(Math.random() * otherIdxs.length)]
+        switchTrack(all[nextIdx])
+      } else if (idx !== -1 && idx < all.length - 1) {
+        switchTrack(all[idx + 1])
+      }
     };
     audio.addEventListener("play", onPlay);
     audio.addEventListener("pause", onPause);
@@ -115,6 +125,10 @@ export default function SoundView() {
   useEffect(() => {
     if (audioRef.current) audioRef.current.loop = loopMode;
   }, [loopMode]);
+
+  useEffect(() => {
+    shuffleModeRef.current = shuffleMode;
+  }, [shuffleMode]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -879,6 +893,13 @@ export default function SoundView() {
                   title={`Volume: ${Math.round(volume * 100)}%`}
                 />
               </div>
+              <button
+                onClick={() => setShuffleMode(p => !p)}
+                title={shuffleMode ? 'Shuffle: on' : 'Shuffle: off'}
+                className={`text-xs border rounded px-2 py-1 transition-colors ${shuffleMode ? 'bg-teal-100 text-teal-700 border-teal-300' : 'text-stone-400 hover:text-stone-700 border-stone-200'}`}
+              >
+                ⇄
+              </button>
               <button
                 onClick={() => setLoopMode(p => !p)}
                 title={loopMode ? 'Loop: on' : 'Loop: off'}

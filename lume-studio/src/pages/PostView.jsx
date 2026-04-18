@@ -451,6 +451,7 @@ export default function PostView() {
   const [liveUrlDraft, setLiveUrlDraft] = useState('')
   const [liveUrlSaved, setLiveUrlSaved] = useState(false)
   const [showRepurpose, setShowRepurpose] = useState(false)
+  const [adjacentPosts, setAdjacentPosts] = useState({ prev: null, next: null })
   const [repurposing, setRepurposing] = useState(false)
   const [showSaveTemplate, setShowSaveTemplate] = useState(false)
   const [savingTemplate, setSavingTemplate] = useState(false)
@@ -544,6 +545,19 @@ export default function PostView() {
       .eq('key', `caption_history_${postId}`)
       .maybeSingle()
     setCaptionHistory(captionHistData?.value || [])
+    // Load adjacent posts for prev/next navigation
+    const { data: allPosts } = await supabase
+      .from('posts')
+      .select('id, title')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+    if (allPosts) {
+      const idx = allPosts.findIndex(p => p.id === postId)
+      setAdjacentPosts({
+        prev: idx > 0 ? allPosts[idx - 1] : null,
+        next: idx !== -1 && idx < allPosts.length - 1 ? allPosts[idx + 1] : null,
+      })
+    }
     setLoading(false)
   }
 
@@ -1005,12 +1019,34 @@ export default function PostView() {
         {/* Header */}
         <div className="px-7 pt-6 pb-4 border-b border-stone-200 bg-white flex-shrink-0">
           <div className="flex items-center justify-between mb-3">
-            <button
-              onClick={() => navigate('/posts')}
-              className="text-xs text-stone-400 hover:text-stone-600 transition-colors inline-flex items-center gap-1"
-            >
-              ← All Posts
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/posts')}
+                className="text-xs text-stone-400 hover:text-stone-600 transition-colors inline-flex items-center gap-1"
+              >
+                ← All Posts
+              </button>
+              {(adjacentPosts.prev || adjacentPosts.next) && (
+                <div className="flex items-center gap-1 border border-stone-200 rounded-md overflow-hidden">
+                  <button
+                    onClick={() => adjacentPosts.prev && navigate(`/posts/${adjacentPosts.prev.id}`)}
+                    disabled={!adjacentPosts.prev}
+                    title={adjacentPosts.prev ? `← ${adjacentPosts.prev.title}` : 'No previous post'}
+                    className="px-2 py-1 text-xs text-stone-400 hover:text-stone-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors hover:bg-stone-50"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    onClick={() => adjacentPosts.next && navigate(`/posts/${adjacentPosts.next.id}`)}
+                    disabled={!adjacentPosts.next}
+                    title={adjacentPosts.next ? `${adjacentPosts.next.title} →` : 'No next post'}
+                    className="px-2 py-1 text-xs text-stone-400 hover:text-stone-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors hover:bg-stone-50 border-l border-stone-200"
+                  >
+                    ›
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="flex items-center gap-2 relative">
               <button
                 onClick={() => setFocusMode(v => !v)}
