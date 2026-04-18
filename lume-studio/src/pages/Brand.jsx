@@ -16,10 +16,50 @@ export default function Brand() {
 
   return (
     <div className="p-7 max-w-3xl">
-      <div className="mb-7">
-        <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Brand</p>
-        <h1 className="font-serif text-3xl text-stone-800">Brand Kit</h1>
-        <p className="text-sm text-stone-400 mt-1">Your creative identity — colors, voice, and reusable copy.</p>
+      <div className="mb-7 flex items-end justify-between">
+        <div>
+          <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Brand</p>
+          <h1 className="font-serif text-3xl text-stone-800">Brand Kit</h1>
+          <p className="text-sm text-stone-400 mt-1">Your creative identity — colors, voice, and reusable copy.</p>
+        </div>
+        <button
+          onClick={async () => {
+            // Fetch all brand_kit entries
+            const { data } = await supabase.from('brand_kit').select('key, value')
+            const kit = {}
+            ;(data || []).forEach(r => { kit[r.key] = r.value })
+            const lines = ['# Brand Kit', `_Exported ${new Date().toLocaleDateString()}_`, '']
+            // Colors
+            if (kit.colors?.palettes?.length) {
+              lines.push('## Colors')
+              kit.colors.palettes.forEach(p => {
+                lines.push(`### ${p.name}`)
+                ;(p.swatches || []).forEach(s => lines.push(`- ${s.hex}${s.name ? ` — ${s.name}` : ''}`))
+              })
+              lines.push('')
+            }
+            // Tone
+            if (kit.tone?.notes) { lines.push('## Brand Voice', kit.tone.notes, '') }
+            if (kit.tone_keywords?.length) { lines.push('### Voice Keywords', kit.tone_keywords.join(', '), '') }
+            // Captions
+            if (kit.captions?.blocks?.length) {
+              lines.push('## Caption Blocks')
+              kit.captions.blocks.forEach(b => { lines.push(`### ${b.title}`, b.text, '') })
+            }
+            // Hashtags
+            if (kit.hashtag_groups?.groups?.length) {
+              lines.push('## Hashtag Groups')
+              kit.hashtag_groups.groups.forEach(g => { lines.push(`### ${g.name}`, g.tags.map(t => `#${t}`).join(' '), '') })
+            }
+            const blob = new Blob([lines.join('\n')], { type: 'text/markdown' })
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+            a.download = 'brand-kit.md'; a.click()
+          }}
+          className="text-xs text-stone-400 border border-stone-200 px-3 py-1.5 rounded-md hover:bg-stone-50 transition-colors"
+          title="Export brand kit as Markdown"
+        >
+          ↓ Export .md
+        </button>
       </div>
 
       {/* Tabs */}
