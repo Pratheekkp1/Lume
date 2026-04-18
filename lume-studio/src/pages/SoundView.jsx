@@ -144,7 +144,7 @@ export default function SoundView() {
     return () => document.removeEventListener("mousedown", close);
   }, [showSpeedMenu]);
 
-  // Spacebar toggle
+  // Keyboard shortcuts: Space=play/pause, ←/→=prev/next track, Shift+←/→=seek ±10s
   useEffect(() => {
     function onKey(e) {
       const tag = document.activeElement?.tagName;
@@ -152,6 +152,23 @@ export default function SoundView() {
       if (e.key === " " && playingTrack?.file_path) {
         e.preventDefault();
         togglePlay();
+        return;
+      }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        if (e.shiftKey && audioRef.current) {
+          audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 10);
+        } else {
+          goPrev();
+        }
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        if (e.shiftKey && audioRef.current) {
+          audioRef.current.currentTime = Math.min(audioRef.current.duration || 0, audioRef.current.currentTime + 10);
+        } else {
+          goNext();
+        }
       }
     }
     window.addEventListener("keydown", onKey);
