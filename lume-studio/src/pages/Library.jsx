@@ -40,6 +40,9 @@ export default function Library() {
   const [selectedSoundIds, setSelectedSoundIds] = useState(new Set())
   const [bulkSoundMsg, setBulkSoundMsg] = useState('')
 
+  // Sound project sort
+  const [soundSort, setSoundSort] = useState('newest')
+
   useEffect(() => {
     fetchAll()
     window.addEventListener('lume-media-updated', fetchAll)
@@ -461,10 +464,23 @@ export default function Library() {
           {/* Sound Projects section */}
           {showSounds && soundProjects.length > 0 && (
             <div>
-              <div className="flex items-center justify-between mb-3">
-                {typeFilter === 'all' ? (
-                  <h2 className="text-xs uppercase tracking-widest text-stone-400">Sound Projects</h2>
-                ) : <span />}
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  {typeFilter === 'all' ? (
+                    <h2 className="text-xs uppercase tracking-widest text-stone-400">Sound Projects</h2>
+                  ) : <span />}
+                  <select
+                    value={soundSort}
+                    onChange={e => setSoundSort(e.target.value)}
+                    className="bg-white border border-stone-200 rounded-md px-2 py-1 text-xs text-stone-600 outline-none focus:border-teal-500"
+                  >
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="name_asc">Name A–Z</option>
+                    <option value="name_desc">Name Z–A</option>
+                    <option value="status">By status</option>
+                  </select>
+                </div>
                 <button
                   onClick={() => { setSoundSelectMode(p => !p); setSelectedSoundIds(new Set()) }}
                   className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${soundSelectMode ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-400 hover:border-stone-400'}`}
@@ -504,7 +520,16 @@ export default function Library() {
               )}
 
               <div className="max-w-2xl flex flex-col gap-2">
-                {soundProjects.filter(p => !librarySearch.trim() || p.name.toLowerCase().includes(librarySearch.toLowerCase()) || (p.description || '').toLowerCase().includes(librarySearch.toLowerCase())).map(project => (
+                {[...soundProjects]
+                  .filter(p => !librarySearch.trim() || p.name.toLowerCase().includes(librarySearch.toLowerCase()) || (p.description || '').toLowerCase().includes(librarySearch.toLowerCase()))
+                  .sort((a, b) => {
+                    if (soundSort === 'oldest') return new Date(a.created_at) - new Date(b.created_at)
+                    if (soundSort === 'name_asc') return a.name.localeCompare(b.name)
+                    if (soundSort === 'name_desc') return b.name.localeCompare(a.name)
+                    if (soundSort === 'status') return (a.status || '').localeCompare(b.status || '')
+                    return new Date(b.created_at) - new Date(a.created_at) // newest
+                  })
+                  .map(project => (
                   <SoundCard
                     key={project.id}
                     project={project}
