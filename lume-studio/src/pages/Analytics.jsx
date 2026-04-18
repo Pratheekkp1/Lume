@@ -116,6 +116,27 @@ export default function Analytics() {
     metricsByPost[m.post_id].shares   += m.shares   || 0
   })
 
+  // Per-platform metrics aggregation (from post_metrics.platform field)
+  const metricsByPlatform = {}
+  metrics.forEach(m => {
+    if (!m.platform) return
+    if (!metricsByPlatform[m.platform]) metricsByPlatform[m.platform] = { views: 0, likes: 0, comments: 0, saves: 0, shares: 0, posts: new Set() }
+    metricsByPlatform[m.platform].views    += m.views    || 0
+    metricsByPlatform[m.platform].likes    += m.likes    || 0
+    metricsByPlatform[m.platform].comments += m.comments || 0
+    metricsByPlatform[m.platform].saves    += m.saves    || 0
+    metricsByPlatform[m.platform].shares   += m.shares   || 0
+    metricsByPlatform[m.platform].posts.add(m.post_id)
+  })
+  const platformComparison = Object.entries(metricsByPlatform)
+    .map(([pl, m]) => ({
+      platform: pl,
+      views: m.views, likes: m.likes, comments: m.comments, saves: m.saves, shares: m.shares,
+      postCount: m.posts.size,
+      engagement: m.views + m.likes + m.comments + m.saves + m.shares,
+    }))
+    .sort((a, b) => b.engagement - a.engagement)
+
   const totalViews    = Object.values(metricsByPost).reduce((s, m) => s + m.views, 0)
   const totalLikes    = Object.values(metricsByPost).reduce((s, m) => s + m.likes, 0)
   const totalComments = Object.values(metricsByPost).reduce((s, m) => s + m.comments, 0)
@@ -284,6 +305,44 @@ export default function Analytics() {
                 <p className="text-xs text-stone-400 mt-0.5">{label}</p>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Platform comparison table */}
+      {platformComparison.length > 1 && (
+        <div className="bg-white border border-stone-200 rounded-xl p-6 mb-6">
+          <p className="text-xs tracking-widest uppercase text-stone-400 mb-4">Platform Comparison</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-[10px] text-stone-400 text-left border-b border-stone-100">
+                  <th className="pb-2 font-medium pr-4">Platform</th>
+                  <th className="pb-2 font-medium text-right pr-4">Posts</th>
+                  <th className="pb-2 font-medium text-right pr-4">Views</th>
+                  <th className="pb-2 font-medium text-right pr-4">Likes</th>
+                  <th className="pb-2 font-medium text-right pr-4">Comments</th>
+                  <th className="pb-2 font-medium text-right pr-4">Saves</th>
+                  <th className="pb-2 font-medium text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-50">
+                {platformComparison.map(row => (
+                  <tr key={row.platform} className="hover:bg-stone-50 transition-colors">
+                    <td className="py-2 pr-4 font-medium text-stone-700 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: PLATFORM_COLORS[row.platform] || '#9ca5b2' }} />
+                      {row.platform}
+                    </td>
+                    <td className="py-2 pr-4 text-right text-stone-500">{row.postCount}</td>
+                    <td className="py-2 pr-4 text-right text-stone-500">{fmtNum(row.views)}</td>
+                    <td className="py-2 pr-4 text-right text-stone-500">{fmtNum(row.likes)}</td>
+                    <td className="py-2 pr-4 text-right text-stone-500">{fmtNum(row.comments)}</td>
+                    <td className="py-2 pr-4 text-right text-stone-500">{fmtNum(row.saves)}</td>
+                    <td className="py-2 text-right font-semibold text-stone-700">{fmtNum(row.engagement)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
