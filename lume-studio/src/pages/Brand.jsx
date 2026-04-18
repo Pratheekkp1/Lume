@@ -10,6 +10,7 @@ const TABS = [
   { key: 'hashtags', label: 'Hashtags' },
   { key: 'pillars', label: 'Content Pillars' },
   { key: 'fonts', label: 'Fonts' },
+  { key: 'preview', label: 'Post Preview' },
 ]
 
 export default function Brand() {
@@ -86,6 +87,7 @@ export default function Brand() {
       {activeTab === 'hashtags' && <HashtagsTab />}
       {activeTab === 'pillars' && <PillarsTab />}
       {activeTab === 'fonts' && <FontsTab />}
+      {activeTab === 'preview' && <PostPreviewTab />}
     </div>
   )
 }
@@ -973,6 +975,186 @@ function FontsTab() {
         >
           {saved ? '✓ Saved' : 'Save Fonts'}
         </button>
+      </div>
+    </div>
+  )
+}
+
+function PostPreviewTab() {
+  const [platform, setPlatform] = useState('instagram')
+  const [caption, setCaption] = useState("Your caption goes here. Edit it to preview how your brand content looks across platforms. ✨ #brand #content")
+  const [username, setUsername] = useState(() => localStorage.getItem('lume-preview-username') || '@yourbrand')
+  const [bgColor, setBgColor] = useState('#ffffff')
+  const [accentColor, setAccentColor] = useState('#2a9d8f')
+  const [brandColors, setBrandColors] = useState([])
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase.from('brand_kit').select('value').eq('key', 'colors').single()
+      if (data?.value?.swatches) {
+        setBrandColors(data.value.swatches.filter(Boolean))
+        if (data.value.swatches[0]) setAccentColor(data.value.swatches[0])
+        if (data.value.swatches[1]) setBgColor(data.value.swatches[1])
+      }
+    }
+    load()
+  }, [])
+
+  const PLATFORMS = [
+    { key: 'instagram', label: 'Instagram' },
+    { key: 'twitter', label: 'Twitter/X' },
+    { key: 'linkedin', label: 'LinkedIn' },
+  ]
+
+  function truncate(text, max) {
+    if (!text) return ''
+    return text.length > max ? text.slice(0, max) + '…' : text
+  }
+
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Preview</p>
+      <h2 className="font-serif text-2xl text-stone-800 mb-1">Post Preview</h2>
+      <p className="text-xs text-stone-400 mb-6">See how your brand content looks on different platforms.</p>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Controls */}
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Platform</label>
+            <div className="flex gap-2 flex-wrap">
+              {PLATFORMS.map(p => (
+                <button
+                  key={p.key}
+                  onClick={() => setPlatform(p.key)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${platform === p.key ? 'bg-teal-500 text-white border-teal-500' : 'border-stone-200 text-stone-500 hover:border-stone-400'}`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Handle / Username</label>
+            <input
+              value={username}
+              onChange={e => { setUsername(e.target.value); localStorage.setItem('lume-preview-username', e.target.value) }}
+              placeholder="@yourbrand"
+              className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-teal-400"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Caption</label>
+            <textarea
+              value={caption}
+              onChange={e => setCaption(e.target.value)}
+              rows={4}
+              className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-teal-400 resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs uppercase tracking-widest text-stone-400 mb-2 block">Brand Colors</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div>
+                <p className="text-[10px] text-stone-400 mb-1">Accent</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {brandColors.slice(0, 6).map((c, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setAccentColor(c)}
+                      className={`w-6 h-6 rounded-full border-2 transition ${accentColor === c ? 'border-stone-700 scale-110' : 'border-transparent'}`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                  <input type="color" value={accentColor} onChange={e => setAccentColor(e.target.value)} className="w-6 h-6 rounded cursor-pointer border-0 p-0" />
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] text-stone-400 mb-1">Background</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {['#ffffff', '#f5f5f4', '#1c1917', '#0f172a'].map(c => (
+                    <button
+                      key={c}
+                      onClick={() => setBgColor(c)}
+                      className={`w-6 h-6 rounded-full border-2 transition ${bgColor === c ? 'border-stone-700 scale-110' : 'border-stone-200'}`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                  <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} className="w-6 h-6 rounded cursor-pointer border-0 p-0" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Preview card */}
+        <div>
+          <p className="text-xs uppercase tracking-widest text-stone-400 mb-2">Preview</p>
+          <div className="rounded-2xl overflow-hidden shadow-md border border-stone-200 max-w-xs mx-auto">
+            {platform === 'instagram' && (
+              <div style={{ backgroundColor: bgColor }}>
+                {/* Image placeholder */}
+                <div className="w-full aspect-square flex items-center justify-center" style={{ backgroundColor: accentColor + '20' }}>
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl" style={{ backgroundColor: accentColor + '40' }}>📷</div>
+                </div>
+                <div className="p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{ backgroundColor: accentColor }}>{(username || '@')[1]?.toUpperCase() || '?'}</div>
+                    <span className="text-xs font-semibold" style={{ color: bgColor === '#ffffff' || bgColor === '#f5f5f4' ? '#1c1917' : '#f5f5f4' }}>{username}</span>
+                  </div>
+                  <p className="text-xs leading-relaxed" style={{ color: bgColor === '#ffffff' || bgColor === '#f5f5f4' ? '#44403c' : '#d6d3d1' }}>
+                    {truncate(caption, 125)}
+                  </p>
+                  <div className="flex items-center gap-3 mt-3 text-stone-400 text-xs">
+                    <span>♡ Like</span><span>💬 Comment</span><span>↗ Share</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {platform === 'twitter' && (
+              <div style={{ backgroundColor: bgColor }} className="p-4">
+                <div className="flex gap-3">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{ backgroundColor: accentColor }}>{(username || '@')[1]?.toUpperCase() || '?'}</div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-sm font-bold" style={{ color: bgColor === '#ffffff' || bgColor === '#f5f5f4' ? '#1c1917' : '#f5f5f4' }}>{username}</span>
+                      <span className="text-xs text-stone-400">· just now</span>
+                    </div>
+                    <p className="text-sm leading-relaxed" style={{ color: bgColor === '#ffffff' || bgColor === '#f5f5f4' ? '#44403c' : '#d6d3d1' }}>
+                      {truncate(caption, 280)}
+                    </p>
+                    <div className="flex items-center gap-4 mt-3 text-stone-400 text-xs">
+                      <span>💬 0</span><span>↻ 0</span><span>♡ 0</span><span>↗</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {platform === 'linkedin' && (
+              <div style={{ backgroundColor: bgColor }} className="p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{ backgroundColor: accentColor }}>{(username || '@')[1]?.toUpperCase() || '?'}</div>
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: bgColor === '#ffffff' || bgColor === '#f5f5f4' ? '#1c1917' : '#f5f5f4' }}>{username}</p>
+                    <p className="text-xs text-stone-400">Content Creator · just now</p>
+                  </div>
+                </div>
+                <p className="text-sm leading-relaxed mb-3" style={{ color: bgColor === '#ffffff' || bgColor === '#f5f5f4' ? '#44403c' : '#d6d3d1' }}>
+                  {truncate(caption, 200)}
+                </p>
+                <div className="border-t pt-2 flex items-center gap-3 text-stone-400 text-xs">
+                  <span>👍 Like</span><span>💬 Comment</span><span>↗ Share</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <p className="text-[10px] text-stone-400 text-center mt-3">Mockup only — for visual planning</p>
+        </div>
       </div>
     </div>
   )
