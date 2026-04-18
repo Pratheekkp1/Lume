@@ -32,6 +32,53 @@ const SORT_OPTIONS = [
   { value: 'oldest', label: 'Oldest' },
 ]
 
+function renderMarkdown(text) {
+  if (!text) return ''
+  // Escape HTML first
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
+  // Horizontal rule
+  html = html.replace(/^-{3,}$/gm, '<hr style="border:none;border-top:1px solid #e7e5e4;margin:1rem 0"/>')
+
+  // Headers
+  html = html.replace(/^### (.+)$/gm, '<h3 style="font-size:1rem;font-weight:600;color:#1c1917;margin:0.75rem 0 0.25rem">$1</h3>')
+  html = html.replace(/^## (.+)$/gm, '<h2 style="font-size:1.125rem;font-weight:700;color:#1c1917;margin:1rem 0 0.25rem">$1</h2>')
+  html = html.replace(/^# (.+)$/gm, '<h1 style="font-size:1.5rem;font-weight:700;color:#1c1917;margin:1rem 0 0.25rem;font-family:Georgia,serif">$1</h1>')
+
+  // Bold + italic
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight:600">$1</strong>')
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>')
+  html = html.replace(/_(.+?)_/g, '<em>$1</em>')
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code style="background:#f4f4f0;border:1px solid #e7e5e4;border-radius:3px;padding:0 4px;font-family:monospace;font-size:0.85em">$1</code>')
+
+  // Unordered lists
+  html = html.replace(/^[\-\*] (.+)$/gm, '<li style="margin-left:1.25rem;list-style-type:disc">$1</li>')
+  html = html.replace(/(<li[^>]*>.*<\/li>\n?)+/g, (m) => `<ul style="margin:0.5rem 0">${m}</ul>`)
+
+  // Ordered lists
+  html = html.replace(/^\d+\. (.+)$/gm, '<li style="margin-left:1.5rem;list-style-type:decimal">$1</li>')
+
+  // Blockquote
+  html = html.replace(/^> (.+)$/gm, '<blockquote style="border-left:3px solid #d6d3d1;padding-left:0.75rem;color:#78716c;margin:0.5rem 0">$1</blockquote>')
+
+  // Line breaks → paragraphs (double newlines become paragraph breaks)
+  const blocks = html.split(/\n\n+/)
+  html = blocks.map(block => {
+    // Don't wrap if already an HTML block
+    if (/^<(h[1-6]|ul|ol|blockquote|hr|li)/.test(block.trim())) return block
+    const withBr = block.replace(/\n/g, '<br/>')
+    return withBr.trim() ? `<p style="margin:0.25rem 0">${withBr}</p>` : ''
+  }).join('\n')
+
+  return html
+}
+
 function timeAgo(isoString) {
   const diff = Date.now() - new Date(isoString).getTime()
   const seconds = Math.floor(diff / 1000)
@@ -250,6 +297,7 @@ export default function Notes() {
     scheduleSave(updated)
   }
 
+  const [previewMode, setPreviewMode] = useState(false)
   const selectedNote = notes.find((n) => n.id === selectedId) ?? null
 
   // Word / character counts for the selected note
@@ -457,13 +505,37 @@ export default function Notes() {
               </div>
             ) : (
               <div className="flex-1 flex flex-col min-h-0">
-                <textarea
-                  ref={textareaRef}
-                  className="flex-1 w-full min-h-96 p-4 text-sm text-stone-700 border border-stone-200 rounded-xl focus:outline-none focus:border-teal-400 resize-none font-sans leading-relaxed"
-                  value={selectedNote.content}
-                  onChange={handleContentChange}
-                  placeholder="Start writing…"
-                />
+                {/* Edit / Preview toggle */}
+                <div className="flex items-center gap-1 mb-2 self-end">
+                  {['Edit', 'Preview'].map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => setPreviewMode(mode === 'Preview')}
+                      className={`text-xs px-3 py-1 rounded-md border transition-colors ${
+                        (previewMode ? mode === 'Preview' : mode === 'Edit')
+                          ? 'bg-teal-500 text-white border-teal-500'
+                          : 'border-stone-200 text-stone-400 hover:border-stone-300'
+                      }`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+
+                {previewMode ? (
+                  <div
+                    className="flex-1 min-h-96 p-4 text-sm text-stone-700 border border-stone-200 rounded-xl overflow-y-auto prose-sm leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedNote.content) }}
+                  />
+                ) : (
+                  <textarea
+                    ref={textareaRef}
+                    className="flex-1 w-full min-h-96 p-4 text-sm text-stone-700 border border-stone-200 rounded-xl focus:outline-none focus:border-teal-400 resize-none font-sans leading-relaxed"
+                    value={selectedNote.content}
+                    onChange={handleContentChange}
+                    placeholder="Start writing…"
+                  />
+                )}
 
                 {/* Tag input row */}
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
