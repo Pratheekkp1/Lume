@@ -155,13 +155,49 @@ export default function Analytics() {
     .sort((a, b) => b.engagement - a.engagement)
     .slice(0, 5)
 
+  function exportCSV() {
+    const rows = [
+      ['ID', 'Title', 'Status', 'Type', 'Platform', 'Scheduled Date', 'Created At', 'Views', 'Likes', 'Comments', 'Saves', 'Shares'],
+      ...posts.map(p => {
+        const m = metricsByPost[p.id] || {}
+        return [
+          p.id,
+          `"${(p.title || '').replace(/"/g, '""')}"`,
+          p.status,
+          (p.type || []).join('|'),
+          (p.platform || []).join('|'),
+          p.scheduled_date || '',
+          p.created_at?.split('T')[0] || '',
+          m.views || 0,
+          m.likes || 0,
+          m.comments || 0,
+          m.saves || 0,
+          m.shares || 0,
+        ]
+      })
+    ]
+    const csv = rows.map(r => r.join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+    a.download = `lume-analytics-${new Date().toISOString().split('T')[0]}.csv`; a.click()
+  }
+
   return (
     <div className="p-7 max-w-6xl">
       {/* Header */}
-      <div className="mb-8">
-        <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Insights</p>
-        <h1 className="font-serif text-3xl text-stone-800">Analytics</h1>
-        <p className="text-xs text-stone-400 mt-1">{posts.length} posts total · {published.length} published</p>
+      <div className="mb-8 flex items-end justify-between">
+        <div>
+          <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Insights</p>
+          <h1 className="font-serif text-3xl text-stone-800">Analytics</h1>
+          <p className="text-xs text-stone-400 mt-1">{posts.length} posts total · {published.length} published</p>
+        </div>
+        <button
+          onClick={exportCSV}
+          className="text-xs text-stone-400 border border-stone-200 px-3 py-1.5 rounded-md hover:bg-stone-50 transition-colors"
+          title="Export all post data as CSV"
+        >
+          ↓ Export CSV
+        </button>
       </div>
 
       {/* Summary cards */}

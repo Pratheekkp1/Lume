@@ -310,13 +310,32 @@ export default function Notes() {
               </div>
             )}
           </div>
-          <button
-            onClick={() => handleNewNote()}
-            className="flex items-center gap-1.5 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            <span className="text-base leading-none">+</span>
-            New Note
-          </button>
+          <div className="flex items-center gap-2">
+            {notes.length > 0 && (
+              <button
+                onClick={() => {
+                  const lines = notes.map(n => {
+                    const firstLine = (n.content || '').split('\n')[0].replace(/^#+\s*/, '').trim() || 'Untitled'
+                    return `# ${firstLine}\n\n${n.content || ''}`
+                  }).join('\n\n---\n\n')
+                  const blob = new Blob([lines], { type: 'text/markdown' })
+                  const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+                  a.download = `all-notes-${Date.now()}.md`; a.click()
+                }}
+                className="text-xs text-stone-400 border border-stone-200 px-3 py-2 rounded-lg hover:bg-stone-50 transition-colors"
+                title="Export all notes as Markdown"
+              >
+                ↓ All .md
+              </button>
+            )}
+            <button
+              onClick={() => handleNewNote()}
+              className="flex items-center gap-1.5 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              <span className="text-base leading-none">+</span>
+              New Note
+            </button>
+          </div>
         </div>
       </div>
 
