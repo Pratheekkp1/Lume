@@ -448,6 +448,7 @@ export default function PostView() {
   const [showCategoryPanel, setShowCategoryPanel] = useState(false)
   const [allPillars, setAllPillars] = useState([])
   const [postCampaigns, setPostCampaigns] = useState([])
+  const [sourceIdea, setSourceIdea] = useState(null)
   const [liveUrlDraft, setLiveUrlDraft] = useState('')
   const [liveUrlSaved, setLiveUrlSaved] = useState(false)
   const [showRepurpose, setShowRepurpose] = useState(false)
@@ -572,6 +573,14 @@ export default function PostView() {
         next: idx !== -1 && idx < allPosts.length - 1 ? allPosts[idx + 1] : null,
       })
     }
+    // Check if this post was promoted from an idea
+    const { data: ideaData } = await supabase
+      .from('ideas')
+      .select('id, title, status')
+      .eq('promoted_post_id', postId)
+      .maybeSingle()
+    setSourceIdea(ideaData || null)
+
     setLoading(false)
   }
 
@@ -1937,6 +1946,20 @@ export default function PostView() {
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Source Idea */}
+          {sourceIdea && (
+            <div className="px-5 py-4 border-b border-stone-100">
+              <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">Promoted from Idea</p>
+              <button
+                onClick={() => navigate('/ideas')}
+                className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-stone-600 hover:bg-amber-50 hover:text-amber-700 transition-colors text-left w-full"
+              >
+                <span className="text-amber-400">✦</span>
+                <span className="truncate">{sourceIdea.title}</span>
+              </button>
             </div>
           )}
 
