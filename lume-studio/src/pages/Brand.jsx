@@ -9,6 +9,7 @@ const TABS = [
   { key: 'captions', label: 'Caption Blocks' },
   { key: 'hashtags', label: 'Hashtags' },
   { key: 'pillars', label: 'Content Pillars' },
+  { key: 'fonts', label: 'Fonts' },
 ]
 
 export default function Brand() {
@@ -84,6 +85,7 @@ export default function Brand() {
       {activeTab === 'captions' && <CaptionsTab />}
       {activeTab === 'hashtags' && <HashtagsTab />}
       {activeTab === 'pillars' && <PillarsTab />}
+      {activeTab === 'fonts' && <FontsTab />}
     </div>
   )
 }
@@ -917,6 +919,61 @@ function PillarsTab() {
           <span className="text-lg leading-none">+</span> Add content pillar
         </button>
       )}
+    </div>
+  )
+}
+
+function FontsTab() {
+  const FONT_FIELDS = [
+    { key: 'heading', label: 'Heading Font', placeholder: 'e.g. Playfair Display, Georgia, serif' },
+    { key: 'body', label: 'Body Font', placeholder: 'e.g. Inter, Helvetica Neue, sans-serif' },
+    { key: 'accent', label: 'Accent / Display Font', placeholder: 'e.g. Dancing Script, Caveat, cursive' },
+    { key: 'mono', label: 'Monospace Font', placeholder: 'e.g. JetBrains Mono, Courier, monospace' },
+  ]
+  const [fonts, setFonts] = useState({})
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    supabase.from('brand_kit').select('value').eq('key', 'fonts').single().then(({ data }) => {
+      if (data?.value) setFonts(data.value)
+    })
+  }, [])
+
+  async function save() {
+    await supabase.from('brand_kit').upsert({ key: 'fonts', value: fonts, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <div>
+      <p className="text-xs text-stone-400 mb-6">Record your brand typefaces for reference. These are notes only — no actual fonts are loaded.</p>
+      <div className="space-y-5 max-w-lg">
+        {FONT_FIELDS.map(f => (
+          <div key={f.key}>
+            <label className="text-xs font-medium text-stone-600 block mb-1.5">{f.label}</label>
+            <input
+              type="text"
+              value={fonts[f.key] || ''}
+              onChange={e => setFonts(prev => ({ ...prev, [f.key]: e.target.value }))}
+              placeholder={f.placeholder}
+              className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-700 outline-none focus:border-teal-400 transition-colors placeholder-stone-300"
+              style={{ fontFamily: fonts[f.key] || 'inherit' }}
+            />
+            {fonts[f.key] && (
+              <p className="text-xs text-stone-400 mt-1.5 truncate" style={{ fontFamily: fonts[f.key] }}>
+                The quick brown fox jumps over the lazy dog
+              </p>
+            )}
+          </div>
+        ))}
+        <button
+          onClick={save}
+          className="bg-teal-500 text-white text-xs font-medium px-5 py-2 rounded-md hover:bg-teal-600 transition-colors"
+        >
+          {saved ? '✓ Saved' : 'Save Fonts'}
+        </button>
+      </div>
     </div>
   )
 }
