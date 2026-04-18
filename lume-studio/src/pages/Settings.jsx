@@ -196,8 +196,9 @@ const SHORTCUTS = [
     { keys: ['F'],      label: 'Toggle favorite (when photo open)' },
   ]},
   { group: 'Sound View', items: [
-    { keys: ['Space'],  label: 'Play / pause track' },
-    { keys: ['←', '→'], label: 'Previous / next track' },
+    { keys: ['Space'],           label: 'Play / pause track' },
+    { keys: ['←', '→'],          label: 'Previous / next track' },
+    { keys: ['⇧', '←', '→'],    label: 'Seek −10s / +10s in current track' },
   ]},
   { group: 'Notes', items: [
     { keys: ['⌘', 'Enter'], label: 'Save note entry' },
