@@ -137,6 +137,20 @@ export default function Analytics() {
     }))
     .sort((a, b) => b.engagement - a.engagement)
 
+  // Engagement by day of week (from posts that have metrics + scheduled_date)
+  const engagementByDay = Array(7).fill(0)
+  const postCountByDay = Array(7).fill(0)
+  published.forEach(p => {
+    if (!p.scheduled_date || !metricsByPost[p.id]) return
+    const dayIdx = new Date(p.scheduled_date + 'T00:00:00').getDay()
+    const eng = Object.values(metricsByPost[p.id]).reduce((s, v) => s + v, 0)
+    engagementByDay[dayIdx] += eng
+    postCountByDay[dayIdx]++
+  })
+  const avgEngByDay = engagementByDay.map((e, i) => postCountByDay[i] > 0 ? Math.round(e / postCountByDay[i]) : 0)
+  const maxAvgEng = Math.max(...avgEngByDay, 1)
+  const hasEngagementData = avgEngByDay.some(v => v > 0)
+
   const totalViews    = Object.values(metricsByPost).reduce((s, m) => s + m.views, 0)
   const totalLikes    = Object.values(metricsByPost).reduce((s, m) => s + m.likes, 0)
   const totalComments = Object.values(metricsByPost).reduce((s, m) => s + m.comments, 0)
@@ -278,6 +292,38 @@ export default function Analytics() {
           </div>
         )}
       </div>
+
+      {/* Engagement by day of week */}
+      {hasEngagementData && (
+        <div className="bg-white border border-stone-200 rounded-xl p-6 mb-6">
+          <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Avg Engagement by Day</p>
+          <p className="text-xs text-stone-400 mb-5">Average total interactions (views + likes + comments + saves + shares) per post, grouped by scheduled day</p>
+          <div className="space-y-2">
+            {dayLabels.map((label, i) => {
+              const avg = avgEngByDay[i]
+              const count = postCountByDay[i]
+              const pct = (avg / maxAvgEng) * 100
+              const isBest = avg === maxAvgEng && avg > 0
+              return (
+                <div key={label} className="flex items-center gap-3">
+                  <span className="w-8 text-xs text-stone-500 flex-shrink-0">{label}</span>
+                  <div className="flex-1 h-4 bg-stone-100 rounded-sm overflow-hidden">
+                    <div
+                      className="h-full rounded-sm transition-all"
+                      style={{ width: `${pct}%`, backgroundColor: isBest ? '#2a9d8f' : '#a8dadc' }}
+                    />
+                  </div>
+                  <span className="w-20 text-xs text-stone-500 text-right flex-shrink-0">
+                    {avg > 0 ? avg.toLocaleString() : '—'}
+                    {count > 0 && <span className="text-stone-400 ml-1">({count})</span>}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-[10px] text-stone-400 mt-3">Number in parentheses = posts with metric data on that day</p>
+        </div>
+      )}
 
       {/* Posting heatmap */}
       <PostingHeatmap published={published} />
