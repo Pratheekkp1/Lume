@@ -21,6 +21,7 @@ export default function Campaigns() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [showCreate, setShowCreate] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [duplicating, setDuplicating] = useState(null)
 
   useEffect(() => { fetchCampaigns() }, [])
 
@@ -62,6 +63,22 @@ export default function Campaigns() {
       setCampaigns(prev => [{ ...data, postCount: 0, publishedCount: 0 }, ...prev])
       setShowCreate(false)
     }
+  }
+
+  async function handleDuplicate(c) {
+    setDuplicating(c.id)
+    const { data, error } = await supabase.from('campaigns').insert({
+      name: c.name + ' (copy)',
+      description: c.description || null,
+      status: 'planning',
+      start_date: c.start_date || null,
+      end_date: c.end_date || null,
+      color: c.color,
+    }).select('*').single()
+    if (!error && data) {
+      setCampaigns(prev => [{ ...data, postCount: 0, publishedCount: 0 }, ...prev])
+    }
+    setDuplicating(null)
   }
 
   async function handleDelete() {
@@ -138,6 +155,8 @@ export default function Campaigns() {
               campaign={c}
               onClick={() => navigate(`/campaigns/${c.id}`)}
               onDelete={() => setDeleteTarget(c)}
+              onDuplicate={() => handleDuplicate(c)}
+              duplicating={duplicating === c.id}
             />
           ))}
         </div>
@@ -167,7 +186,7 @@ export default function Campaigns() {
   )
 }
 
-function CampaignCard({ campaign, onClick, onDelete }) {
+function CampaignCard({ campaign, onClick, onDelete, onDuplicate, duplicating }) {
   const status = CAMPAIGN_STATUSES[campaign.status] || CAMPAIGN_STATUSES.planning
   const pct = campaign.postCount > 0 ? Math.round((campaign.publishedCount / campaign.postCount) * 100) : 0
 
@@ -185,14 +204,24 @@ function CampaignCard({ campaign, onClick, onDelete }) {
       {/* Color bar */}
       <div className="absolute top-0 left-0 right-0 h-1 rounded-t-xl" style={{ backgroundColor: campaign.color }} />
 
-      {/* Delete button */}
-      <button
-        onClick={e => { e.stopPropagation(); onDelete() }}
-        className="absolute top-3 right-3 text-stone-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 text-lg leading-none"
-        title="Delete campaign"
-      >
-        ×
-      </button>
+      {/* Action buttons */}
+      <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={e => { e.stopPropagation(); onDuplicate() }}
+          className="text-stone-300 hover:text-teal-500 transition-colors text-sm leading-none px-1"
+          title="Duplicate campaign"
+          disabled={duplicating}
+        >
+          {duplicating ? '…' : '⎘'}
+        </button>
+        <button
+          onClick={e => { e.stopPropagation(); onDelete() }}
+          className="text-stone-300 hover:text-red-400 transition-colors text-lg leading-none"
+          title="Delete campaign"
+        >
+          ×
+        </button>
+      </div>
 
       <div className="mt-2">
         {/* Status badge */}
