@@ -76,6 +76,10 @@ export default function AlbumView() {
   // Favorites filter
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
+  // Media type filter + search
+  const [mediaTypeFilter, setMediaTypeFilter] = useState('all'); // 'all' | 'photos' | 'videos'
+  const [photoSearch, setPhotoSearch] = useState('');
+
   // Creator features
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [showAddToPost, setShowAddToPost] = useState(false);
@@ -289,7 +293,9 @@ export default function AlbumView() {
   const filtered = photos
     .filter(p => filter === "all" || p.status === filter)
     .filter(p => !showUnusedOnly || !usedPhotoIds.has(p.id))
-    .filter(p => !showFavoritesOnly || p.is_favorite);
+    .filter(p => !showFavoritesOnly || p.is_favorite)
+    .filter(p => mediaTypeFilter === 'all' || (mediaTypeFilter === 'videos' ? isVideo(p) : !isVideo(p)))
+    .filter(p => !photoSearch.trim() || (p.name || '').toLowerCase().includes(photoSearch.toLowerCase()));
   const sorted = applySort(filtered, sort);
   const unusedCount = photos.filter(p => !usedPhotoIds.has(p.id)).length;
   const anySelected = selectedIds.size > 0;
@@ -447,6 +453,24 @@ export default function AlbumView() {
             {f !== "all" && <span className="ml-1 opacity-60">{photos.filter((p) => p.status === f).length}</span>}
           </button>
         ))}
+        {/* Media type filter */}
+        {photos.some(p => isVideo(p)) && (
+          <>
+            {[['all', 'All'], ['photos', 'Photos'], ['videos', 'Videos']].map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setMediaTypeFilter(val)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  mediaTypeFilter === val
+                    ? 'bg-stone-700 border-stone-700 text-white'
+                    : 'border-stone-200 text-stone-400 hover:border-stone-300'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </>
+        )}
         {photos.some(p => p.is_favorite) && (
           <button
             onClick={() => setShowFavoritesOnly(p => !p)}
@@ -472,6 +496,19 @@ export default function AlbumView() {
           </button>
         )}
         <div className="ml-auto flex items-center gap-2">
+          {/* Search */}
+          <div className="relative">
+            <input
+              type="text"
+              value={photoSearch}
+              onChange={e => setPhotoSearch(e.target.value)}
+              placeholder="Search…"
+              className="text-xs border border-stone-200 rounded-md pl-3 pr-6 py-1.5 outline-none focus:border-teal-400 w-32"
+            />
+            {photoSearch && (
+              <button onClick={() => setPhotoSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-300 hover:text-stone-500 text-xs">×</button>
+            )}
+          </div>
           <button
             onClick={() => { setSelectMode(!selectMode); if (selectMode) deselectAll(); }}
             className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
