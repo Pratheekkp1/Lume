@@ -30,6 +30,11 @@ export default function Library() {
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState(null)
 
+  // Album multi-select
+  const [albumSelectMode, setAlbumSelectMode] = useState(false)
+  const [selectedAlbumIds, setSelectedAlbumIds] = useState(new Set())
+  const [bulkAlbumMsg, setBulkAlbumMsg] = useState('')
+
   useEffect(() => {
     fetchAll()
     window.addEventListener('lume-media-updated', fetchAll)
@@ -375,17 +380,74 @@ export default function Library() {
           {/* Albums section */}
           {showAlbums && filteredAlbums.length > 0 && (
             <div>
-              {typeFilter === 'all' && (
-                <h2 className="text-xs uppercase tracking-widest text-stone-400 mb-3">Albums ({filteredAlbums.length})</h2>
+              <div className="flex items-center justify-between mb-3">
+                {typeFilter === 'all' ? (
+                  <h2 className="text-xs uppercase tracking-widest text-stone-400">Albums ({filteredAlbums.length})</h2>
+                ) : <span />}
+                <button
+                  onClick={() => { setAlbumSelectMode(p => !p); setSelectedAlbumIds(new Set()) }}
+                  className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${albumSelectMode ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-400 hover:border-stone-400'}`}
+                >
+                  {albumSelectMode ? 'Cancel' : 'Select'}
+                </button>
+              </div>
+
+              {/* Bulk action bar */}
+              {albumSelectMode && selectedAlbumIds.size > 0 && (
+                <div className="flex items-center gap-3 mb-4 bg-stone-800 text-white text-xs rounded-xl px-4 py-3">
+                  <span className="font-medium">{selectedAlbumIds.size} selected</span>
+                  <span className="text-stone-400">·</span>
+                  <span className="text-stone-300">Move to status:</span>
+                  {Object.entries(STATUSES).map(([key, s]) => (
+                    <button
+                      key={key}
+                      onClick={async () => {
+                        const ids = [...selectedAlbumIds]
+                        await supabase.from('collections').update({ status: key, updated_at: new Date().toISOString() }).in('id', ids)
+                        setAlbums(prev => prev.map(a => selectedAlbumIds.has(a.id) ? { ...a, status: key } : a))
+                        setBulkAlbumMsg(`${ids.length} album${ids.length !== 1 ? 's' : ''} moved to ${s.label}`)
+                        setSelectedAlbumIds(new Set())
+                        setAlbumSelectMode(false)
+                        setTimeout(() => setBulkAlbumMsg(''), 3000)
+                      }}
+                      className="px-2 py-0.5 rounded-full text-white text-[10px] font-medium transition-opacity hover:opacity-80"
+                      style={{ backgroundColor: s.color }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
               )}
+              {bulkAlbumMsg && (
+                <p className="text-xs text-teal-600 mb-3">{bulkAlbumMsg}</p>
+              )}
+
               <div className={`grid gap-6 ${gridCols[density]}`}>
                 {filteredAlbums.map(album => (
-                  <AlbumCard
-                    key={album.id}
-                    album={album}
-                    onClick={() => navigate(`/media/${album.id}`)}
-                    onEdit={(e) => { e.stopPropagation(); setEditAlbumTarget(album) }}
-                  />
+                  <div key={album.id} className="relative">
+                    {albumSelectMode && (
+                      <div
+                        className="absolute inset-0 z-10 cursor-pointer rounded-xl"
+                        onClick={() => setSelectedAlbumIds(prev => {
+                          const next = new Set(prev)
+                          if (next.has(album.id)) next.delete(album.id); else next.add(album.id)
+                          return next
+                        })}
+                      >
+                        <div className={`absolute top-2 left-2 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${selectedAlbumIds.has(album.id) ? 'bg-teal-500 border-teal-500' : 'bg-white/80 border-stone-300'}`}>
+                          {selectedAlbumIds.has(album.id) && <span className="text-white text-[10px] font-bold">✓</span>}
+                        </div>
+                        {selectedAlbumIds.has(album.id) && (
+                          <div className="absolute inset-0 rounded-xl border-2 border-teal-500 bg-teal-500/10" />
+                        )}
+                      </div>
+                    )}
+                    <AlbumCard
+                      album={album}
+                      onClick={() => !albumSelectMode && navigate(`/media/${album.id}`)}
+                      onEdit={(e) => { e.stopPropagation(); setEditAlbumTarget(album) }}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
