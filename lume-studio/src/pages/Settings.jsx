@@ -276,13 +276,46 @@ function ExportSection() {
     setExporting(p => ({ ...p, ideas: false }))
   }
 
+  async function exportCampaigns() {
+    setExporting(p => ({ ...p, campaigns: true }))
+    const { data } = await supabase
+      .from('campaigns')
+      .select('id, name, description, status, start_date, end_date, created_at')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+    const headers = ['id', 'name', 'description', 'status', 'start_date', 'end_date', 'created_at']
+    const rows = (data || []).map(row => headers.map(h => `"${String(row[h] ?? '').replace(/"/g, '""')}"`).join(','))
+    download(`lume-campaigns-${new Date().toISOString().split('T')[0]}.csv`, [headers.join(','), ...rows].join('\n'), 'text/csv')
+    setExporting(p => ({ ...p, campaigns: false }))
+  }
+
+  async function exportInspiration() {
+    setExporting(p => ({ ...p, inspiration: true }))
+    const { data } = await supabase
+      .from('inspiration')
+      .select('id, type, title, body, url, tags, is_favorite, pinned, created_at')
+      .order('created_at', { ascending: false })
+    const lines = ['# Inspiration Board Export', `_${new Date().toLocaleDateString()}_`, '']
+    ;(data || []).forEach(c => {
+      lines.push(`## ${c.title || '(untitled)'} [${c.type}]${c.is_favorite ? ' ★' : ''}${c.pinned ? ' 📌' : ''}`)
+      if (c.url) lines.push(`URL: ${c.url}`)
+      if (c.body) lines.push('', c.body)
+      if ((c.tags || []).length > 0) lines.push('', `Tags: ${c.tags.map(t => '#' + t).join(' ')}`)
+      lines.push('')
+    })
+    download(`lume-inspiration-${new Date().toISOString().split('T')[0]}.md`, lines.join('\n'), 'text/markdown')
+    setExporting(p => ({ ...p, inspiration: false }))
+  }
+
   async function exportAll() {
     setExporting(p => ({ ...p, all: true }))
-    const [{ data: posts }, { data: ideas }, { data: collections }, { data: audioProjects }] = await Promise.all([
+    const [{ data: posts }, { data: ideas }, { data: collections }, { data: audioProjects }, { data: campaigns }, { data: inspiration }] = await Promise.all([
       supabase.from('posts').select('*').is('deleted_at', null),
       supabase.from('ideas').select('*'),
       supabase.from('collections').select('id, name, status, event_date, location, created_at').is('deleted_at', null),
       supabase.from('audio_projects').select('id, name, status, created_at').is('deleted_at', null),
+      supabase.from('campaigns').select('id, name, status, start_date, end_date').is('deleted_at', null),
+      supabase.from('inspiration').select('id, type, title, url, tags, created_at'),
     ])
     const exportObj = {
       exported_at: new Date().toISOString(),
@@ -290,6 +323,8 @@ function ExportSection() {
       ideas: ideas || [],
       albums: collections || [],
       sound_projects: audioProjects || [],
+      campaigns: campaigns || [],
+      inspiration: inspiration || [],
     }
     download(`lume-full-export-${new Date().toISOString().split('T')[0]}.json`, JSON.stringify(exportObj, null, 2), 'application/json')
     setExporting(p => ({ ...p, all: false }))
@@ -298,7 +333,9 @@ function ExportSection() {
   const EXPORTS = [
     { key: 'posts', label: 'Posts (CSV)', desc: 'All posts with title, status, platform, caption, scheduled date', action: exportPosts },
     { key: 'ideas', label: 'Ideas (CSV)', desc: 'All ideas with title, status, priority, due date', action: exportIdeas },
-    { key: 'all', label: 'Full export (JSON)', desc: 'Everything — posts, ideas, albums, sound projects', action: exportAll },
+    { key: 'campaigns', label: 'Campaigns (CSV)', desc: 'All campaigns with name, status, date range', action: exportCampaigns },
+    { key: 'inspiration', label: 'Inspiration Board (.md)', desc: 'All inspiration cards as a Markdown document', action: exportInspiration },
+    { key: 'all', label: 'Full export (JSON)', desc: 'Everything — posts, ideas, albums, sounds, campaigns, inspiration', action: exportAll },
   ]
 
   return (
