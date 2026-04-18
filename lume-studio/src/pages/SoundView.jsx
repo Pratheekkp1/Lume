@@ -444,6 +444,24 @@ export default function SoundView() {
                   ))}
                 </div>
               )}
+              {tracks.length > 0 && (() => {
+                const doneCount = tracks.filter(t => t.status === 'done').length
+                const pct = Math.round((doneCount / tracks.length) * 100)
+                return (
+                  <div className="mt-3 max-w-xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] text-stone-400">{doneCount} of {tracks.length} done</span>
+                      <span className="text-[10px] font-medium text-stone-500">{pct}%</span>
+                    </div>
+                    <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${pct}%`, backgroundColor: pct === 100 ? '#2a9d8f' : '#a8dadc' }}
+                      />
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
             <div className="flex items-center gap-2">
               <button
