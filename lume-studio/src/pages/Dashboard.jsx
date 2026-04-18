@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { POST_STATUSES } from '../lib/constants'
 import { getProfile } from '../lib/profile'
+import { getRecentOpens } from '../lib/recentOpens'
 
 const CAMPAIGN_STATUSES = {
   planning: { label: 'Planning', color: '#9ca5b2' },
@@ -30,6 +31,7 @@ export default function Dashboard() {
   const [suggestion, setSuggestion] = useState(null)
   const [weekStreak, setWeekStreak] = useState(0)
   const [onThisDay, setOnThisDay] = useState([])
+  const [recentlyViewed, setRecentlyViewed] = useState([])
   const [loading, setLoading] = useState(true)
 
   const profile = getProfile()
@@ -172,6 +174,17 @@ export default function Dashboard() {
       }
     })
     setOnThisDay(otdItems.slice(0, 5))
+
+    // Recently viewed from localStorage recentOpens
+    const opens = getRecentOpens().slice(0, 8)
+    const postMap = Object.fromEntries((posts || []).map(p => [p.id, p]))
+    const recentItems = opens.map(o => {
+      if (o.type === 'post' && postMap[o.id]) {
+        return { id: o.id, name: postMap[o.id].title, icon: '▷', path: `/posts/${o.id}` }
+      }
+      return null
+    }).filter(Boolean).slice(0, 5)
+    setRecentlyViewed(recentItems)
 
     setWeekPosts(weekResult.data || [])
     setActiveCampaigns(campaignData || [])
@@ -499,6 +512,25 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+
+          {/* Recently viewed strip */}
+          {recentlyViewed.length > 0 && (
+            <div className="mb-6">
+              <p className="text-xs tracking-widest uppercase text-stone-400 mb-3">Jump Back In</p>
+              <div className="flex gap-2 flex-wrap">
+                {recentlyViewed.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => navigate(item.path)}
+                    className="flex items-center gap-2 bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-600 hover:border-teal-400 hover:text-teal-700 transition-colors group"
+                  >
+                    <span className="text-stone-300 group-hover:text-teal-400 transition-colors">{item.icon}</span>
+                    <span className="truncate max-w-[140px]">{item.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Bottom row: Recent Activity + Library/Storage */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
