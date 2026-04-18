@@ -186,6 +186,10 @@ const SHORTCUTS = [
     { keys: ['↑', '↓'], label: 'Navigate results' },
     { keys: ['↵'],      label: 'Open selected item' },
   ]},
+  { group: 'Post View', items: [
+    { keys: ['F'],      label: 'Toggle focus mode (hide side panel)' },
+    { keys: ['‹', '›'], label: 'Navigate to previous / next post' },
+  ]},
   { group: 'Album View', items: [
     { keys: ['←', '→'], label: 'Previous / next photo' },
     { keys: ['Esc'],    label: 'Close lightbox' },

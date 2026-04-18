@@ -496,6 +496,20 @@ export default function PostView() {
     recordOpen('post', postId)
   }, [postId])
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    function handleKey(e) {
+      const tag = document.activeElement?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault()
+        setFocusMode(v => !v)
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [])
+
   // Listen for global drag-and-drop forwarded files
   useEffect(() => {
     function onGlobalDrop(e) {
