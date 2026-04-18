@@ -53,6 +53,8 @@ export default function SoundView() {
   const [speed, setSpeed] = useState(1);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [loopMode, setLoopMode] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [muted, setMuted] = useState(false);
 
   useEffect(() => {
     recordOpen('sound', projectId);
@@ -113,6 +115,13 @@ export default function SoundView() {
   useEffect(() => {
     if (audioRef.current) audioRef.current.loop = loopMode;
   }, [loopMode]);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = muted ? 0 : volume;
+      audioRef.current.muted = muted;
+    }
+  }, [volume, muted]);
 
   useEffect(() => {
     if (!showSpeedMenu) return;
@@ -848,8 +857,28 @@ export default function SoundView() {
               </button>
             </div>
 
-            {/* Right: loop + speed + time */}
+            {/* Right: volume + loop + speed + time */}
             <div className="flex items-center gap-3 flex-1 justify-end">
+              {/* Volume */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setMuted(p => !p)}
+                  title={muted ? 'Unmute' : 'Mute'}
+                  className="text-stone-400 hover:text-stone-700 transition-colors text-xs w-4 text-center flex-shrink-0"
+                >
+                  {muted || volume === 0 ? '🔇' : volume < 0.4 ? '🔉' : '🔊'}
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={muted ? 0 : volume}
+                  onChange={e => { setVolume(Number(e.target.value)); if (muted && Number(e.target.value) > 0) setMuted(false) }}
+                  className="w-16 accent-teal-500 cursor-pointer"
+                  title={`Volume: ${Math.round(volume * 100)}%`}
+                />
+              </div>
               <button
                 onClick={() => setLoopMode(p => !p)}
                 title={loopMode ? 'Loop: on' : 'Loop: off'}
