@@ -106,6 +106,19 @@ export default function Ideas() {
     await supabase.from('ideas').delete().eq('id', id)
   }
 
+  async function handleDuplicate(idea) {
+    const { data, error } = await supabase.from('ideas').insert({
+      title: `${idea.title} (copy)`,
+      notes: idea.notes,
+      status: 'raw',
+      priority: idea.priority || 'normal',
+      inspiration_url: idea.inspiration_url,
+    }).select().single()
+    if (!error && data) {
+      setIdeas(prev => [data, ...prev])
+    }
+  }
+
   async function handlePromote(idea) {
     // Create a new post from this idea
     const { data: post, error } = await supabase
@@ -366,6 +379,7 @@ export default function Ideas() {
               idea={idea}
               onEdit={() => setEditTarget(idea)}
               onDelete={() => handleDelete(idea.id)}
+              onDuplicate={() => handleDuplicate(idea)}
               onPromote={() => idea.promoted_post_id ? navigate(`/posts/${idea.promoted_post_id}`) : setPromoteTarget(idea)}
               onStatusChange={(status) => handleUpdate(idea.id, { status })}
               selectMode={selectMode}
@@ -413,7 +427,7 @@ export default function Ideas() {
   )
 }
 
-function IdeaCard({ idea, onEdit, onDelete, onPromote, onStatusChange, selectMode, selected, onSelect }) {
+function IdeaCard({ idea, onEdit, onDelete, onDuplicate, onPromote, onStatusChange, selectMode, selected, onSelect }) {
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const s = IDEA_STATUSES[idea.status] || IDEA_STATUSES.raw
   const isPromoted = idea.status === 'promoted'
@@ -480,6 +494,7 @@ function IdeaCard({ idea, onEdit, onDelete, onPromote, onStatusChange, selectMod
         {!selectMode && (
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button onClick={onEdit} className="text-xs text-stone-400 hover:text-stone-600 px-1.5 py-0.5 rounded transition-colors">Edit</button>
+            <button onClick={onDuplicate} className="text-xs text-stone-300 hover:text-teal-500 px-1.5 py-0.5 rounded transition-colors" title="Duplicate idea">⎘</button>
             <button onClick={onDelete} className="text-stone-300 hover:text-red-400 text-lg leading-none transition-colors">×</button>
           </div>
         )}
