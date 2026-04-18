@@ -20,6 +20,7 @@ export default function Topbar() {
   const [open, setOpen] = useState(false)
   const [recentSearches, setRecentSearches] = useState([])
   const [showRecent, setShowRecent] = useState(false)
+  const [overdueCount, setOverdueCount] = useState(0)
   const inputRef = useRef(null)
   const containerRef = useRef(null)
   const debounceRef = useRef(null)
@@ -28,6 +29,22 @@ export default function Topbar() {
     function onProfileUpdate(e) { setProfile(e.detail) }
     window.addEventListener('lume-profile-updated', onProfileUpdate)
     return () => window.removeEventListener('lume-profile-updated', onProfileUpdate)
+  }, [])
+
+  useEffect(() => {
+    async function fetchOverdue() {
+      const today = new Date().toISOString().split('T')[0]
+      const { count } = await supabase
+        .from('posts')
+        .select('*', { count: 'exact', head: true })
+        .is('deleted_at', null)
+        .lt('scheduled_date', today)
+        .neq('status', 'published')
+      setOverdueCount(count || 0)
+    }
+    fetchOverdue()
+    window.addEventListener('lume-posts-updated', fetchOverdue)
+    return () => window.removeEventListener('lume-posts-updated', fetchOverdue)
   }, [])
 
   useEffect(() => {
@@ -252,6 +269,18 @@ export default function Topbar() {
       </div>
 
       <div className="ml-auto flex items-center gap-3">
+        {overdueCount > 0 && (
+          <button
+            onClick={() => navigate('/posts?view=calendar')}
+            title={`${overdueCount} overdue post${overdueCount !== 1 ? 's' : ''}`}
+            className="relative text-stone-400 hover:text-amber-500 transition-colors"
+          >
+            <span className="text-base">🔔</span>
+            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+              {overdueCount > 9 ? '9+' : overdueCount}
+            </span>
+          </button>
+        )}
         <kbd className="hidden sm:flex items-center gap-1 px-1.5 py-0.5 bg-stone-200 border border-stone-300 rounded text-[10px] text-stone-500 font-mono cursor-default select-none" title="Open command palette">
           <span>⌘</span><span>K</span>
         </kbd>
