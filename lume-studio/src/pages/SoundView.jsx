@@ -782,6 +782,25 @@ export default function SoundView() {
                 </select>
               </div>
 
+              {/* BPM / Tempo */}
+              <div>
+                <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Tempo (BPM)</label>
+                <input
+                  type="number"
+                  min={40}
+                  max={300}
+                  value={selectedTrack.bpm || ''}
+                  onChange={async (e) => {
+                    const val = e.target.value ? parseInt(e.target.value) : null
+                    await supabase.from('audio_tracks').update({ bpm: val, updated_at: new Date().toISOString() }).eq('id', selectedTrack.id)
+                    setTracks(prev => prev.map(t => t.id === selectedTrack.id ? { ...t, bpm: val } : t))
+                    setSelectedTrack(prev => ({ ...prev, bpm: val }))
+                  }}
+                  placeholder="e.g. 120"
+                  className="w-full border border-stone-200 rounded-md px-3 py-1.5 text-xs text-stone-600 outline-none focus:border-stone-400 transition-colors"
+                />
+              </div>
+
               {/* Notes */}
               <div className="flex flex-col flex-1">
                 <label className="text-xs uppercase tracking-widest text-stone-400 mb-1.5 block">Notes</label>
@@ -996,6 +1015,9 @@ function TrackRow({ track, index, selected, isPlaying, onClick, onFavorite, sele
       )}
       <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: status.color }} />
       <p className="text-sm text-stone-700 truncate flex-1">{track.name}</p>
+      {track.bpm && (
+        <span className="text-[10px] text-stone-400 flex-shrink-0 font-mono">{track.bpm}</span>
+      )}
       {track.file_size && (
         <span className="text-xs text-stone-300 flex-shrink-0">
           {(track.file_size / 1024 / 1024).toFixed(1)}MB
