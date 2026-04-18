@@ -103,6 +103,9 @@ function PostPreview({ post, assets, linkedPhotos }) {
   const charLimit = PLATFORM_CHAR_LIMITS[selectedPlatform] || null
   const captionLen = caption.length
   const remaining = charLimit !== null ? charLimit - captionLen : null
+  const captionWordCount = caption.trim() ? caption.trim().split(/\s+/).length : 0
+  const readTimeSec = Math.max(1, Math.round(captionWordCount / (238 / 60))) // 238 wpm average reading
+  const readTimeLabel = readTimeSec < 60 ? `${readTimeSec}s read` : `${Math.round(readTimeSec / 60)}m read`
 
   function ImagePlaceholder({ className }) {
     return thumbUrl ? (
@@ -307,7 +310,10 @@ function PostPreview({ post, assets, linkedPhotos }) {
       {/* Character limit indicator + copy button */}
       {charLimit !== null && (
         <div className="flex items-center justify-between text-[10px] px-1">
-          <span className="text-stone-400">{selectedPlatform} caption limit</span>
+          <div className="flex items-center gap-2">
+            <span className="text-stone-400">{selectedPlatform} caption limit</span>
+            {captionWordCount > 0 && <span className="text-stone-300">· {readTimeLabel}</span>}
+          </div>
           <div className="flex items-center gap-2">
             <span className={remaining < 0 ? 'text-red-500 font-semibold' : remaining < 50 ? 'text-amber-500 font-medium' : 'text-stone-400'}>
               {remaining < 0 ? `${Math.abs(remaining)} over limit` : `${remaining.toLocaleString()} remaining`}
