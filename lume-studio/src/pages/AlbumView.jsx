@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { STATUSES, POST_TYPES, PLATFORMS } from "../lib/constants";
@@ -81,6 +81,11 @@ export default function AlbumView() {
   const [showAddToPost, setShowAddToPost] = useState(false);
   const [recentPostsList, setRecentPostsList] = useState([]);
   const [addedMessage, setAddedMessage] = useState('');
+
+  // Slideshow
+  const [slideshowActive, setSlideshowActive] = useState(false);
+  const [slideshowInterval, setSlideshowInterval] = useState(4); // seconds
+  const slideshowRef = useRef(null);
 
   // Categories
   const [allCategories, setAllCategories] = useState([]);
@@ -312,6 +317,39 @@ export default function AlbumView() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [selectedPhoto, showUploader, hasPrev, hasNext, currentIndex, sorted]);
 
+  // Slideshow auto-advance
+  useEffect(() => {
+    if (slideshowActive && selectedPhoto) {
+      slideshowRef.current = setInterval(() => {
+        setSelectedPhoto(prev => {
+          const idx = sorted.findIndex(p => p.id === prev?.id)
+          if (idx === -1 || idx >= sorted.length - 1) {
+            // loop back to first
+            const first = sorted[0]
+            if (first) { setNotes(first.notes || ''); return first; }
+            return prev;
+          }
+          const next = sorted[idx + 1]
+          setNotes(next.notes || '')
+          return next
+        })
+      }, slideshowInterval * 1000)
+    }
+    return () => clearInterval(slideshowRef.current)
+  }, [slideshowActive, selectedPhoto?.id, slideshowInterval, sorted]);
+
+  function startSlideshow() {
+    if (sorted.length === 0) return
+    const first = selectedPhoto || sorted[0]
+    openPhoto(first)
+    setSlideshowActive(true)
+  }
+
+  function stopSlideshow() {
+    setSlideshowActive(false)
+    clearInterval(slideshowRef.current)
+  }
+
   return (
     <div className="p-7">
 
@@ -362,12 +400,37 @@ export default function AlbumView() {
             )
           })()}
         </div>
-        <button
-          onClick={() => setShowUploader(true)}
-          className="bg-teal-500 text-white text-xs font-medium px-4 py-2 rounded-md hover:bg-teal-600 transition-colors"
-        >
-          + Add Media
-        </button>
+        <div className="flex items-center gap-2">
+          {photos.length > 0 && (
+            <div className="flex items-center gap-1 border border-stone-200 rounded-md overflow-hidden">
+              <button
+                onClick={slideshowActive ? stopSlideshow : startSlideshow}
+                className={`text-xs px-3 py-2 transition-colors ${slideshowActive ? 'bg-teal-500 text-white' : 'text-stone-500 hover:bg-stone-50'}`}
+                title="Slideshow"
+              >
+                {slideshowActive ? '⏸' : '▶'}
+              </button>
+              {!slideshowActive && (
+                <select
+                  value={slideshowInterval}
+                  onChange={e => setSlideshowInterval(Number(e.target.value))}
+                  className="text-[10px] text-stone-400 bg-white border-l border-stone-200 pr-1 py-2 outline-none"
+                >
+                  <option value={2}>2s</option>
+                  <option value={4}>4s</option>
+                  <option value={7}>7s</option>
+                  <option value={10}>10s</option>
+                </select>
+              )}
+            </div>
+          )}
+          <button
+            onClick={() => setShowUploader(true)}
+            className="bg-teal-500 text-white text-xs font-medium px-4 py-2 rounded-md hover:bg-teal-600 transition-colors"
+          >
+            + Add Media
+          </button>
+        </div>
       </div>
 
       {/* Filter pills + sort */}
@@ -559,6 +622,19 @@ export default function AlbumView() {
 
           {/* Image / PDF area */}
           <div className="flex-1 bg-stone-900/25 backdrop-blur-md flex items-center justify-center relative overflow-hidden">
+
+            {/* Slideshow indicator */}
+            {slideshowActive && (
+              <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
+                <button
+                  onClick={stopSlideshow}
+                  className="flex items-center gap-1.5 bg-black/40 hover:bg-black/60 text-white text-xs px-3 py-1.5 rounded-full transition-colors"
+                >
+                  ⏸ Slideshow
+                </button>
+                <span className="text-white/60 text-xs">{currentIndex + 1} / {sorted.length}</span>
+              </div>
+            )}
 
             {/* Top bar controls */}
             <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
