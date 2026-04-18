@@ -71,6 +71,7 @@ export default function Ideas() {
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('newest')
+  const [hidePromoted, setHidePromoted] = useState(false)
   const [viewMode, setViewMode] = useState('grid') // 'grid' | 'kanban'
 
   useEffect(() => { fetchIdeas() }, [])
@@ -139,6 +140,7 @@ export default function Ideas() {
   }
 
   const baseFiltered = (filterStatus === 'all' ? ideas : ideas.filter(i => i.status === filterStatus))
+    .filter(i => !hidePromoted || i.status !== 'promoted')
     .filter(i => !search.trim() || i.title.toLowerCase().includes(search.toLowerCase()) || (i.notes || '').toLowerCase().includes(search.toLowerCase()))
 
   const filtered = applySort(baseFiltered, sortBy)
@@ -248,6 +250,14 @@ export default function Ideas() {
             </button>
           )
         })}
+        {ideas.some(i => i.status === 'promoted') && (
+          <button
+            onClick={() => setHidePromoted(p => !p)}
+            className={`px-3 py-1 rounded-full text-xs border transition-colors ml-2 ${hidePromoted ? 'bg-stone-700 text-white border-stone-700' : 'border-stone-200 text-stone-400 hover:border-stone-400'}`}
+          >
+            {hidePromoted ? 'Show promoted' : 'Hide promoted'}
+          </button>
+        )}
       </div>
 
       {/* Bulk action bar */}
