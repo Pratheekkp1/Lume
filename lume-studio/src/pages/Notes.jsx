@@ -182,6 +182,27 @@ export default function Notes() {
     scheduleSave(updated)
   }
 
+  function handleDuplicateNote(e, id) {
+    e.stopPropagation()
+    const orig = notes.find(n => n.id === id)
+    if (!orig) return
+    const firstLine = (orig.content || '').split('\n')[0].replace(/^#+\s*/, '').trim()
+    const dupNote = {
+      id: crypto.randomUUID(),
+      content: orig.content,
+      tags: [...(orig.tags || [])],
+      pinned: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    // Insert after the original
+    const idx = notes.findIndex(n => n.id === id)
+    const updated = [...notes.slice(0, idx + 1), dupNote, ...notes.slice(idx + 1)]
+    setNotes(updated)
+    setSelectedId(dupNote.id)
+    scheduleSave(updated)
+  }
+
   function handleDeleteNote(e, id) {
     e.stopPropagation()
     const idx = notes.findIndex((n) => n.id === id)
@@ -385,6 +406,14 @@ export default function Notes() {
                         }`}
                       >
                         📌
+                      </button>
+                      {/* Duplicate button */}
+                      <button
+                        onClick={(e) => handleDuplicateNote(e, note.id)}
+                        className="absolute top-2.5 right-8 w-5 h-5 flex items-center justify-center text-stone-400 hover:text-teal-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs leading-none"
+                        title="Duplicate note"
+                      >
+                        ⎘
                       </button>
                       {/* Delete button */}
                       <button
