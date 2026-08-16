@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [weekStreak, setWeekStreak] = useState(0)
   const [onThisDay, setOnThisDay] = useState([])
   const [recentlyViewed, setRecentlyViewed] = useState([])
+  const [recentPhotos, setRecentPhotos] = useState([])
   const [loading, setLoading] = useState(true)
 
   const profile = getProfile()
@@ -63,6 +64,7 @@ export default function Dashboard() {
       { count: publishedCount },
       { count: allIdeasCount },
       weekResult,
+      { data: recentPhotoData },
     ] = await Promise.all([
       supabase.from('posts').select('id, title, type, status, platform, caption, created_at, updated_at').is('deleted_at', null).order('created_at', { ascending: false }),
       supabase.from('posts').select('id, title, status, platform, scheduled_date').is('deleted_at', null).gte('scheduled_date', today).order('scheduled_date', { ascending: true }).limit(10),
@@ -86,6 +88,7 @@ export default function Dashboard() {
         .gte('scheduled_date', (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return d.toISOString().split('T')[0] })())
         .lte('scheduled_date', (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay() + 6); return d.toISOString().split('T')[0] })())
         .order('scheduled_date'),
+      supabase.from('photos').select('id, file_path, name, collection_id').is('deleted_at', null).order('created_at', { ascending: false }).limit(8),
     ])
 
     // Pipeline counts
