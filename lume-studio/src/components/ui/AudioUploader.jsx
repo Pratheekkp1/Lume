@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { supabase } from "../../lib/supabase";
+import { supabase, uniqueFileName, userStoragePath } from "../../lib/supabase";
 
 // item.status: 'uploading' | 'done' | 'error' | 'duplicate' | 'skipped'
 
@@ -9,8 +9,7 @@ export default function AudioUploader({ projectId, onUploadComplete }) {
   const [busy, setBusy] = useState(false);
 
   async function doUpload(file) {
-    const ext = file.name.split(".").pop();
-    const path = `${projectId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const path = await userStoragePath(projectId, uniqueFileName(file));
 
     const { error: uploadError } = await supabase.storage.from("Audio").upload(path, file);
     if (uploadError) return "error";

@@ -1,12 +1,11 @@
-import { supabase } from './supabase'
+import { supabase, uniqueFileName, userStoragePath } from './supabase'
 
 /**
  * Upload a photo/video file to an album (collection).
  * Returns the created photo record, or null on error.
  */
 export async function uploadPhotoToAlbum(file, collectionId) {
-  const ext = file.name.split('.').pop()
-  const path = `${collectionId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+  const path = await userStoragePath(collectionId, uniqueFileName(file))
   const media_type = file.type.startsWith('video/') ? 'video' : 'photo'
 
   const { error: uploadError } = await supabase.storage.from('Photos').upload(path, file)
@@ -29,8 +28,7 @@ export async function uploadPhotoToAlbum(file, collectionId) {
  * Returns the created track record, or null on error.
  */
 export async function uploadTrackToProject(file, projectId) {
-  const ext = file.name.split('.').pop()
-  const path = `${projectId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+  const path = await userStoragePath(projectId, uniqueFileName(file))
 
   const { error: uploadError } = await supabase.storage.from('Audio').upload(path, file)
   if (uploadError) return null

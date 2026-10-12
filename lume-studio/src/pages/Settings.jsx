@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getProfile, saveProfile, deriveInitials, AVATAR_COLORS } from '../lib/profile'
+import { useAuth } from '../context/auth'
 import { fetchTrashed, restoreItem, permanentDelete, ENTITY_TYPES } from '../lib/trash'
 import { supabase } from '../lib/supabase'
 import { POST_STATUSES, POST_TYPES, PLATFORMS } from '../lib/constants'
@@ -14,6 +15,7 @@ export default function Settings() {
         <p className="text-xs tracking-widest uppercase text-stone-400 px-5 mb-2">Settings</p>
         {[
           { key: 'profile', label: 'Profile' },
+          { key: 'account', label: 'Account' },
           { key: 'goals', label: 'Goals & Cadence' },
           { key: 'shortcuts', label: 'Keyboard Shortcuts' },
           { key: 'templates', label: 'Templates' },
@@ -40,6 +42,7 @@ export default function Settings() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-8 max-w-xl">
         {activeSection === 'profile' && <ProfileSection />}
+        {activeSection === 'account' && <AccountSection />}
         {activeSection === 'goals' && <GoalsSection />}
         {activeSection === 'shortcuts' && <ShortcutsSection />}
         {activeSection === 'templates' && <TemplatesSection />}
@@ -48,6 +51,40 @@ export default function Settings() {
         {activeSection === 'connected' && <ConnectedAccountsSection />}
         {activeSection === 'team' && <TeamSection />}
         {activeSection === 'about' && <AboutSection />}
+      </div>
+    </div>
+  )
+}
+
+function AccountSection() {
+  const { user, signOut } = useAuth()
+  const [signingOut, setSigningOut] = useState(false)
+
+  return (
+    <div>
+      <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Account</p>
+      <h1 className="font-serif text-3xl text-stone-800 mb-6">Your Account</h1>
+      <div className="bg-white border border-stone-200 rounded-lg p-5 space-y-4">
+        <div>
+          <p className="text-xs text-stone-400">Signed in as</p>
+          <p className="text-sm text-stone-800">{user?.email}</p>
+        </div>
+        <div>
+          <p className="text-xs text-stone-400">Member since</p>
+          <p className="text-sm text-stone-800">
+            {user?.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}
+          </p>
+        </div>
+        <p className="text-xs text-stone-400">
+          Your media, posts and settings are private to this account (enforced by row-level security).
+        </p>
+        <button
+          onClick={async () => { setSigningOut(true); await signOut() }}
+          disabled={signingOut}
+          className="border border-stone-200 text-stone-600 text-xs font-medium px-5 py-2 rounded-md hover:bg-stone-50 transition-colors disabled:opacity-60"
+        >
+          {signingOut ? 'Signing out…' : 'Sign out'}
+        </button>
       </div>
     </div>
   )

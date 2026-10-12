@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase, uniqueFileName, userStoragePath } from '../lib/supabase'
 import { POST_STATUSES, POST_TYPES, PLATFORMS } from '../lib/constants'
 import { recordOpen } from '../lib/recentOpens'
 import useDebouncedSave from '../hooks/useDebouncedSave'
@@ -594,7 +594,7 @@ export default function PostView() {
       const updated = [snapshot, ...prev].slice(0, 15)
       supabase.from('brand_kit').upsert(
         { key: `caption_history_${postId}`, value: updated, updated_at: new Date().toISOString() },
-        { onConflict: 'key' }
+        { onConflict: 'user_id,key' }
       )
       return updated
     })
@@ -612,7 +612,7 @@ export default function PostView() {
     setActivityInput('')
     await supabase.from('brand_kit').upsert(
       { key: `post_log_${postId}`, value: updated, updated_at: new Date().toISOString() },
-      { onConflict: 'key' }
+      { onConflict: 'user_id,key' }
     )
     setSavingActivity(false)
   }
@@ -795,8 +795,7 @@ export default function PostView() {
     if (!files || files.length === 0) return
     setUploading(true)
     for (const file of Array.from(files)) {
-      const ext = file.name.split('.').pop()
-      const path = `post-assets/${postId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const path = await userStoragePath('post-assets', postId, uniqueFileName(file))
       const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file)
       if (upErr) continue
       const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path)

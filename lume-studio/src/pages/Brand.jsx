@@ -112,7 +112,7 @@ function ColorsTab() {
 
   async function save(updated) {
     setSaving(true)
-    await supabase.from('brand_kit').upsert({ key: 'colors', value: { palettes: updated }, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+    await supabase.from('brand_kit').upsert({ key: 'colors', value: { palettes: updated }, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' })
     setSaving(false)
   }
 
@@ -329,13 +329,13 @@ function ToneTab() {
   }
 
   async function save(val) {
-    await supabase.from('brand_kit').upsert({ key: 'tone', value: { notes: val }, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+    await supabase.from('brand_kit').upsert({ key: 'tone', value: { notes: val }, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
   async function saveKeywords(updated) {
-    await supabase.from('brand_kit').upsert({ key: 'tone_keywords', value: updated, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+    await supabase.from('brand_kit').upsert({ key: 'tone_keywords', value: updated, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' })
   }
 
   function addToneKeyword(kw) {
@@ -414,7 +414,7 @@ function CaptionsTab() {
 
   async function save(updated) {
     setSaving(true)
-    await supabase.from('brand_kit').upsert({ key: 'captions', value: { blocks: updated }, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+    await supabase.from('brand_kit').upsert({ key: 'captions', value: { blocks: updated }, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' })
     setSaving(false)
   }
 
@@ -942,7 +942,7 @@ function FontsTab() {
   }, [])
 
   async function save() {
-    await supabase.from('brand_kit').upsert({ key: 'fonts', value: fonts, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+    await supabase.from('brand_kit').upsert({ key: 'fonts', value: fonts, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }

@@ -22,6 +22,10 @@ import Notes from './pages/Notes'
 import Trash from './pages/Trash'
 import { purgeExpired } from './lib/trash'
 import CommandPalette from './components/ui/CommandPalette'
+import Login from './pages/Login'
+import { AuthProvider } from './context/AuthContext'
+import { useAuth } from './context/auth'
+import { isConfigured } from './lib/supabase'
 
 function AlbumRedirect() {
   const { collectionId } = useParams()
@@ -33,7 +37,41 @@ function SoundRedirect() {
   return <Navigate to={`/sounds/${projectId}`} replace />
 }
 
+function SetupNeeded() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-stone-100 px-6">
+      <div className="max-w-md text-center">
+        <h1 className="font-serif text-2xl text-stone-800 mb-3">Connect a Supabase project</h1>
+        <p className="text-sm text-stone-500">
+          Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to{' '}
+          <code>lume-studio/.env.local</code>, run <code>supabase/schema.sql</code> in the SQL editor,
+          then restart the dev server.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function AuthGate({ children }) {
+  const { session, loading } = useAuth()
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center text-sm text-stone-400">Loading…</div>
+  }
+  return session ? children : <Login />
+}
+
 export default function App() {
+  if (!isConfigured) return <SetupNeeded />
+  return (
+    <AuthProvider>
+      <AuthGate>
+        <Studio />
+      </AuthGate>
+    </AuthProvider>
+  )
+}
+
+function Studio() {
   useEffect(() => { purgeExpired() }, [])
 
   return (

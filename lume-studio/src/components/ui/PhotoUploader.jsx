@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { supabase } from "../../lib/supabase";
+import { supabase, uniqueFileName, userStoragePath } from "../../lib/supabase";
 
 export default function PhotoUploader({ collectionId, onUploadComplete }) {
   const [items, setItems] = useState([]);
@@ -8,8 +8,7 @@ export default function PhotoUploader({ collectionId, onUploadComplete }) {
   const [pdfConfirmFiles, setPdfConfirmFiles] = useState(null);
 
   async function doUpload(file) {
-    const ext = file.name.split(".").pop();
-    const path = `${collectionId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const path = await userStoragePath(collectionId, uniqueFileName(file));
     const media_type = file.type.startsWith("video/") ? "video" : "photo";
 
     const { error: uploadError } = await supabase.storage.from("Photos").upload(path, file);
