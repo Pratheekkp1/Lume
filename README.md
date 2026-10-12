@@ -8,14 +8,14 @@ I built it as a personal tool for running my own creative projects. It grew into
 
 **Media library**
 - Photo/video albums and audio projects with drag-and-drop upload anywhere in the app (global drop zone)
-- Per-item status, notes and favorites; built-in audio player with playlist controls
+- Editing workflow statuses (`unedited → culling → editing → retouching → delivered`), notes and favorites; built-in audio player with playlist controls
 - Soft-delete trash with restore
 
 **Content pipeline**
-- Posts move through `idea → draft → ready → published` with linked photos, tracks and direct uploads
+- Posts move through `idea → in progress → ready → posted` across Instagram, TikTok, YouTube, X and Facebook, with linked photos, tracks and direct uploads
 - **Calendar view** with platform filters, monthly stats and content-gap warnings for empty weeks
 - **Campaigns / series** that group posts with progress tracking
-- **Repurpose tracker** for adapting one piece of content across platforms
+- **Repurpose tracker** and per-platform post variants for adapting one piece of content; reusable post templates and content pillars
 
 **Planning & brand**
 - Ideas board, Inspiration board (tagging, starring, bulk actions, Markdown export) and Notes
@@ -40,16 +40,14 @@ I built it as a personal tool for running my own creative projects. It grew into
 
 ## Data model
 
-```
-collections ──< photos >──┐
-audio_projects ──< audio_tracks >──┐
-                          │        │
-posts ──< post_linked_photos       │
-      ──< post_linked_tracks ──────┘
-      ──< post_assets
-campaigns ──< posts
-brand_kit · hashtag_groups · inspiration · ideas · notes · goals
-```
+24 PostgreSQL tables. The core relationships:
+
+- `collections` 1─* `photos` and `audio_projects` 1─* `audio_tracks`
+- `posts` *─* `photos` (via `post_linked_photos`) and *─* `audio_tracks` (via `post_linked_tracks`)
+- `posts` 1─* `post_assets`, `post_variants`, `post_metrics`
+- `campaigns` *─* `posts` (via `campaign_posts`)
+
+Supporting tables: `brand_kit`, `hashtag_groups`, `content_pillars`, `post_templates`, `posting_goals`, `ideas`, `inspiration`, `events`, and category tables.
 
 ## Running locally
 
@@ -64,4 +62,4 @@ You'll need a Supabase project with the tables above and two storage buckets, `P
 
 ## How it was built
 
-I developed Lume with an AI-assisted workflow (planner, implementer, reviewer and tester roles, configured in `.claude/`), running parallel feature branches and merging them into `main`. My focus was product design, data modeling and reviewing and integrating each feature.
+Lume was built with an AI-assisted workflow. Planner, implementer, reviewer and tester roles are configured in `.claude/`, and features were developed on parallel branches and merged into `main`.
