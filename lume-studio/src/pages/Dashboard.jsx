@@ -86,7 +86,7 @@ export default function Dashboard() {
         .gte('scheduled_date', (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return d.toISOString().split('T')[0] })())
         .lte('scheduled_date', (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay() + 6); return d.toISOString().split('T')[0] })())
         .order('scheduled_date'),
-      supabase.from('photos').select('id, file_path, name, collection_id').is('deleted_at', null).order('created_at', { ascending: false }).limit(8),
+      supabase.from('photos').select('id, file_path, name, collection_id, media_type').is('deleted_at', null).order('created_at', { ascending: false }).limit(10),
     ])
 
     // Pipeline counts
@@ -190,6 +190,14 @@ export default function Dashboard() {
     setWeekPosts(weekResult.data || [])
     setActiveCampaigns(campaignData || [])
 
+    // Videos would need a poster frame; the strip only shows stills
+    const photosWithUrls = (recentPhotoData || [])
+      .filter(p => p.file_path && p.media_type !== 'video')
+      .map(p => ({
+        ...p,
+        url: supabase.storage.from('Photos').getPublicUrl(p.file_path).data.publicUrl,
+      }))
+    setRecentPhotos(photosWithUrls)
     setTodayPosts(todayScheduled || [])
     setOverdueCount((overduePosts || []).length)
     setReadyIdeasCount((readyIdeas || []).length)
@@ -530,6 +538,28 @@ export default function Dashboard() {
                   >
                     <span className="text-stone-300 group-hover:text-teal-400 transition-colors">{item.icon}</span>
                     <span className="truncate max-w-[140px]">{item.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recent Photos Strip */}
+          {recentPhotos.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs tracking-widest uppercase text-stone-400">Recent Photos</p>
+                <button onClick={() => navigate('/library')} className="text-xs text-teal-600 hover:text-teal-700 transition-colors">View library →</button>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {recentPhotos.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => navigate(`/media/${p.collection_id}`)}
+                    className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-stone-100 hover:opacity-90 transition-opacity ring-0 hover:ring-2 ring-teal-400"
+                    title={p.name}
+                  >
+                    <img src={p.url} alt={p.name} loading="lazy" className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
