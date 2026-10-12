@@ -59,7 +59,3 @@ npm run dev
 ```
 
 You'll need a Supabase project with the tables above and two storage buckets, `Photos` and `Audio`.
-
-## How it was built
-
-Lume was built with an AI-assisted workflow. Planner, implementer, reviewer and tester roles are configured in `.claude/`, and features were developed on parallel branches and merged into `main`.
