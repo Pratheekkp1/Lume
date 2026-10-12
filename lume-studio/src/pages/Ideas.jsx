@@ -74,8 +74,6 @@ export default function Ideas() {
   const [hidePromoted, setHidePromoted] = useState(false)
   const [viewMode, setViewMode] = useState('grid') // 'grid' | 'kanban'
 
-  useEffect(() => { fetchIdeas() }, [])
-
   async function fetchIdeas() {
     const { data } = await supabase
       .from('ideas')
@@ -84,6 +82,8 @@ export default function Ideas() {
     setIdeas(data || [])
     setLoading(false)
   }
+
+  useEffect(() => { fetchIdeas() }, [])
 
   async function handleCreate(fields) {
     const { data, error } = await supabase.from('ideas').insert(fields).select('*').single()

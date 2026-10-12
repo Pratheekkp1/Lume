@@ -58,7 +58,7 @@ function renderMarkdown(text) {
   html = html.replace(/`([^`]+)`/g, '<code style="background:#f4f4f0;border:1px solid #e7e5e4;border-radius:3px;padding:0 4px;font-family:monospace;font-size:0.85em">$1</code>')
 
   // Unordered lists
-  html = html.replace(/^[\-\*] (.+)$/gm, '<li style="margin-left:1.25rem;list-style-type:disc">$1</li>')
+  html = html.replace(/^[-*] (.+)$/gm, '<li style="margin-left:1.25rem;list-style-type:disc">$1</li>')
   html = html.replace(/(<li[^>]*>.*<\/li>\n?)+/g, (m) => `<ul style="margin:0.5rem 0">${m}</ul>`)
 
   // Ordered lists
@@ -233,7 +233,6 @@ export default function Notes() {
     e.stopPropagation()
     const orig = notes.find(n => n.id === id)
     if (!orig) return
-    const firstLine = (orig.content || '').split('\n')[0].replace(/^#+\s*/, '').trim()
     const dupNote = {
       id: crypto.randomUUID(),
       content: orig.content,

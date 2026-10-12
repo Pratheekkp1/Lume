@@ -20,20 +20,6 @@ export default function Sidebar() {
             : 'text-stone-500 border-transparent hover:bg-stone-200 hover:text-stone-800'
         }`
 
-  useEffect(() => {
-    loadRecents()
-    window.addEventListener('lume-posts-updated', loadRecents)
-    window.addEventListener('lume-media-updated', loadRecents)
-    window.addEventListener('lume-sounds-updated', loadRecents)
-    window.addEventListener('lume-recents-updated', loadRecents)
-    return () => {
-      window.removeEventListener('lume-posts-updated', loadRecents)
-      window.removeEventListener('lume-media-updated', loadRecents)
-      window.removeEventListener('lume-sounds-updated', loadRecents)
-      window.removeEventListener('lume-recents-updated', loadRecents)
-    }
-  }, [])
-
   async function loadRecents() {
     const opens = getRecentOpens().slice(0, 20)
     if (opens.length === 0) { setRecentPosts([]); setRecentLibrary([]); return }
@@ -72,6 +58,20 @@ export default function Sidebar() {
     setRecentPosts(posts)
     setRecentLibrary(library)
   }
+
+  useEffect(() => {
+    loadRecents()
+    window.addEventListener('lume-posts-updated', loadRecents)
+    window.addEventListener('lume-media-updated', loadRecents)
+    window.addEventListener('lume-sounds-updated', loadRecents)
+    window.addEventListener('lume-recents-updated', loadRecents)
+    return () => {
+      window.removeEventListener('lume-posts-updated', loadRecents)
+      window.removeEventListener('lume-media-updated', loadRecents)
+      window.removeEventListener('lume-sounds-updated', loadRecents)
+      window.removeEventListener('lume-recents-updated', loadRecents)
+    }
+  }, [])
 
   return (
     <aside className={`${collapsed ? 'w-12' : 'w-48'} bg-stone-100 border-r border-stone-200 flex flex-col py-4 flex-shrink-0 overflow-y-auto transition-all duration-200`}>

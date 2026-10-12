@@ -50,8 +50,6 @@ export default function Inspiration() {
   const [newTags, setNewTags] = useState([])
   const [newColor, setNewColor] = useState(TAG_COLORS[0])
 
-  useEffect(() => { load() }, [])
-
   async function load() {
     const { data } = await supabase.from('inspiration').select('*').order('created_at', { ascending: false })
     setCards(data || [])
@@ -61,6 +59,8 @@ export default function Inspiration() {
     setAllTags([...tags].sort())
     setLoading(false)
   }
+
+  useEffect(() => { load() }, [])
 
   async function createCard() {
     const title = newTitle.trim()

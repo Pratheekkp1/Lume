@@ -96,21 +96,9 @@ export default function AlbumView() {
   const [showCategoryPanel, setShowCategoryPanel] = useState(false);
   const [linkedPosts, setLinkedPosts] = useState([]);
 
-  useEffect(() => {
-    recordOpen('album', collectionId);
-    fetchCollection();
-    fetchPhotos();
-    fetchAllCategories();
-  }, [collectionId]);
-
   async function fetchCollection() {
     const { data } = await supabase.from("collections").select("*").eq("id", collectionId).single();
     if (data) setCollection(data);
-  }
-
-  async function updateCollectionStatus(status) {
-    await supabase.from("collections").update({ status }).eq("id", collectionId);
-    setCollection(prev => ({ ...prev, status }));
   }
 
   async function fetchPhotos() {
@@ -136,6 +124,18 @@ export default function AlbumView() {
   async function fetchAllCategories() {
     const { data } = await supabase.from("categories").select("*").eq("type", "photo").order("name");
     setAllCategories(data || []);
+  }
+
+  useEffect(() => {
+    recordOpen('album', collectionId);
+    fetchCollection();
+    fetchPhotos();
+    fetchAllCategories();
+  }, [collectionId]);
+
+  async function updateCollectionStatus(status) {
+    await supabase.from("collections").update({ status }).eq("id", collectionId);
+    setCollection(prev => ({ ...prev, status }));
   }
 
   async function toggleCategory(cat) {
@@ -204,11 +204,12 @@ export default function AlbumView() {
     setLinkedPosts([]);
   }
 
+  const selectedPhotoId = selectedPhoto?.id;
   const notesSaveFn = useCallback(async (val) => {
-    if (!selectedPhoto) return;
-    await supabase.from("photos").update({ notes: val }).eq("id", selectedPhoto.id);
-    setPhotos((prev) => prev.map((p) => (p.id === selectedPhoto.id ? { ...p, notes: val } : p)));
-  }, [selectedPhoto?.id]);
+    if (!selectedPhotoId) return;
+    await supabase.from("photos").update({ notes: val }).eq("id", selectedPhotoId);
+    setPhotos((prev) => prev.map((p) => (p.id === selectedPhotoId ? { ...p, notes: val } : p)));
+  }, [selectedPhotoId]);
 
   const { saved: notesSaved, triggerSave: triggerNotesSave, flush: flushNotes } = useDebouncedSave(notesSaveFn);
 

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { supabase, uniqueFileName, userStoragePath } from "../../lib/supabase";
 
@@ -58,17 +58,14 @@ export default function PhotoUploader({ collectionId, onUploadComplete }) {
     }
   }
 
-  const onDrop = useCallback(
-    (acceptedFiles) => {
-      const hasPdf = acceptedFiles.some((f) => f.name.toLowerCase().endsWith(".pdf"));
-      if (hasPdf) {
-        setPdfConfirmFiles(acceptedFiles);
-      } else {
-        processUpload(acceptedFiles);
-      }
-    },
-    [collectionId, onUploadComplete]
-  );
+  function onDrop(acceptedFiles) {
+    const hasPdf = acceptedFiles.some((f) => f.name.toLowerCase().endsWith(".pdf"));
+    if (hasPdf) {
+      setPdfConfirmFiles(acceptedFiles);
+    } else {
+      processUpload(acceptedFiles);
+    }
+  }
 
   function confirmPdfs() {
     const files = pdfConfirmFiles;

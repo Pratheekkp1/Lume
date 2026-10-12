@@ -21,14 +21,14 @@ export default function SearchResults() {
   const [loading, setLoading] = useState(false)
   const [activeSection, setActiveSection] = useState('all')
 
-  useEffect(() => {
-    if (q.trim()) {
-      recordSearch(q.trim())
-      runFullSearch(q.trim())
-    } else {
-      setResults(null)
-    }
-  }, [q])
+  function dedup(arr, key) {
+    const seen = new Set()
+    return arr.filter(item => {
+      if (seen.has(item[key])) return false
+      seen.add(item[key])
+      return true
+    })
+  }
 
   async function runFullSearch(query) {
     setLoading(true)
@@ -139,14 +139,14 @@ export default function SearchResults() {
     setLoading(false)
   }
 
-  function dedup(arr, key) {
-    const seen = new Set()
-    return arr.filter(item => {
-      if (seen.has(item[key])) return false
-      seen.add(item[key])
-      return true
-    })
-  }
+  useEffect(() => {
+    if (q.trim()) {
+      recordSearch(q.trim())
+      runFullSearch(q.trim())
+    } else {
+      setResults(null)
+    }
+  }, [q])
 
   function getStatusBadge(status, type) {
     const map = type === 'post' ? POST_STATUSES : type === 'audio' ? SOUND_STATUSES : STATUSES

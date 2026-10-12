@@ -23,8 +23,6 @@ export default function Campaigns() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [duplicating, setDuplicating] = useState(null)
 
-  useEffect(() => { fetchCampaigns() }, [])
-
   async function fetchCampaigns() {
     const { data: camps } = await supabase
       .from('campaigns')
@@ -56,6 +54,8 @@ export default function Campaigns() {
     })))
     setLoading(false)
   }
+
+  useEffect(() => { fetchCampaigns() }, [])
 
   async function handleCreate(fields) {
     const { data, error } = await supabase.from('campaigns').insert(fields).select('*').single()

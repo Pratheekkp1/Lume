@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { PLATFORMS } from '../lib/constants'
 
-
 const TABS = [
   { key: 'colors', label: 'Colors' },
   { key: 'tone', label: 'Tone of Voice' },
@@ -102,13 +101,13 @@ function ColorsTab() {
   const [addingPalette, setAddingPalette] = useState(false)
   const [copiedCSS, setCopiedCSS] = useState(false)
 
-  useEffect(() => { load() }, [])
-
   async function load() {
     const { data } = await supabase.from('brand_kit').select('value').eq('key', 'colors').single()
     setPalettes(data?.value?.palettes || [])
     setLoading(false)
   }
+
+  useEffect(() => { load() }, [])
 
   async function save(updated) {
     setSaving(true)
@@ -309,8 +308,6 @@ function ToneTab() {
   const [toneKeywords, setToneKeywords] = useState([])
   const [keywordInput, setKeywordInput] = useState('')
 
-  useEffect(() => { load() }, [])
-
   async function load() {
     const [{ data: toneData }, { data: kwData }] = await Promise.all([
       supabase.from('brand_kit').select('value').eq('key', 'tone').single(),
@@ -320,6 +317,8 @@ function ToneTab() {
     setToneKeywords(kwData?.value || [])
     setLoading(false)
   }
+
+  useEffect(() => { load() }, [])
 
   function handleChange(val) {
     setNotes(val)
@@ -404,13 +403,13 @@ function CaptionsTab() {
   const [newText, setNewText] = useState('')
   const [copied, setCopied] = useState(null)
 
-  useEffect(() => { load() }, [])
-
   async function load() {
     const { data } = await supabase.from('brand_kit').select('value').eq('key', 'captions').single()
     setBlocks(data?.value?.blocks || [])
     setLoading(false)
   }
+
+  useEffect(() => { load() }, [])
 
   async function save(updated) {
     setSaving(true)
@@ -743,8 +742,6 @@ function PillarsTab() {
   const [newEmoji, setNewEmoji] = useState(PILLAR_EMOJIS[0])
   const [postCounts, setPostCounts] = useState({}) // pillar_id -> count
 
-  useEffect(() => { load() }, [])
-
   async function load() {
     const [{ data: pillarData }, { data: postData }] = await Promise.all([
       supabase.from('content_pillars').select('*').order('created_at'),
@@ -756,6 +753,8 @@ function PillarsTab() {
     setPostCounts(counts)
     setLoading(false)
   }
+
+  useEffect(() => { load() }, [])
 
   async function createPillar() {
     const name = newName.trim()

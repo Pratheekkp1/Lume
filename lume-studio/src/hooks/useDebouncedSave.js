@@ -7,8 +7,10 @@ export default function useDebouncedSave(saveFn, delay = 500, fadeDelay = 2000) 
   const pendingValueRef = useRef(null)
   const saveFnRef = useRef(saveFn)
 
-  // Keep saveFn ref current without triggering effects
-  saveFnRef.current = saveFn
+  // Keep saveFn ref current without re-creating the callbacks below
+  useEffect(() => {
+    saveFnRef.current = saveFn
+  })
 
   const flush = useCallback(() => {
     if (timerRef.current) {

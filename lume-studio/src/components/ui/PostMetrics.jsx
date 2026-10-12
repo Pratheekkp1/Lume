@@ -18,10 +18,6 @@ export default function PostMetrics({ postId, platforms }) {
 
   const hasPlatforms = platforms && platforms.length > 0
 
-  useEffect(() => {
-    if (hasPlatforms) fetchMetrics()
-  }, [postId, JSON.stringify(platforms)])
-
   async function fetchMetrics() {
     const { data } = await supabase
       .from('post_metrics')
@@ -36,6 +32,10 @@ export default function PostMetrics({ postId, platforms }) {
     }
     setMetrics(latest)
   }
+
+  useEffect(() => {
+    if (hasPlatforms) fetchMetrics()
+  }, [postId, JSON.stringify(platforms)])
 
   function startEdit(platform) {
     const existing = metrics.find(m => m.platform === platform)

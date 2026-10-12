@@ -492,34 +492,6 @@ export default function PostView() {
 
   const fileInputRef = useRef(null)
 
-  useEffect(() => {
-    fetchAll()
-    recordOpen('post', postId)
-  }, [postId])
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    function handleKey(e) {
-      const tag = document.activeElement?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return
-      if (e.key === 'f' || e.key === 'F') {
-        e.preventDefault()
-        setFocusMode(v => !v)
-      }
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [])
-
-  // Listen for global drag-and-drop forwarded files
-  useEffect(() => {
-    function onGlobalDrop(e) {
-      handleFiles(e.detail.files)
-    }
-    window.addEventListener('lume-global-drop', onGlobalDrop)
-    return () => window.removeEventListener('lume-global-drop', onGlobalDrop)
-  })
-
   async function fetchAll() {
     const [{ data: postData }, { data: assetData }, { data: catJoins }, { data: allCats }, { data: photoLinks }, { data: trackLinks }, { data: variantData }, { data: pillarData }] = await Promise.all([
       supabase.from('posts').select('*').eq('id', postId).single(),
@@ -583,6 +555,56 @@ export default function PostView() {
 
     setLoading(false)
   }
+
+  useEffect(() => {
+    fetchAll()
+    recordOpen('post', postId)
+  }, [postId])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    function handleKey(e) {
+      const tag = document.activeElement?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault()
+        setFocusMode(v => !v)
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [])
+
+  async function handleFiles(files) {
+    if (!files || files.length === 0) return
+    setUploading(true)
+    for (const file of Array.from(files)) {
+      const path = await userStoragePath('post-assets', postId, uniqueFileName(file))
+      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file)
+      if (upErr) continue
+      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path)
+      const fileType = file.type.startsWith('video') ? 'video'
+        : file.type.startsWith('audio') ? 'audio'
+        : file.type.startsWith('image') ? 'image'
+        : 'other'
+      const { data: asset } = await supabase
+        .from('post_assets')
+        .insert({ post_id: postId, file_path: urlData.publicUrl, file_type: fileType, order_index: assets.length })
+        .select()
+        .single()
+      if (asset) setAssets(prev => [...prev, asset])
+    }
+    setUploading(false)
+  }
+
+  // Listen for global drag-and-drop forwarded files
+  useEffect(() => {
+    function onGlobalDrop(e) {
+      handleFiles(e.detail.files)
+    }
+    window.addEventListener('lume-global-drop', onGlobalDrop)
+    return () => window.removeEventListener('lume-global-drop', onGlobalDrop)
+  })
 
   // ── Caption History ─────────────────────────────────────────────────────────
 
@@ -791,28 +813,6 @@ export default function PostView() {
 
   // ── Asset upload / delete ───────────────────────────────────────────────────
 
-  async function handleFiles(files) {
-    if (!files || files.length === 0) return
-    setUploading(true)
-    for (const file of Array.from(files)) {
-      const path = await userStoragePath('post-assets', postId, uniqueFileName(file))
-      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file)
-      if (upErr) continue
-      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path)
-      const fileType = file.type.startsWith('video') ? 'video'
-        : file.type.startsWith('audio') ? 'audio'
-        : file.type.startsWith('image') ? 'image'
-        : 'other'
-      const { data: asset } = await supabase
-        .from('post_assets')
-        .insert({ post_id: postId, file_path: urlData.publicUrl, file_type: fileType, order_index: assets.length })
-        .select()
-        .single()
-      if (asset) setAssets(prev => [...prev, asset])
-    }
-    setUploading(false)
-  }
-
   async function handleDeleteAsset() {
     const asset = deleteAssetTarget
     const url = asset.file_path
@@ -965,7 +965,7 @@ export default function PostView() {
     setDragItem(null)
   }
 
-  function applyNewOrder(newList, tabKind) {
+  function applyNewOrder(newList) {
     const updatedAssets = []
     const updatedLinkedPhotos = []
     const updatedLinkedTracks = []
@@ -2448,7 +2448,7 @@ function CropNotesEditor({ value, onSave }) {
 
 const PRESET_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899','#78716c']
 
-function CategoryPanel({ categories, type, onClose, onCreate, onDelete }) {
+function CategoryPanel({ categories, onClose, onCreate, onDelete }) {
   const [name, setName] = useState('')
   const [color, setColor] = useState(PRESET_COLORS[0])
   const [saving, setSaving] = useState(false)

@@ -439,13 +439,13 @@ function TemplatesSection() {
   const [editing, setEditing] = useState(null) // null = closed, {} = new, {id,...} = edit
   const [confirmDelete, setConfirmDelete] = useState(null)
 
-  useEffect(() => { loadTemplates() }, [])
-
   async function loadTemplates() {
     const { data } = await supabase.from('post_templates').select('*').order('created_at', { ascending: false })
     setTemplates(data || [])
     setLoading(false)
   }
+
+  useEffect(() => { loadTemplates() }, [])
 
   async function handleSave(fields) {
     if (editing?.id) {
@@ -663,12 +663,11 @@ function TemplateFormModal({ initial, onSave, onClose }) {
 }
 
 function TrashSection() {
+  const [now] = useState(() => Date.now())
   const [trash, setTrash] = useState(null)
   const [loading, setLoading] = useState(true)
   const [confirmPermanent, setConfirmPermanent] = useState(null)
   const [confirmEmpty, setConfirmEmpty] = useState(false)
-
-  useEffect(() => { loadTrash() }, [])
 
   async function loadTrash() {
     setLoading(true)
@@ -677,8 +676,10 @@ function TrashSection() {
     setLoading(false)
   }
 
+  useEffect(() => { loadTrash() }, [])
+
   function daysRemaining(deletedAt) {
-    const days = 30 - Math.floor((Date.now() - new Date(deletedAt).getTime()) / (1000 * 60 * 60 * 24))
+    const days = 30 - Math.floor((now - new Date(deletedAt).getTime()) / (1000 * 60 * 60 * 24))
     return Math.max(0, days)
   }
 
@@ -834,8 +835,6 @@ function GoalsSection() {
   const [weekProgress, setWeekProgress] = useState({}) // platform -> published count this week
   const [streak, setStreak] = useState(0)
 
-  useEffect(() => { loadAll() }, [])
-
   async function loadAll() {
     const [{ data: goalsData }, { data: posts }] = await Promise.all([
       supabase.from('posting_goals').select('*').order('created_at'),
@@ -887,6 +886,8 @@ function GoalsSection() {
 
     setLoading(false)
   }
+
+  useEffect(() => { loadAll() }, [])
 
   async function addGoal() {
     const existing = goals.find(g => g.platform === newPlatform)

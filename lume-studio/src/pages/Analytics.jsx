@@ -24,8 +24,6 @@ export default function Analytics() {
   const [editingGoals, setEditingGoals] = useState(false)
   const [pillars, setPillars] = useState([])
 
-  useEffect(() => { fetchAll() }, [])
-
   async function fetchAll() {
     const [{ data: postData }, { data: metricData }, { data: pillarData }] = await Promise.all([
       supabase
@@ -46,13 +44,14 @@ export default function Analytics() {
     setLoading(false)
   }
 
+  useEffect(() => { fetchAll() }, [])
+
   if (loading) return <div className="p-7 text-stone-400 text-sm">Loading...</div>
 
   // ── Derived data ───────────────────────────────────────────
 
   const published = posts.filter(p => p.status === 'published')
   const now = new Date()
-  const cutoff = new Date(now.getFullYear(), now.getMonth() - timeRange + 1, 1)
 
   // Monthly published posts (last N months)
   const monthlyData = buildMonthlyData(published, timeRange)
@@ -630,7 +629,6 @@ export default function Analytics() {
 function BarChart({ data, color, height, valueKey, labelKey }) {
   if (!data.length) return <p className="text-sm text-stone-400">No data yet.</p>
   const max = Math.max(...data.map(d => d[valueKey]), 1)
-  const barW = Math.max(8, Math.min(40, Math.floor(600 / data.length) - 4))
 
   return (
     <div className="flex items-end gap-1" style={{ height }}>

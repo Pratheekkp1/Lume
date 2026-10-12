@@ -5,12 +5,14 @@ import { fetchTrashed, restoreItem, permanentDelete, ENTITY_TYPES } from '../lib
 const TYPE_CONFIG = {
   posts:         { label: 'Posts',         icon: '▷', type: ENTITY_TYPES.POST,          nameFn: r => r.title,  pathFn: r => `/posts/${r.id}` },
   collections:   { label: 'Albums',        icon: '◻', type: ENTITY_TYPES.COLLECTION,    nameFn: r => r.name,   pathFn: r => `/media/${r.id}` },
-  audioProjects: { label: 'Sound Projects', icon: '♩', type: ENTITY_TYPES.AUDIO_PROJECT, nameFn: r => r.name,   pathFn: r => null },
+  audioProjects: { label: 'Sound Projects', icon: '♩', type: ENTITY_TYPES.AUDIO_PROJECT, nameFn: r => r.name,   pathFn: () => null },
   photos:        { label: 'Photos',         icon: '◻', type: ENTITY_TYPES.PHOTO,         nameFn: r => r.name,   pathFn: r => r.collection_id ? `/media/${r.collection_id}` : null },
-  audioTracks:   { label: 'Tracks',         icon: '♩', type: ENTITY_TYPES.AUDIO_TRACK,   nameFn: r => r.name,   pathFn: r => null },
+  audioTracks:   { label: 'Tracks',         icon: '♩', type: ENTITY_TYPES.AUDIO_TRACK,   nameFn: r => r.name,   pathFn: () => null },
 }
 
 export default function Trash() {
+  // Fixed for the lifetime of the page so relative dates are stable across re-renders
+  const [now] = useState(() => Date.now())
   const navigate = useNavigate()
   const [trashed, setTrashed] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -19,14 +21,14 @@ export default function Trash() {
   const [confirmPurge, setConfirmPurge] = useState(false)
   const [activeType, setActiveType] = useState('all')
 
-  useEffect(() => { load() }, [])
-
   async function load() {
     setLoading(true)
     const data = await fetchTrashed()
     setTrashed(data)
     setLoading(false)
   }
+
+  useEffect(() => { load() }, [])
 
   async function handleRestore(entityType, item) {
     setRestoringId(item.id)
@@ -68,7 +70,7 @@ export default function Trash() {
 
   function timeAgo(dateStr) {
     if (!dateStr) return ''
-    const diff = Date.now() - new Date(dateStr).getTime()
+    const diff = now - new Date(dateStr).getTime()
     const days = Math.floor(diff / 86400000)
     if (days === 0) return 'today'
     if (days === 1) return 'yesterday'
@@ -81,7 +83,7 @@ export default function Trash() {
     if (!dateStr) return null
     const deleted = new Date(dateStr)
     const purge = new Date(deleted.getTime() + 30 * 86400000)
-    const remaining = Math.ceil((purge - Date.now()) / 86400000)
+    const remaining = Math.ceil((purge - now) / 86400000)
     return remaining > 0 ? remaining : 0
   }
 

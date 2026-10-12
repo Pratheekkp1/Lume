@@ -70,6 +70,20 @@ export default function GlobalDropZone({ children }) {
     e.dataTransfer.dropEffect = 'copy'
   }, [])
 
+  async function uploadMediaToAlbum(files, albumId) {
+    const results = await Promise.all(files.map(f => uploadPhotoToAlbum(f, albumId)))
+    const success = results.filter(Boolean).length
+    showToast(`${success} ${success === 1 ? 'file' : 'files'} uploaded to album`, `/media/${albumId}`)
+    window.dispatchEvent(new CustomEvent('lume-media-updated'))
+  }
+
+  async function uploadAudioToProject(files, projectId) {
+    const results = await Promise.all(files.map(f => uploadTrackToProject(f, projectId)))
+    const success = results.filter(Boolean).length
+    showToast(`${success} ${success === 1 ? 'track' : 'tracks'} uploaded to project`, `/sounds/${projectId}`)
+    window.dispatchEvent(new CustomEvent('lume-sounds-updated'))
+  }
+
   const handleDrop = useCallback((e) => {
     dragCounter.current = 0
     setIsDragging(false)
@@ -131,20 +145,6 @@ export default function GlobalDropZone({ children }) {
     }
     setShowModal(true)
   }, [location.pathname])
-
-  async function uploadMediaToAlbum(files, albumId) {
-    const results = await Promise.all(files.map(f => uploadPhotoToAlbum(f, albumId)))
-    const success = results.filter(Boolean).length
-    showToast(`${success} ${success === 1 ? 'file' : 'files'} uploaded to album`, `/media/${albumId}`)
-    window.dispatchEvent(new CustomEvent('lume-media-updated'))
-  }
-
-  async function uploadAudioToProject(files, projectId) {
-    const results = await Promise.all(files.map(f => uploadTrackToProject(f, projectId)))
-    const success = results.filter(Boolean).length
-    showToast(`${success} ${success === 1 ? 'track' : 'tracks'} uploaded to project`, `/sounds/${projectId}`)
-    window.dispatchEvent(new CustomEvent('lume-sounds-updated'))
-  }
 
   async function handleModalSelect({ albumId, projectId }) {
     setShowModal(false)

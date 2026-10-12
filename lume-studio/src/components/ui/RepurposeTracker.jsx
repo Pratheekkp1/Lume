@@ -9,8 +9,6 @@ export default function RepurposeTracker({ postId }) {
   const [expanded, setExpanded] = useState(false)
   const [showPicker, setShowPicker] = useState(false)
 
-  useEffect(() => { fetchLineage() }, [postId])
-
   async function fetchLineage() {
     const [{ data: self }, { data: children }] = await Promise.all([
       supabase
@@ -27,6 +25,8 @@ export default function RepurposeTracker({ postId }) {
     setSourcePost(self?.source || null)
     setDerivatives(children || [])
   }
+
+  useEffect(() => { fetchLineage() }, [postId])
 
   async function setSource(sourceId) {
     await supabase.from('posts').update({ repurposed_from_post_id: sourceId }).eq('id', postId)

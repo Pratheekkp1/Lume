@@ -24,6 +24,10 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Pages load their data with fetch-in-useEffect (setLoading/setData), which this
+      // React Compiler rule flags. Kept visible as a warning until data fetching moves
+      // to a query library (see README roadmap) rather than suppressed per line.
+      'react-hooks/set-state-in-effect': 'warn',
     },
   },
 ])

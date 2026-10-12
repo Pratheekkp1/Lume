@@ -188,8 +188,6 @@ export default function CampaignView() {
   const [showAddPosts, setShowAddPosts] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  useEffect(() => { fetchAll() }, [campaignId])
-
   async function fetchAll() {
     const [{ data: camp }, { data: links }] = await Promise.all([
       supabase.from('campaigns').select('*').eq('id', campaignId).single(),
@@ -202,6 +200,8 @@ export default function CampaignView() {
     setPosts((links || []).map(l => l.posts).filter(Boolean))
     setLoading(false)
   }
+
+  useEffect(() => { fetchAll() }, [campaignId])
 
   async function handleUpdate(fields) {
     const { error } = await supabase.from('campaigns').update(fields).eq('id', campaignId)
@@ -231,7 +231,6 @@ export default function CampaignView() {
   if (loading) return <div className="p-7 text-stone-400 text-sm">Loading...</div>
   if (!campaign) return <div className="p-7 text-stone-400 text-sm">Campaign not found.</div>
 
-  const status = CAMPAIGN_STATUSES[campaign.status] || CAMPAIGN_STATUSES.planning
   const publishedCount = posts.filter(p => p.status === 'published').length
   const pct = posts.length > 0 ? Math.round((publishedCount / posts.length) * 100) : 0
 
@@ -548,7 +547,7 @@ function EditCampaignModal({ campaign, onSave, onClose }) {
   )
 }
 
-function AddPostsModal({ campaignId, existingPostIds, onAdd, onClose }) {
+function AddPostsModal({ existingPostIds, onAdd, onClose }) {
   const [allPosts, setAllPosts] = useState([])
   const [selected, setSelected] = useState(new Set())
   const [loading, setLoading] = useState(true)

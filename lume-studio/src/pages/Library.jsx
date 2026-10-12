@@ -43,16 +43,6 @@ export default function Library() {
   // Sound project sort
   const [soundSort, setSoundSort] = useState('newest')
 
-  useEffect(() => {
-    fetchAll()
-    window.addEventListener('lume-media-updated', fetchAll)
-    window.addEventListener('lume-sounds-updated', fetchAll)
-    return () => {
-      window.removeEventListener('lume-media-updated', fetchAll)
-      window.removeEventListener('lume-sounds-updated', fetchAll)
-    }
-  }, [])
-
   async function fetchAll() {
     const [albumResult, soundResult, eventResult, linkedResult] = await Promise.all([
       supabase
@@ -108,6 +98,16 @@ export default function Library() {
     setEvents(eventResult.data || [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    fetchAll()
+    window.addEventListener('lume-media-updated', fetchAll)
+    window.addEventListener('lume-sounds-updated', fetchAll)
+    return () => {
+      window.removeEventListener('lume-media-updated', fetchAll)
+      window.removeEventListener('lume-sounds-updated', fetchAll)
+    }
+  }, [])
 
   function notifyUpdated() {
     window.dispatchEvent(new CustomEvent('lume-media-updated'))
@@ -910,7 +910,6 @@ function EditAlbumModal({ album, events, albums, onSave, onDelete, onClose }) {
   const [status, setStatus] = useState(album.status || 'unedited')
   const [eventId, setEventId] = useState(album.event_id || '')
   const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()

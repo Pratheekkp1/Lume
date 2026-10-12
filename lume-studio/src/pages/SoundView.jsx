@@ -57,7 +57,40 @@ export default function SoundView() {
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [shuffleMode, setShuffleMode] = useState(false);
-  const [shuffleOrder, setShuffleOrder] = useState([]);
+
+  const selectedTrackId = selectedTrack?.id;
+  const notesSaveFn = useCallback(async (val) => {
+    if (!selectedTrackId) return;
+    await supabase.from("audio_tracks").update({ notes: val }).eq("id", selectedTrackId);
+    setTracks((prev) => prev.map((t) => t.id === selectedTrackId ? { ...t, notes: val } : t));
+  }, [selectedTrackId]);
+
+  const { saved: notesSaved, triggerSave: triggerNotesSave, flush: flushNotes } = useDebouncedSave(notesSaveFn);
+
+  async function fetchProject() {
+    const { data } = await supabase.from("audio_projects").select("*").eq("id", projectId).single();
+    if (data) setProject(data);
+  }
+
+  async function fetchTracks() {
+    const { data } = await supabase
+      .from("audio_tracks")
+      .select("*")
+      .eq("project_id", projectId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true });
+    if (data) setTracks(data);
+    setLoading(false);
+  }
+
+  async function fetchCategories() {
+    const { data } = await supabase
+      .from("categories")
+      .select("*")
+      .eq("type", "audio_track")
+      .order("created_at", { ascending: true });
+    setCategories(data || []);
+  }
 
   useEffect(() => {
     recordOpen('sound', projectId);
@@ -65,6 +98,27 @@ export default function SoundView() {
     fetchTracks();
     fetchCategories();
   }, [projectId]);
+
+  async function fetchLinkedPosts(trackId) {
+    const { data } = await supabase
+      .from("post_linked_tracks")
+      .select("post:posts(id, title)")
+      .eq("track_id", trackId);
+    setLinkedPosts((data || []).map(d => d.post).filter(Boolean));
+  }
+
+  function switchTrack(track) {
+    flushNotes();
+    selectedTrackRef.current = track;
+    setPlayingTrack(track);
+    setSelectedTrack((prev) => {
+      if (!prev) return null;
+      setNotes(track.notes || "");
+      setConfirmDelete(false);
+      fetchLinkedPosts(track.id);
+      return track;
+    });
+  }
 
   // Wire audio events once
   useEffect(() => {
@@ -144,6 +198,24 @@ export default function SoundView() {
     return () => document.removeEventListener("mousedown", close);
   }, [showSpeedMenu]);
 
+  function togglePlay() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.paused ? audio.play().catch(() => {}) : audio.pause();
+  }
+
+  function goPrev() {
+    const all = tracksRef.current;
+    const idx = all.findIndex((t) => t.id === selectedTrackRef.current?.id);
+    if (idx > 0) switchTrack(all[idx - 1]);
+  }
+
+  function goNext() {
+    const all = tracksRef.current;
+    const idx = all.findIndex((t) => t.id === selectedTrackRef.current?.id);
+    if (idx !== -1 && idx < all.length - 1) switchTrack(all[idx + 1]);
+  }
+
   // Keyboard shortcuts: Space=play/pause, ←/→=prev/next track, Shift+←/→=seek ±10s
   useEffect(() => {
     function onKey(e) {
@@ -175,12 +247,6 @@ export default function SoundView() {
     return () => window.removeEventListener("keydown", onKey);
   }, [playingTrack]);
 
-  function togglePlay() {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.paused ? audio.play().catch(() => {}) : audio.pause();
-  }
-
   function seek(e) {
     const audio = audioRef.current;
     if (!audio || !duration) return;
@@ -188,52 +254,15 @@ export default function SoundView() {
     audio.currentTime = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * duration;
   }
 
-  function goPrev() {
-    const all = tracksRef.current;
-    const idx = all.findIndex((t) => t.id === selectedTrackRef.current?.id);
-    if (idx > 0) switchTrack(all[idx - 1]);
-  }
-
-  function goNext() {
-    const all = tracksRef.current;
-    const idx = all.findIndex((t) => t.id === selectedTrackRef.current?.id);
-    if (idx !== -1 && idx < all.length - 1) switchTrack(all[idx + 1]);
-  }
-
-  async function fetchProject() {
-    const { data } = await supabase.from("audio_projects").select("*").eq("id", projectId).single();
-    if (data) setProject(data);
-  }
-
-  async function fetchTracks() {
-    const { data } = await supabase
-      .from("audio_tracks")
-      .select("*")
-      .eq("project_id", projectId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: true });
-    if (data) setTracks(data);
-    setLoading(false);
-  }
-
   async function updateProjectStatus(status) {
     await supabase.from("audio_projects").update({ status }).eq("id", projectId);
     setProject(prev => ({ ...prev, status }));
   }
 
-  async function fetchCategories() {
-    const { data } = await supabase
-      .from("categories")
-      .select("*")
-      .eq("type", "audio_track")
-      .order("created_at", { ascending: true });
-    setCategories(data || []);
-  }
-
   async function createCategory() {
     const name = newCatName.trim();
     if (!name) return;
-    const { error } = await supabase.from("categories").insert({ name, color: "#a8a29e", type: "audio_track" });
+    await supabase.from("categories").insert({ name, color: "#a8a29e", type: "audio_track" });
     setNewCatName("");
     setShowNewCat(false);
     fetchCategories();
@@ -257,14 +286,6 @@ export default function SoundView() {
     if (playingTrack?.id === selectedTrack.id) setPlayingTrack((p) => ({ ...p, category_id: newVal }));
   }
 
-  async function fetchLinkedPosts(trackId) {
-    const { data } = await supabase
-      .from("post_linked_tracks")
-      .select("post:posts(id, title)")
-      .eq("track_id", trackId);
-    setLinkedPosts((data || []).map(d => d.post).filter(Boolean));
-  }
-
   function loadTrack(track) {
     flushNotes();
     selectedTrackRef.current = track;
@@ -273,19 +294,6 @@ export default function SoundView() {
     setNotes(track.notes || "");
     setConfirmDelete(false);
     fetchLinkedPosts(track.id);
-  }
-
-  function switchTrack(track) {
-    flushNotes();
-    selectedTrackRef.current = track;
-    setPlayingTrack(track);
-    setSelectedTrack((prev) => {
-      if (!prev) return null;
-      setNotes(track.notes || "");
-      setConfirmDelete(false);
-      fetchLinkedPosts(track.id);
-      return track;
-    });
   }
 
   function closeDetail() {
@@ -303,14 +311,6 @@ export default function SoundView() {
     if (selectedTrack?.id === track.id) setSelectedTrack((prev) => ({ ...prev, is_favorite: newVal }));
     if (playingTrack?.id === track.id) setPlayingTrack((prev) => ({ ...prev, is_favorite: newVal }));
   }
-
-  const notesSaveFn = useCallback(async (val) => {
-    if (!selectedTrack) return;
-    await supabase.from("audio_tracks").update({ notes: val }).eq("id", selectedTrack.id);
-    setTracks((prev) => prev.map((t) => t.id === selectedTrack.id ? { ...t, notes: val } : t));
-  }, [selectedTrack?.id]);
-
-  const { saved: notesSaved, triggerSave: triggerNotesSave, flush: flushNotes } = useDebouncedSave(notesSaveFn);
 
   async function updateStatus(status) {
     await supabase.from("audio_tracks").update({ status }).eq("id", selectedTrack.id);
@@ -396,7 +396,9 @@ export default function SoundView() {
   else if (trackSort === 'name_za') sorted.sort((a, b) => b.name.localeCompare(a.name));
   else sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-  tracksRef.current = sorted;
+  useEffect(() => {
+    tracksRef.current = sorted;
+  });
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
   const curIdx = playingTrack ? sorted.findIndex((t) => t.id === playingTrack.id) : -1;
   const hasPrev = curIdx > 0;

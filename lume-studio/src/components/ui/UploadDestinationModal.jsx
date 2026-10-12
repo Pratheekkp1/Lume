@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 
 export default function UploadDestinationModal({ mode, fileCount, onSelect, onCancel }) {
   // mode: 'album' | 'project' | 'both'
-  const navigate = useNavigate()
   const [albums, setAlbums] = useState([])
   const [projects, setProjects] = useState([])
   const [search, setSearch] = useState('')

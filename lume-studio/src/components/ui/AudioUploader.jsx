@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { supabase, uniqueFileName, userStoragePath } from "../../lib/supabase";
 
@@ -24,44 +24,41 @@ export default function AudioUploader({ projectId, onUploadComplete }) {
     return dbError ? "error" : "done";
   }
 
-  const onDrop = useCallback(
-    async (acceptedFiles) => {
-      setBusy(true);
+  async function onDrop(acceptedFiles) {
+    setBusy(true);
 
-      // Check which filenames already exist in this project
-      const { data: existing } = await supabase
-        .from("audio_tracks")
-        .select("name")
-        .eq("project_id", projectId)
-        .in("name", acceptedFiles.map((f) => f.name));
+    // Check which filenames already exist in this project
+    const { data: existing } = await supabase
+      .from("audio_tracks")
+      .select("name")
+      .eq("project_id", projectId)
+      .in("name", acceptedFiles.map((f) => f.name));
 
-      const existingNames = new Set((existing || []).map((t) => t.name));
+    const existingNames = new Set((existing || []).map((t) => t.name));
 
-      const newItems = acceptedFiles.map((f) => ({
-        file: f,
-        name: f.name,
-        status: existingNames.has(f.name) ? "duplicate" : "uploading",
-      }));
-      setItems(newItems);
+    const newItems = acceptedFiles.map((f) => ({
+      file: f,
+      name: f.name,
+      status: existingNames.has(f.name) ? "duplicate" : "uploading",
+    }));
+    setItems(newItems);
 
-      // Upload non-duplicates in parallel
-      await Promise.all(
-        newItems.map(async (item, i) => {
-          if (item.status !== "uploading") return;
-          const result = await doUpload(item.file);
-          setItems((prev) => prev.map((p, j) => (j === i ? { ...p, status: result } : p)));
-        })
-      );
+    // Upload non-duplicates in parallel
+    await Promise.all(
+      newItems.map(async (item, i) => {
+        if (item.status !== "uploading") return;
+        const result = await doUpload(item.file);
+        setItems((prev) => prev.map((p, j) => (j === i ? { ...p, status: result } : p)));
+      })
+    );
 
-      setBusy(false);
+    setBusy(false);
 
-      // If no duplicates need resolving, we're done
-      if (!newItems.some((it) => it.status === "duplicate")) {
-        onUploadComplete();
-      }
-    },
-    [projectId, onUploadComplete]
-  );
+    // If no duplicates need resolving, we're done
+    if (!newItems.some((it) => it.status === "duplicate")) {
+      onUploadComplete();
+    }
+  }
 
   async function resolveDuplicate(i, addAnyway) {
     if (addAnyway) {

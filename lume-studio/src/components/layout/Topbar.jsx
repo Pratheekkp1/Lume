@@ -58,18 +58,6 @@ export default function Topbar() {
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [])
 
-  useEffect(() => {
-    clearTimeout(debounceRef.current)
-    const q = query.trim()
-    if (!q) {
-      setResults([])
-      setOpen(false)
-      return
-    }
-    setShowRecent(false)
-    debounceRef.current = setTimeout(() => runSearch(q), 220)
-  }, [query])
-
   async function runSearch(q) {
     setSearching(true)
     setOpen(true)
@@ -105,6 +93,18 @@ export default function Topbar() {
     setOpen(true)
     setSearching(false)
   }
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current)
+    const q = query.trim()
+    if (!q) {
+      setResults([])
+      setOpen(false)
+      return
+    }
+    setShowRecent(false)
+    debounceRef.current = setTimeout(() => runSearch(q), 220)
+  }, [query])
 
   function handleSelect(item) {
     const meta = TYPE_META[item.type]

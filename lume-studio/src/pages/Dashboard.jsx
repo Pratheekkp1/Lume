@@ -38,8 +38,6 @@ export default function Dashboard() {
   const profile = getProfile()
   const greeting = getGreeting()
 
-  useEffect(() => { fetchAll() }, [])
-
   async function fetchAll() {
     const today = new Date().toISOString().split('T')[0]
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
@@ -191,6 +189,7 @@ export default function Dashboard() {
 
     setWeekPosts(weekResult.data || [])
     setActiveCampaigns(campaignData || [])
+
     setTodayPosts(todayScheduled || [])
     setOverdueCount((overduePosts || []).length)
     setReadyIdeasCount((readyIdeas || []).length)
@@ -212,6 +211,8 @@ export default function Dashboard() {
 
     setLoading(false)
   }
+
+  useEffect(() => { fetchAll() }, [])
 
   const totalStorage = storageBytes.photos + storageBytes.audio
   const totalPosts = Object.values(pipeline).reduce((s, n) => s + n, 0)

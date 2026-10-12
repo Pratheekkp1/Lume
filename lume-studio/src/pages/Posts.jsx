@@ -41,6 +41,43 @@ export default function Posts() {
   const [campaigns, setCampaigns] = useState([])
   const [addToCampaignMsg, setAddToCampaignMsg] = useState('')
 
+  async function fetchCovers(postIds) {
+    if (!postIds.length) return
+    const { data: assets } = await supabase
+      .from('post_assets')
+      .select('post_id, file_path, file_type')
+      .in('post_id', postIds)
+      .in('file_type', ['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'image/gif'])
+      .order('order_index')
+      .order('created_at')
+    const map = {}
+    for (const a of (assets || [])) {
+      if (!map[a.post_id]) map[a.post_id] = supabase.storage.from('Photos').getPublicUrl(a.file_path).data.publicUrl
+    }
+    setCoverMap(map)
+  }
+
+  async function fetchPosts() {
+    const { data } = await supabase
+      .from('posts')
+      .select('id, title, type, status, platform, created_at, scheduled_date, post_categories(category:categories(id,name,color))')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+    setPosts(data || [])
+    setLoading(false)
+    fetchCovers((data || []).map(p => p.id))
+  }
+
+  async function fetchTemplates() {
+    const { data } = await supabase.from('post_templates').select('*').order('created_at', { ascending: false })
+    setTemplates(data || [])
+  }
+
+  async function fetchCampaigns() {
+    const { data } = await supabase.from('campaigns').select('id, name, color, status').is('deleted_at', null).order('name')
+    setCampaigns(data || [])
+  }
+
   useEffect(() => {
     fetchPosts()
     fetchTemplates()
@@ -66,43 +103,6 @@ export default function Posts() {
     const s = searchParams.get('status')
     if (s && s !== filterStatus) setFilterStatus(s)
   }, [searchParams])
-
-  async function fetchPosts() {
-    const { data } = await supabase
-      .from('posts')
-      .select('id, title, type, status, platform, created_at, scheduled_date, post_categories(category:categories(id,name,color))')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-    setPosts(data || [])
-    setLoading(false)
-    fetchCovers((data || []).map(p => p.id))
-  }
-
-  async function fetchCovers(postIds) {
-    if (!postIds.length) return
-    const { data: assets } = await supabase
-      .from('post_assets')
-      .select('post_id, file_path, file_type')
-      .in('post_id', postIds)
-      .in('file_type', ['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'image/gif'])
-      .order('order_index')
-      .order('created_at')
-    const map = {}
-    for (const a of (assets || [])) {
-      if (!map[a.post_id]) map[a.post_id] = supabase.storage.from('Photos').getPublicUrl(a.file_path).data.publicUrl
-    }
-    setCoverMap(map)
-  }
-
-  async function fetchTemplates() {
-    const { data } = await supabase.from('post_templates').select('*').order('created_at', { ascending: false })
-    setTemplates(data || [])
-  }
-
-  async function fetchCampaigns() {
-    const { data } = await supabase.from('campaigns').select('id, name, color, status').is('deleted_at', null).order('name')
-    setCampaigns(data || [])
-  }
 
   async function bulkAddToCampaign(campaignId) {
     const ids = [...selectedIds]
@@ -784,10 +784,8 @@ function BatchScheduleModal({ posts, onConfirm, onClose }) {
   const [startDate, setStartDate] = useState(today)
   const [interval, setInterval] = useState('daily')
   const [assignments, setAssignments] = useState(() =>
-    posts.map((p, i) => ({ postId: p.id, title: p.title, date: '' }))
+    posts.map(p => ({ postId: p.id, title: p.title, date: '' }))
   )
-
-  useEffect(() => { computeDates() }, [startDate, interval])
 
   function computeDates() {
     const start = new Date(startDate + 'T00:00:00')
@@ -799,6 +797,8 @@ function BatchScheduleModal({ posts, onConfirm, onClose }) {
       return { ...a, date: d.toISOString().split('T')[0] }
     }))
   }
+
+  useEffect(() => { computeDates() }, [startDate, interval])
 
   function updateDate(postId, date) {
     setAssignments(prev => prev.map(a => a.postId === postId ? { ...a, date } : a))
@@ -1155,7 +1155,7 @@ function KanbanBoard({ posts, onNavigate, onEdit, onDelete, onStatusChange, sele
     if (dragOverCol !== statusKey) setDragOverCol(statusKey)
   }
 
-  function handleDragLeave(e, statusKey) {
+  function handleDragLeave(e) {
     if (!e.currentTarget.contains(e.relatedTarget)) {
       setDragOverCol(null)
     }
