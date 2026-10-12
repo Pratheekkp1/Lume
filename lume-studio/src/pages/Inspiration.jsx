@@ -474,7 +474,7 @@ export default function Inspiration() {
   )
 }
 
-function InspirationCard({ card, expanded, onToggle, onUpdate, onDelete, onTogglePin }) {
+function InspirationCard({ card, expanded, onToggle, onUpdate, onDelete, onTogglePin, onToggleFavorite }) {
   const typeStyle = TYPE_STYLES[card.type] || { icon: '✎', color: '#a8a29e' }
   const [bodyDraft, setBodyDraft] = useState(card.body || '')
   const bodyTimer = useRef(null)
@@ -505,7 +505,7 @@ function InspirationCard({ card, expanded, onToggle, onUpdate, onDelete, onToggl
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             <button
-              onClick={e => { e.stopPropagation(); onToggleFavorite?.() }}
+              onClick={e => { e.stopPropagation(); onToggleFavorite() }}
               className={`text-sm transition-all px-0.5 ${card.is_favorite ? 'opacity-100 text-amber-400' : 'opacity-0 group-hover:opacity-100 text-stone-300 hover:text-amber-400'}`}
               title={card.is_favorite ? 'Unstar' : 'Star'}
             >
