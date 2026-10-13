@@ -7,7 +7,26 @@ export default function Sidebar() {
   const navigate = useNavigate()
   const [recentPosts, setRecentPosts] = useState([])
   const [recentLibrary, setRecentLibrary] = useState([])
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('lume-sidebar-collapsed') === 'true')
+  const [storedCollapsed, setCollapsed] = useState(() => localStorage.getItem('lume-sidebar-collapsed') === 'true')
+  // Below the md breakpoint the sidebar is an off-canvas drawer, always shown expanded.
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const collapsed = storedCollapsed && !mobileOpen
+
+  useEffect(() => {
+    function onToggle() { setMobileOpen(v => !v) }
+    function onKey(e) { if (e.key === 'Escape') setMobileOpen(false) }
+    window.addEventListener('lume-toggle-nav', onToggle)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('lume-toggle-nav', onToggle)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [])
+
+  // Following any link in the drawer should close it.
+  function handleDrawerClick(e) {
+    if (mobileOpen && e.target.closest('a, [data-nav-link]')) setMobileOpen(false)
+  }
 
   const navClass = ({ isActive }) =>
     collapsed
@@ -74,13 +93,25 @@ export default function Sidebar() {
   }, [])
 
   return (
-    <aside className={`${collapsed ? 'w-12' : 'w-48'} bg-stone-100 border-r border-stone-200 flex flex-col py-4 flex-shrink-0 overflow-y-auto transition-all duration-200`}>
+    <>
+    {mobileOpen && (
+      <div className="md:hidden fixed inset-0 z-40 bg-stone-900/30" onClick={() => setMobileOpen(false)} aria-hidden="true" />
+    )}
+    <aside
+      onClick={handleDrawerClick}
+      className={`${collapsed ? 'md:w-12' : 'md:w-48'} w-64 fixed inset-y-0 left-0 z-50 shadow-xl md:shadow-none md:static md:z-auto ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 bg-stone-100 border-r border-stone-200 flex flex-col py-4 flex-shrink-0 overflow-y-auto transition-all duration-200`}
+    >
 
-      {/* Collapse toggle */}
-      <div className={`${collapsed ? 'flex justify-center' : 'flex justify-end px-3'} mb-2`}>
+      {/* Collapse toggle (desktop only; on mobile it closes the drawer) */}
+      <div className="flex justify-end px-3 mb-2 md:hidden">
+        <button onClick={() => setMobileOpen(false)} className="text-stone-400 hover:text-stone-700 transition-colors text-sm p-1" aria-label="Close navigation">
+          ✕
+        </button>
+      </div>
+      <div className={`hidden md:flex ${collapsed ? 'justify-center' : 'justify-end px-3'} mb-2`}>
         <button
           onClick={() => {
-            const next = !collapsed
+            const next = !storedCollapsed
             setCollapsed(next)
             localStorage.setItem('lume-sidebar-collapsed', String(next))
           }}
@@ -126,6 +157,7 @@ export default function Sidebar() {
             {recentPosts.map(item => (
               <button
                 key={item.id}
+                data-nav-link
                 onClick={() => navigate(item.link)}
                 className="flex items-center gap-2 px-4 py-1.5 text-xs text-stone-400 hover:text-stone-700 hover:bg-stone-200 transition-colors w-full text-left"
               >
@@ -148,6 +180,7 @@ export default function Sidebar() {
         {!collapsed && recentLibrary.map(item => (
           <button
             key={`${item.type}-${item.id}`}
+            data-nav-link
             onClick={() => navigate(item.link)}
             className="flex items-center gap-2 px-4 py-1.5 text-xs text-stone-400 hover:text-stone-700 hover:bg-stone-200 transition-colors w-full text-left"
           >
@@ -237,5 +270,6 @@ export default function Sidebar() {
         </NavLink>
       </div>
     </aside>
+    </>
   )
 }

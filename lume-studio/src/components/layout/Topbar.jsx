@@ -176,7 +176,16 @@ export default function Topbar() {
   const totalResults = results.reduce((sum, g) => sum + g.items.length, 0)
 
   return (
-    <header className="h-13 bg-stone-100 border-b border-stone-200 flex items-center px-4 gap-4 flex-shrink-0">
+    <header className="h-13 bg-stone-100 border-b border-stone-200 flex items-center px-3 sm:px-4 gap-3 sm:gap-4 flex-shrink-0">
+      <button
+        onClick={() => window.dispatchEvent(new CustomEvent('lume-toggle-nav'))}
+        className="md:hidden -ml-1 w-8 h-8 flex items-center justify-center rounded-md text-stone-500 hover:bg-stone-200 hover:text-stone-800 transition-colors flex-shrink-0"
+        aria-label="Open navigation"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+          <path d="M2 4h12M2 8h12M2 12h12" />
+        </svg>
+      </button>
       <span
         className="font-serif italic text-teal-700 text-xl cursor-pointer flex-shrink-0"
         onClick={() => navigate('/dashboard')}
