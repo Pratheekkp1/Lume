@@ -4,6 +4,7 @@ import { useAuth } from '../context/auth'
 import { fetchTrashed, restoreItem, permanentDelete, ENTITY_TYPES } from '../lib/trash'
 import { supabase } from '../lib/supabase'
 import { POST_STATUSES, POST_TYPES, PLATFORMS } from '../lib/constants'
+import { SHORTCUTS } from '../lib/shortcuts'
 
 export default function Settings() {
   const [activeSection, setActiveSection] = useState('profile')
@@ -212,37 +213,6 @@ function ProfileSection() {
   )
 }
 
-const SHORTCUTS = [
-  { group: 'Global', items: [
-    { keys: ['⌘', 'K'], label: 'Open command palette' },
-    { keys: ['⌘', '/'], label: 'Focus search' },
-    { keys: ['Esc'],    label: 'Close modal / deselect' },
-  ]},
-  { group: 'Posts', items: [
-    { keys: ['⌘', 'N'], label: 'New post (when on Posts page)' },
-    { keys: ['↑', '↓'], label: 'Navigate results' },
-    { keys: ['↵'],      label: 'Open selected item' },
-  ]},
-  { group: 'Post View', items: [
-    { keys: ['F'],      label: 'Toggle focus mode (hide side panel)' },
-    { keys: ['‹', '›'], label: 'Navigate to previous / next post' },
-  ]},
-  { group: 'Album View', items: [
-    { keys: ['←', '→'], label: 'Previous / next photo' },
-    { keys: ['Esc'],    label: 'Close lightbox' },
-    { keys: ['F'],      label: 'Toggle favorite (when photo open)' },
-  ]},
-  { group: 'Sound View', items: [
-    { keys: ['Space'],           label: 'Play / pause track' },
-    { keys: ['←', '→'],          label: 'Previous / next track' },
-    { keys: ['⇧', '←', '→'],    label: 'Seek −10s / +10s in current track' },
-  ]},
-  { group: 'Notes', items: [
-    { keys: ['⌘', 'Enter'], label: 'Save note entry' },
-    { keys: ['Enter'],       label: 'Add activity log entry (in PostView)' },
-  ]},
-]
-
 function ShortcutsSection() {
   return (
     <div>
@@ -269,7 +239,7 @@ function ShortcutsSection() {
         ))}
       </div>
 
-      <p className="text-xs text-stone-400 mt-5">Shortcuts are disabled when typing in a text field.</p>
+      <p className="text-xs text-stone-400 mt-5">Press ? anywhere to see these. Single-key shortcuts are off while you're typing in a field.</p>
     </div>
   )
 }

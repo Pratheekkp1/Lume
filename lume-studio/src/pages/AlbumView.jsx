@@ -305,6 +305,17 @@ export default function AlbumView() {
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex !== -1 && currentIndex < sorted.length - 1;
 
+  async function toggleFavorite(photo) {
+    const newVal = !photo.is_favorite;
+    setPhotos(prev => prev.map(p => p.id === photo.id ? { ...p, is_favorite: newVal } : p));
+    setSelectedPhoto(prev => prev?.id === photo.id ? { ...prev, is_favorite: newVal } : prev);
+    const { error } = await supabase.from('photos').update({ is_favorite: newVal }).eq('id', photo.id);
+    if (error) {
+      setPhotos(prev => prev.map(p => p.id === photo.id ? { ...p, is_favorite: !newVal } : p));
+      setSelectedPhoto(prev => prev?.id === photo.id ? { ...prev, is_favorite: !newVal } : prev);
+    }
+  }
+
   function goPrev() { if (hasPrev) openPhoto(sorted[currentIndex - 1]); }
   function goNext() { if (hasNext) openPhoto(sorted[currentIndex + 1]); }
 
@@ -319,6 +330,7 @@ export default function AlbumView() {
       if (!selectedPhoto) return;
       if (e.key === 'ArrowLeft' && hasPrev) { e.preventDefault(); goPrev(); }
       if (e.key === 'ArrowRight' && hasNext) { e.preventDefault(); goNext(); }
+      if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) { e.preventDefault(); toggleFavorite(selectedPhoto); }
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -805,12 +817,7 @@ export default function AlbumView() {
                   Rename
                 </button>
                 <button
-                  onClick={async () => {
-                    const newVal = !selectedPhoto.is_favorite;
-                    await supabase.from('photos').update({ is_favorite: newVal }).eq('id', selectedPhoto.id);
-                    setPhotos(prev => prev.map(p => p.id === selectedPhoto.id ? { ...p, is_favorite: newVal } : p));
-                    setSelectedPhoto(prev => ({ ...prev, is_favorite: newVal }));
-                  }}
+                  onClick={() => toggleFavorite(selectedPhoto)}
                   className={`w-full border text-xs font-medium py-1.5 rounded-md transition-colors ${
                     selectedPhoto.is_favorite
                       ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'

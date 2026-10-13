@@ -6,6 +6,7 @@ import Topbar from './components/layout/Topbar'
 import Sidebar from './components/layout/Sidebar'
 import { purgeExpired } from './lib/trash'
 import CommandPalette from './components/ui/CommandPalette'
+import KeyboardShortcuts from './components/ui/KeyboardShortcuts'
 import Login from './pages/Login'
 import { AuthProvider } from './context/AuthContext'
 import { useAuth } from './context/auth'
@@ -123,6 +124,7 @@ function Studio() {
         </div>
       </GlobalDropZone>
       <CommandPalette />
+      <KeyboardShortcuts />
       <Toast />
     </BrowserRouter>
   )

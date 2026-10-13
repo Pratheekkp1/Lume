@@ -32,6 +32,12 @@ export default function Topbar() {
   }, [])
 
   useEffect(() => {
+    function onFocusSearch() { inputRef.current?.focus() }
+    window.addEventListener('lume-focus-search', onFocusSearch)
+    return () => window.removeEventListener('lume-focus-search', onFocusSearch)
+  }, [])
+
+  useEffect(() => {
     async function fetchOverdue() {
       const today = new Date().toISOString().split('T')[0]
       const { count } = await supabase
