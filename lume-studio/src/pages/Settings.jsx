@@ -5,6 +5,7 @@ import { fetchTrashed, restoreItem, permanentDelete, ENTITY_TYPES } from '../lib
 import { supabase } from '../lib/supabase'
 import { POST_STATUSES, POST_TYPES, PLATFORMS } from '../lib/constants'
 import { SHORTCUTS } from '../lib/shortcuts'
+import { createBackup, parseBackup, restoreBackup } from '../lib/backup'
 
 export default function Settings() {
   const [activeSection, setActiveSection] = useState('profile')
@@ -21,7 +22,7 @@ export default function Settings() {
           { key: 'shortcuts', label: 'Keyboard Shortcuts' },
           { key: 'templates', label: 'Templates' },
           { key: 'trash', label: 'Trash' },
-          { key: 'export', label: 'Export Data' },
+          { key: 'export', label: 'Backup & Export' },
           { key: 'connected', label: 'Connected Accounts' },
           { key: 'team', label: 'Team' },
           { key: 'about', label: 'About' },
@@ -316,24 +317,12 @@ function ExportSection() {
 
   async function exportAll() {
     setExporting(p => ({ ...p, all: true }))
-    const [{ data: posts }, { data: ideas }, { data: collections }, { data: audioProjects }, { data: campaigns }, { data: inspiration }] = await Promise.all([
-      supabase.from('posts').select('*').is('deleted_at', null),
-      supabase.from('ideas').select('*'),
-      supabase.from('collections').select('id, name, status, event_date, location, created_at').is('deleted_at', null),
-      supabase.from('audio_projects').select('id, name, status, created_at').is('deleted_at', null),
-      supabase.from('campaigns').select('id, name, status, start_date, end_date').is('deleted_at', null),
-      supabase.from('inspiration').select('id, type, title, url, tags, created_at'),
-    ])
-    const exportObj = {
-      exported_at: new Date().toISOString(),
-      posts: posts || [],
-      ideas: ideas || [],
-      albums: collections || [],
-      sound_projects: audioProjects || [],
-      campaigns: campaigns || [],
-      inspiration: inspiration || [],
+    try {
+      const backup = await createBackup(supabase)
+      download(`lume-backup-${new Date().toISOString().split('T')[0]}.json`, JSON.stringify(backup, null, 2), 'application/json')
+    } catch (err) {
+      window.dispatchEvent(new CustomEvent('lume-toast', { detail: { message: err.message } }))
     }
-    download(`lume-full-export-${new Date().toISOString().split('T')[0]}.json`, JSON.stringify(exportObj, null, 2), 'application/json')
     setExporting(p => ({ ...p, all: false }))
   }
 
@@ -342,14 +331,14 @@ function ExportSection() {
     { key: 'ideas', label: 'Ideas (CSV)', desc: 'All ideas with title, status, priority, due date', action: exportIdeas },
     { key: 'campaigns', label: 'Campaigns (CSV)', desc: 'All campaigns with name, status, date range', action: exportCampaigns },
     { key: 'inspiration', label: 'Inspiration Board (.md)', desc: 'All inspiration cards as a Markdown document', action: exportInspiration },
-    { key: 'all', label: 'Full export (JSON)', desc: 'Everything — posts, ideas, albums, sounds, campaigns, inspiration', action: exportAll },
+    { key: 'all', label: 'Full backup (JSON)', desc: 'Everything except media files: posts, campaigns, ideas, brand kit, templates, metrics and more. Restorable below.', action: exportAll },
   ]
 
   return (
     <div>
       <p className="text-xs tracking-widest uppercase text-stone-400 mb-1">Settings</p>
-      <h1 className="font-serif text-3xl text-stone-800 mb-6">Export Data</h1>
-      <p className="text-xs text-stone-400 mb-6">Download your Lume data at any time. Files download instantly in your browser.</p>
+      <h1 className="font-serif text-3xl text-stone-800 mb-6">Backup & Export</h1>
+      <p className="text-xs text-stone-400 mb-6">Download your Lume data at any time, or restore a full backup.</p>
       <div className="flex flex-col gap-3 max-w-lg">
         {EXPORTS.map(exp => (
           <div key={exp.key} className="bg-white border border-stone-200 rounded-xl p-5 flex items-center justify-between gap-4">
@@ -367,6 +356,123 @@ function ExportSection() {
           </div>
         ))}
       </div>
+
+      <RestoreBackup />
+    </div>
+  )
+}
+
+const RESTORE_LABELS = {
+  events: 'Events', categories: 'Categories', content_pillars: 'Content pillars',
+  collections: 'Albums', audio_projects: 'Sound projects', posts: 'Posts',
+  post_categories: 'Post tags', post_variants: 'Post variants', post_metrics: 'Metrics',
+  post_templates: 'Templates', campaigns: 'Campaigns', campaign_posts: 'Campaign posts',
+  brand_kit: 'Brand kit entries', hashtag_groups: 'Hashtag groups', posting_goals: 'Posting goals',
+  ideas: 'Ideas', inspiration: 'Inspiration cards',
+}
+
+function RestoreBackup() {
+  const [pending, setPending] = useState(null)     // { backup, counts, fileName }
+  const [parseError, setParseError] = useState('')
+  const [progress, setProgress] = useState('')     // table currently being written
+  const [result, setResult] = useState(null)       // { restored, errors }
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setParseError('')
+    setResult(null)
+    try {
+      const { backup, counts } = parseBackup(await file.text())
+      setPending({ backup, counts, fileName: file.name })
+    } catch (err) {
+      setPending(null)
+      setParseError(err.message)
+    }
+  }
+
+  async function runRestore() {
+    const { backup } = pending
+    setProgress('starting')
+    const res = await restoreBackup(supabase, backup, table => setProgress(table))
+    setProgress('')
+    setPending(null)
+    setResult(res)
+    for (const evt of ['lume-posts-updated', 'lume-media-updated', 'lume-sounds-updated', 'lume-templates-updated']) {
+      window.dispatchEvent(new CustomEvent(evt))
+    }
+  }
+
+  const total = pending ? Object.values(pending.counts).reduce((s, n) => s + n, 0) : 0
+
+  return (
+    <div className="mt-10 max-w-lg">
+      <h2 className="font-serif text-xl text-stone-800 mb-1">Restore from backup</h2>
+      <p className="text-xs text-stone-400 mb-4">
+        Bring a full backup into this account, for example to move to a new account or a new Supabase project.
+        Items that already exist are updated rather than duplicated. Photos and audio files aren't included.
+      </p>
+
+      {!pending && !progress && (
+        <label className="inline-flex items-center gap-2 text-xs border border-stone-200 text-stone-600 font-medium px-4 py-2 rounded-lg hover:border-stone-300 hover:bg-stone-50 cursor-pointer transition-colors">
+          ↑ Choose backup file…
+          <input type="file" accept="application/json,.json" onChange={handleFile} className="hidden" />
+        </label>
+      )}
+
+      {parseError && <p className="text-xs text-red-500 mt-3">{parseError}</p>}
+
+      {pending && !progress && (
+        <div className="bg-white border border-stone-200 rounded-xl p-5">
+          <p className="text-sm font-medium text-stone-700 truncate">{pending.fileName}</p>
+          <p className="text-xs text-stone-400 mb-3">
+            Made {pending.backup.exported_at ? new Date(pending.backup.exported_at).toLocaleString() : 'at an unknown time'} · {total} items
+          </p>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-4">
+            {Object.entries(pending.counts).filter(([, n]) => n > 0).map(([table, n]) => (
+              <div key={table} className="flex justify-between text-xs">
+                <span className="text-stone-500">{RESTORE_LABELS[table] || table}</span>
+                <span className="text-stone-700 tabular-nums">{n}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => setPending(null)} className="text-xs border border-stone-200 text-stone-500 px-3 py-1.5 rounded-md hover:bg-stone-50 transition-colors">
+              Cancel
+            </button>
+            <button
+              onClick={runRestore}
+              disabled={total === 0}
+              className="text-xs bg-teal-500 text-white font-medium px-4 py-1.5 rounded-md hover:bg-teal-600 disabled:opacity-40 transition-colors"
+            >
+              Restore {total} items
+            </button>
+          </div>
+        </div>
+      )}
+
+      {progress && (
+        <p className="text-xs text-stone-500">
+          Restoring{progress !== 'starting' ? ` ${(RESTORE_LABELS[progress] || progress).toLowerCase()}` : ''}…
+        </p>
+      )}
+
+      {result && (
+        <div className={`mt-3 rounded-xl border p-4 text-xs ${result.errors.length ? 'border-amber-200 bg-amber-50' : 'border-teal-200 bg-teal-50'}`}>
+          <p className="font-medium text-stone-700 mb-1">
+            {result.errors.length ? 'Restore finished with problems' : 'Restore complete'}
+          </p>
+          <p className="text-stone-500">
+            {Object.values(result.restored).reduce((s, n) => s + n, 0)} items restored across {Object.keys(result.restored).length} sections.
+          </p>
+          {result.errors.map(err => (
+            <p key={err.table} className="text-amber-700 mt-1">
+              {RESTORE_LABELS[err.table] || err.table}: {err.message}
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
