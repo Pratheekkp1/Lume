@@ -33,7 +33,9 @@ I built it as a personal tool for running my own creative projects. It grew into
 - Every table has row-level security, so users only ever see their own rows. Uploads go to a per-user storage folder that only the owner can write to
 
 **Quality of life**
-- ⌘K command palette, global search, toast notifications, optimistic UI on uploads
+- ⌘K command palette, `g`-key navigation (`g p` Posts, `g c` Calendar…) with a `?` shortcut sheet, global search, toast notifications, optimistic UI on uploads
+- Installable as an app (web manifest with quick actions); off-canvas navigation on phones
+- Full backup and restore of everything except media files, so a workspace can move to a new account or Supabase project
 
 ## Tech stack
 
@@ -68,6 +70,7 @@ npm install
 printf "VITE_SUPABASE_URL=...\nVITE_SUPABASE_ANON_KEY=...\n" > .env.local
 npm run dev        # sign up on the login screen
 npm run lint       # ESLint with the React Compiler rules
+npm test           # Vitest unit tests (backup/restore, shortcuts)
 ```
 
 ## Roadmap

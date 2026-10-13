@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  lint-and-build:
+  lint-test-build:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -20,6 +20,7 @@ jobs:
           cache-dependency-path: lume-studio/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npm test
       - run: npm run build
         env:
           VITE_SUPABASE_URL: https://example.supabase.co
