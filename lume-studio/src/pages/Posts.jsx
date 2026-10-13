@@ -4,6 +4,9 @@ import { supabase } from '../lib/supabase'
 import { POST_STATUSES, POST_TYPES, PLATFORMS } from '../lib/constants'
 import { softDelete, softDeleteBulk, ENTITY_TYPES } from '../lib/trash'
 
+// ?view=calendar etc. lets other pages and the app manifest deep-link into a view
+const VIEW_MODES = ['board', 'grid', 'list', 'calendar']
+
 export default function Posts() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -13,7 +16,10 @@ export default function Posts() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [filterStatus, setFilterStatus] = useState(searchParams.get('status') || 'all')
-  const [viewMode, setViewMode] = useState(() => localStorage.getItem('lume-posts-view') || 'board')
+  const [viewMode, setViewMode] = useState(() => {
+    const fromUrl = searchParams.get('view')
+    return VIEW_MODES.includes(fromUrl) ? fromUrl : localStorage.getItem('lume-posts-view') || 'board'
+  })
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date()
     return { year: now.getFullYear(), month: now.getMonth() }
@@ -102,6 +108,8 @@ export default function Posts() {
     }
     const s = searchParams.get('status')
     if (s && s !== filterStatus) setFilterStatus(s)
+    const v = searchParams.get('view')
+    if (VIEW_MODES.includes(v)) setViewMode(v)
   }, [searchParams])
 
   async function bulkAddToCampaign(campaignId) {

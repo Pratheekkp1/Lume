@@ -1,0 +1,20 @@
+{
+  "name": "Lume Studio",
+  "short_name": "Lume",
+  "description": "A creative workspace for organizing media, planning posts and tracking what works.",
+  "start_url": "/posts",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#edf0f3",
+  "theme_color": "#1a202c",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "New post", "url": "/posts?create=true" },
+    { "name": "Calendar", "url": "/posts?view=calendar" },
+    { "name": "Library", "url": "/library" },
+    { "name": "Ideas", "url": "/ideas" }
+  ]
+}
