@@ -1,31 +1,34 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import GlobalDropZone from './components/layout/GlobalDropZone'
 import Toast from './components/ui/Toast'
 import Topbar from './components/layout/Topbar'
 import Sidebar from './components/layout/Sidebar'
-import Dashboard from './pages/Dashboard'
-import AlbumView from './pages/AlbumView'
-import Posts from './pages/Posts'
-import PostView from './pages/PostView'
-import SoundView from './pages/SoundView'
-import Library from './pages/Library'
-import Settings from './pages/Settings'
-import SearchResults from './pages/SearchResults'
-import Campaigns from './pages/Campaigns'
-import CampaignView from './pages/CampaignView'
-import Brand from './pages/Brand'
-import Analytics from './pages/Analytics'
-import Ideas from './pages/Ideas'
-import Inspiration from './pages/Inspiration'
-import Notes from './pages/Notes'
-import Trash from './pages/Trash'
 import { purgeExpired } from './lib/trash'
 import CommandPalette from './components/ui/CommandPalette'
 import Login from './pages/Login'
 import { AuthProvider } from './context/AuthContext'
 import { useAuth } from './context/auth'
 import { isConfigured } from './lib/supabase'
+
+// Pages are split into their own chunks so the first load only pulls in the shell
+// and the route being opened.
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const AlbumView = lazy(() => import('./pages/AlbumView'))
+const Posts = lazy(() => import('./pages/Posts'))
+const PostView = lazy(() => import('./pages/PostView'))
+const SoundView = lazy(() => import('./pages/SoundView'))
+const Library = lazy(() => import('./pages/Library'))
+const Settings = lazy(() => import('./pages/Settings'))
+const SearchResults = lazy(() => import('./pages/SearchResults'))
+const Campaigns = lazy(() => import('./pages/Campaigns'))
+const CampaignView = lazy(() => import('./pages/CampaignView'))
+const Brand = lazy(() => import('./pages/Brand'))
+const Analytics = lazy(() => import('./pages/Analytics'))
+const Ideas = lazy(() => import('./pages/Ideas'))
+const Inspiration = lazy(() => import('./pages/Inspiration'))
+const Notes = lazy(() => import('./pages/Notes'))
+const Trash = lazy(() => import('./pages/Trash'))
 
 function AlbumRedirect() {
   const { collectionId } = useParams()
@@ -50,6 +53,10 @@ function SetupNeeded() {
       </div>
     </div>
   )
+}
+
+function PageFallback() {
+  return <div className="p-7 text-sm text-stone-400">Loading…</div>
 }
 
 function AuthGate({ children }) {
@@ -81,6 +88,7 @@ function Studio() {
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />
           <main className="flex-1 overflow-y-auto">
+            <Suspense fallback={<PageFallback />}>
             <Routes>
               <Route path="/" element={<Navigate to="/posts" />} />
               <Route path="/dashboard" element={<Dashboard />} />
@@ -110,6 +118,7 @@ function Studio() {
               <Route path="/events" element={<Navigate to="/library" replace />} />
               <Route path="/events/:eventId" element={<Navigate to="/library" replace />} />
             </Routes>
+            </Suspense>
           </main>
         </div>
       </GlobalDropZone>
