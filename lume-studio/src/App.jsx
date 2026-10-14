@@ -1,11 +1,12 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom'
 import GlobalDropZone from './components/layout/GlobalDropZone'
 import Toast from './components/ui/Toast'
 import Topbar from './components/layout/Topbar'
 import Sidebar from './components/layout/Sidebar'
 import PageTitle from './components/layout/PageTitle'
 import OfflineBanner from './components/layout/OfflineBanner'
+import PageErrorBoundary from './components/layout/PageErrorBoundary'
 import { purgeExpired } from './lib/trash'
 import CommandPalette from './components/ui/CommandPalette'
 import KeyboardShortcuts from './components/ui/KeyboardShortcuts'
@@ -62,6 +63,12 @@ function PageFallback() {
   return <div className="p-7 text-sm text-stone-400">Loading…</div>
 }
 
+// Keyed by path so a crash on one page doesn't follow you to the next.
+function RouteErrorBoundary({ children }) {
+  const { pathname } = useLocation()
+  return <PageErrorBoundary key={pathname}>{children}</PageErrorBoundary>
+}
+
 function AuthGate({ children }) {
   const { session, loading } = useAuth()
   if (loading) {
@@ -93,6 +100,7 @@ function Studio() {
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />
           <main className="flex-1 overflow-y-auto">
+            <RouteErrorBoundary>
             <Suspense fallback={<PageFallback />}>
             <Routes>
               <Route path="/" element={<Navigate to="/posts" />} />
@@ -124,6 +132,7 @@ function Studio() {
               <Route path="/events/:eventId" element={<Navigate to="/library" replace />} />
             </Routes>
             </Suspense>
+            </RouteErrorBoundary>
           </main>
         </div>
       </GlobalDropZone>
