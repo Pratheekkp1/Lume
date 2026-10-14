@@ -5,6 +5,7 @@ import Toast from './components/ui/Toast'
 import Topbar from './components/layout/Topbar'
 import Sidebar from './components/layout/Sidebar'
 import PageTitle from './components/layout/PageTitle'
+import OfflineBanner from './components/layout/OfflineBanner'
 import { purgeExpired } from './lib/trash'
 import CommandPalette from './components/ui/CommandPalette'
 import KeyboardShortcuts from './components/ui/KeyboardShortcuts'
@@ -87,6 +88,7 @@ function Studio() {
     <BrowserRouter>
       <PageTitle />
       <GlobalDropZone>
+        <OfflineBanner />
         <Topbar />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />
